@@ -54,21 +54,18 @@ function AppInner() {
   if (!user) return <LoginPage onLogin={(u: User) => { setUser(u); getUserRole(u.id).then(setRole) }} />
 
   if (dataLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4"
-      style={{ background: '#080d1a', color: '#f1f5f9' }}>
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, background:'#080d1a', color:'#f1f5f9' }}>
       <Spinner size={36} />
-      <div className="text-sm text-muted">Connexion à la base de données...</div>
+      <div style={{ fontSize:13, color:'#475569' }}>Connexion à la base de données...</div>
     </div>
   )
 
   const TabContent = () => {
     if (RAW && RAW.keys.length === 0 && tab !== 'import') return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4 text-center px-8">
-        <div className="text-4xl">📁</div>
-        <div>
-          <div className="text-base font-bold text-white mb-1">Aucune donnée disponible</div>
-          <div className="text-xs text-muted max-w-xs">Importez un fichier FEC depuis l'onglet Import.</div>
-        </div>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
+        <span style={{ fontSize:40 }}>📁</span>
+        <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
+        <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Importez un fichier FEC depuis l'onglet Import pour commencer.</div>
       </div>
     )
     switch (tab) {
@@ -84,11 +81,11 @@ function AppInner() {
       case 'tresorerie':     return <Tresorerie />
       case 'verification':   return <Verification />
       case 'complementaire': return <Complementaire />
-      case 'aide':           return (
-        <div className="flex flex-col items-center justify-center h-64 gap-3 text-center px-8">
-          <div className="text-4xl">❓</div>
-          <div className="text-sm font-bold text-white">Aide & documentation</div>
-          <div className="text-xs text-muted max-w-sm">Contactez votre administrateur Adam Boards pour toute question.</div>
+      case 'aide': return (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, color:'#475569' }}>
+          <span style={{ fontSize:36 }}>❓</span>
+          <span style={{ fontWeight:700, color:'#f1f5f9', fontSize:14 }}>Aide & documentation</span>
+          <span style={{ fontSize:11 }}>Contactez votre administrateur Adam Boards.</span>
         </div>
       )
       default: return null
@@ -96,11 +93,11 @@ function AppInner() {
   }
 
   return (
-    <div className="flex min-h-screen" style={{ background: '#080d1a', color: '#f1f5f9', fontFamily: 'Outfit, Inter, sans-serif' }}>
+    <div style={{ display:'flex', minHeight:'100vh', background:'#080d1a', color:'#f1f5f9', fontFamily:'Outfit, Inter, sans-serif' }}>
       <Sidebar />
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
         <TopBar allMonths={allMonths} />
-        <main className="flex-1 overflow-y-auto"><TabContent /></main>
+        <main style={{ flex:1, overflowY:'auto' }}><TabContent /></main>
       </div>
     </div>
   )
