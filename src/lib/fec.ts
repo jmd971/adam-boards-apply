@@ -107,7 +107,6 @@ export function parseFEC(text: string): ParsedFEC | null {
     const ecLib  = ci.ecLib >= 0 ? (cols[ci.ecLib] || '') : ''
     const piece  = ci.piece >= 0 ? (cols[ci.piece] || '') : ''
     const compAux = ci.compAux >= 0 ? (cols[ci.compAux] || '') : ''
-    const _rawDatePiece = ci.datePiece >= 0 ? (cols[ci.datePiece] || '') : ''
     const lettrage = ci.lettrage >= 0 ? (cols[ci.lettrage] || '') : ''
 
     // Comptes de classes 6 et 7 → compte de résultat
