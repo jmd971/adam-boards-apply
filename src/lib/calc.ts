@@ -173,9 +173,9 @@ export function buildRAW(
       const bilanField = isN ? 'bn' : 'b1'
 
       // P&L
-      for (const [acc, acct] of Object.entries(row.pl_data ?? {})) {
-        companies[co][field][acc] = acct
-        for (const m of Object.keys(acct.mo ?? {})) {
+      f for (const [acc, acct] of Object.entries(row.pl_data ?? {})) {
+        companies[co][field][acc] = acct as any
+        for (const m of Object.keys((acct as any).mo ?? {})) {
           if (isN) allMsN.add(m); else allMsN1.add(m)
         }
       }
