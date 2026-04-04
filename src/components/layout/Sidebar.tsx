@@ -23,12 +23,12 @@ const GROUP_LABELS: Record<string, string> = {
 }
 
 export function Sidebar() {
-  const tab      = useAppStore(s => s.tab)
-  const setTab   = useAppStore(s => s.setTab)
-  const filters  = useAppStore(s => s.filters)
+  const tab        = useAppStore(s => s.tab)
+  const setTab     = useAppStore(s => s.setTab)
+  const filters    = useAppStore(s => s.filters)
   const setFilters = useAppStore(s => s.setFilters)
-  const RAW      = useRAW()
-  const user     = useAppStore(s => s.user)
+  const RAW        = useRAW()
+  const user       = useAppStore(s => s.user)
 
   const coLabel = filters.selCo.length === 1
     ? (RAW?.companies[filters.selCo[0]]?.name || filters.selCo[0]).slice(0, 18)
@@ -56,7 +56,6 @@ export function Sidebar() {
           <div className="font-semibold text-white/90 mb-0.5">{coLabel}</div>
           <div className="text-muted truncate">{user?.email}</div>
 
-          {/* Sélecteur société */}
           {RAW?.keys && RAW.keys.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
               {RAW.keys.map(k => {
@@ -130,7 +129,7 @@ export function Sidebar() {
         })()}
       </nav>
 
-      {/* Footer */}
+      {/* Footer — TEST en dur */}
       <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
         {RAW?.mn && RAW.mn.length > 0 && (
           <div className="text-[10px] text-[#334155] mb-1">
@@ -146,11 +145,11 @@ export function Sidebar() {
         )}
         <span className="inline-block px-2 py-0.5 rounded-full text-[9.5px] font-bold tracking-wide"
           style={{
-            background: import.meta.env.VITE_ENV === 'prod' ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
-            color: import.meta.env.VITE_ENV === 'prod' ? '#10b981' : '#f59e0b',
-            border: `1px solid ${import.meta.env.VITE_ENV === 'prod' ? 'rgba(16,185,129,0.2)' : 'rgba(245,158,11,0.2)'}`,
+            background: 'rgba(245,158,11,0.15)',
+            color: '#f59e0b',
+            border: '1px solid rgba(245,158,11,0.2)',
           }}>
-          {import.meta.env.VITE_ENV === 'prod' ? '● PROD' : '● TEST'}
+          ● TEST
         </span>
       </div>
     </aside>
