@@ -43,7 +43,9 @@ export function Tresorerie() {
     return n
   })
 
+  const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
   const months = useMemo(() => RAW?.mn ?? [], [RAW?.mn?.join(',')])
+
 
   // Construire toutes les données
   const data = useMemo(() => {
@@ -67,7 +69,7 @@ export function Tresorerie() {
       decByAcc[c.label] = {}
     })
 
-    for (const co of filters.selCo) {
+    for (const co of selCo) {
       const pn = RAW.companies[co]?.pn ?? {}
       for (const [acc, acctData] of Object.entries(pn)) {
         const moMap  = (acctData as any)?.mo ?? {}
