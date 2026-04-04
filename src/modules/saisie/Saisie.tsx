@@ -160,9 +160,7 @@ export function Saisie() {
   const handleSubmit = async () => {
     if (!form.amount_ttc || !form.entry_date) return
     setSaving(true)
-    const ht = form.amount_ht_saisie
-      ? form.amount_ht_saisie
-      : String(Math.round(parseFloat(form.amount_ttc) / (1 + parseFloat(form.tva_rate) / 100) * 100) / 100)
+    const ht = form.amount_ht_saisie || '0'
 
     const { data, error } = await sb.from('manual_entries').insert({
       company_key:      form.company_key,
@@ -287,17 +285,12 @@ export function Saisie() {
             </div>
 
             <div>
-              <label style={{ fontSize: 10, color: '#475569', display: 'block', marginBottom: 4 }}>Montant TTC €</label>
-              <input type="number" value={form.amount_ttc} onChange={e => setForm(f => ({ ...f, amount_ttc: e.target.value }))} style={inputSt} placeholder="0.00" />
+              <label style={{ fontSize: 10, color: '#475569', display: 'block', marginBottom: 4 }}>Montant HT €</label>
+              <input type="number" value={form.amount_ht_saisie} onChange={e => setForm(f => ({ ...f, amount_ht_saisie: e.target.value, amount_ttc: String(Math.round(parseFloat(e.target.value||'0') * (1 + parseFloat(form.tva_rate)/100) * 100)/100) }))} style={inputSt} placeholder="0.00" />
             </div>
 
             <div>
-              <label style={{ fontSize: 10, color: '#475569', display: 'block', marginBottom: 4 }}>Montant HT € (opt.)</label>
-              <input type="number" value={form.amount_ht_saisie} onChange={e => setForm(f => ({ ...f, amount_ht_saisie: e.target.value }))} style={inputSt} placeholder="Auto" />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 10, color: '#475569', display: 'block', marginBottom: 4 }}>TVA %</label>
+              <label style={{ fontSize: 10, color: '#475569', display: 'block', marginBottom: 4 }}>TVA % → TTC : {form.amount_ttc ? parseFloat(form.amount_ttc).toFixed(2) + ' €' : '—'}</label>
               <select value={form.tva_rate} onChange={e => setForm(f => ({ ...f, tva_rate: e.target.value }))} style={inputSt}>
                 {['0','8.5','10','20'].map(r => <option key={r} value={r}>{r}%</option>)}
               </select>
