@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { fmt, pct, monthLabel } from '@/lib/calc'
+import { fmt, pct } from '@/lib/calc'
 import { KpiCard } from '@/components/ui'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
