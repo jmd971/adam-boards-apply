@@ -100,7 +100,6 @@ export function parseFEC(text: string): ParsedFEC | null {
 
     const debit  = parseNum(cols[ci.debit])
     const credit = parseNum(cols[ci.credit])
-    const _journal = ci.journal >= 0 ? (cols[ci.journal] || '') : ''
     const isOD = (
       acc.startsWith('713') || acc.startsWith('603') ||
       acc.startsWith('6412') || acc.startsWith('64582')
