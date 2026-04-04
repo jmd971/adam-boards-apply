@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { fmt, fiscalIndex } from '@/lib/calc'
+import { fmt } from '@/lib/calc'
 import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
