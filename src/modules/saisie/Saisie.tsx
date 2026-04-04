@@ -14,7 +14,6 @@ export function Saisie() {
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
   const role    = useAppStore(s => s.role)
-  const canEdit = role === 'admin' || role === 'editor'
 
   const [entries, setEntries] = useState<ManualEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -61,8 +60,7 @@ export function Saisie() {
 
   return (
     <div style={{ padding: '16px 24px', maxWidth: 900 }}>
-      {canEdit && (
-        <div style={{ background: '#0f172a', borderRadius: 12, padding: 20, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 24 }}>
+      <div style={{ background: '#0f172a', borderRadius: 12, padding: 20, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 24 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 16 }}>Nouvelle saisie</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(180px,1fr))', gap: 10 }}>
             <div>
@@ -123,9 +121,7 @@ export function Saisie() {
               {saving ? 'Enregistrement...' : '+ Ajouter'}
             </button>
             {msg && <span style={{ fontSize: 12, color: msg.startsWith('✅') ? '#10b981' : '#ef4444' }}>{msg}</span>}
-          </div>
-        </div>
-      )}
+      </div>
 
       <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>Historique</div>
       {loading ? <Spinner size={24} /> : entries.length === 0 ? (
