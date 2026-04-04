@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { fmt, pct, monthLabel } from '@/lib/calc'
+import { fmt, pct } from '@/lib/calc'
 
 export function Complementaire() {
   const RAW     = useAppStore(s => s.RAW)
