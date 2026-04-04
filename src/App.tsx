@@ -17,16 +17,15 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 5 * 60_000 } }
 })
 
-// ─── Composant interne (a accès au QueryClient) ────────────────────────────
-
 function AppInner() {
-  const { user, setUser, setRole, dataLoading, RAW, tab, setFilters } = useAppStore(s => ({
-    user: s.user, setUser: s.setUser, setRole: s.setRole,
-    dataLoading: s.dataLoading, RAW: s.RAW, tab: s.tab,
-    setFilters: s.setFilters,
-  }))
+  const user        = useAppStore(s => s.user)
+  const setUser     = useAppStore(s => s.setUser)
+  const setRole     = useAppStore(s => s.setRole)
+  const dataLoading = useAppStore(s => s.dataLoading)
+  const RAW         = useAppStore(s => s.RAW)
+  const tab         = useAppStore(s => s.tab)
+  const setFilters  = useAppStore(s => s.setFilters)
 
-  // Vérifier session au démarrage
   useEffect(() => {
     sb.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
@@ -41,22 +40,18 @@ function AppInner() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Charger données si connecté
   useCompanyData()
 
-  // Initialiser la période par défaut
   useEffect(() => {
     if (!RAW?.mn?.length) return
     setFilters({ startM: RAW.mn[0], endM: RAW.mn[RAW.mn.length - 1] })
   }, [RAW?.mn?.join()])
 
-  // Tous les mois disponibles
   const allMonths = useMemo(() => {
     const ms = new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? [])])
     return [...ms].sort()
   }, [RAW?.mn?.join(), RAW?.m1?.join()])
 
-  // ── Login ──────────────────────────────────────────────────────────────
   if (!user) {
     return <LoginPage onLogin={(u: User) => {
       setUser(u)
@@ -64,7 +59,6 @@ function AppInner() {
     }} />
   }
 
-  // ── Loading ────────────────────────────────────────────────────────────
   if (dataLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4"
@@ -75,7 +69,6 @@ function AppInner() {
     )
   }
 
-  // ── Tab content ────────────────────────────────────────────────────────
   const TabContent = () => {
     switch (tab) {
       case 'cr':             return <CompteResultat />
@@ -95,7 +88,6 @@ function AppInner() {
     }
   }
 
-  // ── Layout ─────────────────────────────────────────────────────────────
   return (
     <div className="flex min-h-screen" style={{ background: '#080d1a', color: '#f1f5f9', fontFamily: 'Outfit, Inter, sans-serif' }}>
       <Sidebar />
@@ -108,8 +100,6 @@ function AppInner() {
     </div>
   )
 }
-
-// ─── Root avec providers ───────────────────────────────────────────────────
 
 export default function App() {
   return (
