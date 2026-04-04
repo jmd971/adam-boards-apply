@@ -18,6 +18,7 @@ import { Saisie }           from '@/modules/saisie/Saisie'
 import { Tresorerie }       from '@/modules/tresorerie/Tresorerie'
 import { Verification }     from '@/modules/verification/Verification'
 import { Complementaire }   from '@/modules/complementaire/Complementaire'
+import { Aide }             from '@/modules/aide/Aide'
 import { useCompanyData }   from '@/hooks/useCompanyData'
 import type { User }        from '@supabase/supabase-js'
 
@@ -61,7 +62,7 @@ function AppInner() {
   )
 
   const TabContent = () => {
-    if (RAW && RAW.keys.length === 0 && tab !== 'import') return (
+    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
@@ -81,13 +82,7 @@ function AppInner() {
       case 'tresorerie':     return <Tresorerie />
       case 'verification':   return <Verification />
       case 'complementaire': return <Complementaire />
-      case 'aide': return (
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, color:'#475569' }}>
-          <span style={{ fontSize:36 }}>❓</span>
-          <span style={{ fontWeight:700, color:'#f1f5f9', fontSize:14 }}>Aide & documentation</span>
-          <span style={{ fontSize:11 }}>Contactez votre administrateur Adam Boards.</span>
-        </div>
-      )
+      case 'aide':           return <Aide />
       default: return null
     }
   }
