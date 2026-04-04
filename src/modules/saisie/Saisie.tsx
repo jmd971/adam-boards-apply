@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '@/store'
 import { sb } from '@/lib/supabase'
 import { OCR_PROXY_URL } from '@/lib/supabase'
