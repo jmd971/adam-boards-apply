@@ -21,7 +21,7 @@ export function Bilan() {
 
   const { n } = bilan
 
-  const Row = ({ label, value, bold, color, indent }: { label: string; value: number; bold?: boolean; color?: string; indent?: boolean }) => (
+  const Row = ({ label, value, bold, color, indent: _indent }: { label: string; value: number; bold?: boolean; color?: string; indent?: boolean }) => (
     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
       padding: bold ? '8px 12px' : '5px 24px',
       background: bold ? 'rgba(255,255,255,0.03)' : 'transparent',
