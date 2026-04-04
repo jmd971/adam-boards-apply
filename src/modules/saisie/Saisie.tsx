@@ -48,8 +48,7 @@ export function Saisie() {
   const setRAW         = useAppStore(s => s.setRAW)
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const manualEntries  = useAppStore(s => s.manualEntries)
-  const budData        = useAppStore(s => s.budData)
-
+  
   const [mode,       setMode]       = useState<Mode>('manual')
   const [entries,    setEntries]    = useState<ManualEntry[]>([])
   const [loading,    setLoading]    = useState(true)
