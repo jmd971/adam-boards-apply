@@ -1,23 +1,24 @@
 import { useAppStore } from '@/store'
 import { monthIdx, monthLabel } from '@/lib/calc'
 
-const TAB_LABELS: Record<string, string> = {
-  cr: 'Compte résultat', sig: 'SIG', equilibre: 'Équilibre',
-  objectifs: 'Objectifs', bilan: 'Bilan', ratios: 'Ratios',
-  import: 'Import FEC', budget: 'Budget', saisie: 'Saisie',
-  verification: 'Vérification', complementaire: 'Complémentaire',
-  tresorerie: 'Trésorerie', aide: 'Aide',
+const TAB_META: Record<string, { label: string; icon: string }> = {
+  cr:             { label:'Compte de résultat',  icon:'📋' },
+  sig:            { label:'SIG',                  icon:'📊' },
+  equilibre:      { label:'Équilibre',            icon:'⚖️' },
+  objectifs:      { label:'Objectifs',            icon:'🎯' },
+  bilan:          { label:'Bilan',                icon:'🏦' },
+  ratios:         { label:'Ratios',               icon:'📐' },
+  import:         { label:'Import FEC',           icon:'📁' },
+  budget:         { label:'Budget',               icon:'💰' },
+  saisie:         { label:'Saisie',               icon:'📝' },
+  verification:   { label:'Vérification',         icon:'🔍' },
+  complementaire: { label:'Complémentaire',       icon:'📈' },
+  tresorerie:     { label:'Trésorerie',           icon:'💧' },
+  aide:           { label:'Aide',                 icon:'❓' },
 }
 
-const TAB_ICONS: Record<string, string> = {
-  cr: '📋', sig: '📊', equilibre: '⚖️', objectifs: '🎯',
-  bilan: '🏦', ratios: '📐', import: '📁', budget: '💰',
-  saisie: '📝', verification: '🔍', complementaire: '📈',
-  tresorerie: '💧', aide: '❓',
-}
-
-const ANALYSIS_TABS = ['cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios', 'budget']
-const PL_TABS       = ['cr', 'sig', 'equilibre']
+const PL_TABS       = ['cr','sig','equilibre']
+const ANALYSIS_TABS = ['cr','sig','equilibre','objectifs','bilan','ratios','budget']
 
 interface TopBarProps { allMonths: string[] }
 
@@ -27,105 +28,95 @@ export function TopBar({ allMonths }: TopBarProps) {
   const RAW        = useAppStore(s => s.RAW)
   const setFilters = useAppStore(s => s.setFilters)
 
+  const meta       = TAB_META[tab] || { label: tab, icon: '📊' }
   const isAnalysis = ANALYSIS_TABS.includes(tab)
   const isPL       = PL_TABS.includes(tab)
 
-  const selectStyle: React.CSSProperties = {
-    background: 'transparent',
-    border: 'none',
-    color: '#cbd5e1',
-    fontSize: 12,
-    fontWeight: 500,
-    cursor: 'pointer',
-    outline: 'none',
-    fontFamily: 'inherit',
+  const selSt: React.CSSProperties = {
+    background:'transparent', border:'none', color:'var(--text-0)',
+    fontSize:12, fontWeight:500, cursor:'pointer', outline:'none', fontFamily:'inherit',
+    padding:'2px 0',
   }
 
-  const Toggle = ({ label, stateKey }: { label: string; stateKey: 'showMonths' | 'showN1Full' | 'excludeOD' }) => (
-    <button
-      onClick={() => setFilters({ [stateKey]: !filters[stateKey] })}
-      style={{
-        padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
-        cursor: 'pointer', border: 'none', transition: 'all 0.15s',
-        background: filters[stateKey] ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)',
-        color:      filters[stateKey] ? '#93c5fd' : '#64748b',
-        boxShadow:  filters[stateKey]
-          ? 'inset 0 0 0 1px rgba(59,130,246,0.35)'
-          : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
-      }}
-    >
-      {label}
-    </button>
-  )
+  const Toggle = ({ label, k }: { label: string; k: 'showMonths' | 'showN1Full' | 'excludeOD' }) => {
+    const on = filters[k] as boolean
+    return (
+      <button onClick={() => setFilters({ [k]: !on })} style={{
+        padding:'5px 11px', borderRadius:'var(--radius-sm)', fontSize:11.5, fontWeight:600,
+        border:'none', cursor:'pointer', transition:'all 0.12s',
+        background: on ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.04)',
+        color:      on ? '#93c5fd' : 'var(--text-2)',
+        boxShadow:  on ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'inset 0 0 0 1px var(--border-1)',
+      }}>
+        {label}
+      </button>
+    )
+  }
 
   return (
-    <div style={{
-      padding: '0 24px', height: 52, flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
-      borderBottom: '1px solid rgba(255,255,255,0.05)',
-      background: 'rgba(10,15,26,0.98)',
-      position: 'sticky', top: 0, zIndex: 10,
-      backdropFilter: 'blur(20px)',
+    <header style={{
+      height:54, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between',
+      padding:'0 24px', gap:16,
+      background:'rgba(6,11,20,0.96)', backdropFilter:'blur(20px)',
+      borderBottom:'1px solid var(--border-0)', position:'sticky', top:0, zIndex:10,
     }}>
 
       {/* Titre */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 7, fontSize: 15,
-          background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {TAB_ICONS[tab] || '📊'}
+      <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
+        <div style={{ width:30, height:30, borderRadius:'var(--radius-sm)', background:'rgba(59,130,246,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>
+          {meta.icon}
         </div>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.2px' }}>
-          {TAB_LABELS[tab] || tab}
+        <span style={{ fontSize:15, fontWeight:700, color:'var(--text-0)', letterSpacing:'-0.2px' }}>
+          {meta.label}
         </span>
       </div>
 
       {/* Filtres */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'nowrap' }}>
 
-        {/* Sélecteurs de période — toujours visibles sur les onglets analyse */}
+        {/* Période */}
         {isAnalysis && (
           <div style={{
-            display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
-            borderRadius: 8, background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            display:'flex', alignItems:'center', gap:6, padding:'5px 12px',
+            background:'var(--bg-2)', borderRadius:'var(--radius-md)',
+            border:'1px solid var(--border-1)',
           }}>
-            <span style={{ fontSize: 11, opacity: 0.5 }}>📅</span>
-
+            <span style={{ fontSize:12, opacity:0.4 }}>📅</span>
             {allMonths.length > 0 ? (
               <>
-                <select value={filters.startM} onChange={e => setFilters({ startM: e.target.value })} style={selectStyle}>
+                <select value={filters.startM} onChange={e => setFilters({ startM: e.target.value })} style={selSt}>
                   {allMonths.map(m => {
                     const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
-                    return <option key={m} value={m} style={{ background: '#0f172a' }}>
-                      {monthLabel(m)}{inN ? ' ·N' : inN1 ? ' ·N-1' : ''}
+                    return <option key={m} value={m} style={{ background:'#0d1424' }}>
+                      {monthLabel(m)}{inN?' ·N':inN1?' ·N-1':''}
                     </option>
                   })}
                 </select>
-                <span style={{ color: '#334155', fontSize: 12 }}>→</span>
-                <select value={filters.endM} onChange={e => setFilters({ endM: e.target.value })} style={selectStyle}>
+                <span style={{ color:'var(--text-3)', fontSize:12 }}>→</span>
+                <select value={filters.endM} onChange={e => setFilters({ endM: e.target.value })} style={selSt}>
                   {allMonths.filter(m => monthIdx(m) >= monthIdx(filters.startM)).map(m => {
                     const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
-                    return <option key={m} value={m} style={{ background: '#0f172a' }}>
-                      {monthLabel(m)}{inN ? ' ·N' : inN1 ? ' ·N-1' : ''}
+                    return <option key={m} value={m} style={{ background:'#0d1424' }}>
+                      {monthLabel(m)}{inN?' ·N':inN1?' ·N-1':''}
                     </option>
                   })}
                 </select>
               </>
             ) : (
-              <span style={{ fontSize: 11, color: '#475569' }}>Aucune donnée — importez un FEC</span>
+              <span style={{ fontSize:11, color:'var(--text-3)' }}>Importez un FEC</span>
             )}
           </div>
         )}
 
-        {/* Toggles */}
+        {/* Toggles P&L */}
         {isPL && (
-          <div style={{ display: 'flex', gap: 6 }}>
-            <Toggle label="Mois"    stateKey="showMonths" />
-            <Toggle label="N-1"     stateKey="showN1Full" />
-            <Toggle label="Hors OD" stateKey="excludeOD"  />
+          <div style={{ display:'flex', gap:5 }}>
+            <Toggle label="Mois"    k="showMonths" />
+            <Toggle label="N-1"     k="showN1Full" />
+            <Toggle label="Hors OD" k="excludeOD"  />
           </div>
         )}
       </div>
-    </div>
+    </header>
   )
 }
