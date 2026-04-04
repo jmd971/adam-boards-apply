@@ -5,8 +5,8 @@ export interface CompanyDataRow {
   company_key: string
   period: 'N' | 'N-1'
   fiscal_year: string
-  pl_data: PlData
-  bilan_data: BilanData
+  pl_data: Record<string, FecAccount>
+  bilan_data: Record<string, BilanAccount>
   months: string[]
   entry_count: number
   source: string
