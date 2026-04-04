@@ -10,6 +10,8 @@ import { CompteResultat } from '@/modules/cr/CompteResultat'
 import { Sig }            from '@/modules/sig/Sig'
 import { Import }         from '@/modules/import/Import'
 import { Placeholder }    from '@/modules/_placeholder'
+import { Bilan }          from '@/modules/bilan/Bilan'
+import { Ratios }         from '@/modules/ratios/Ratios'
 import { useCompanyData } from '@/hooks/useCompanyData'
 import type { User }      from '@supabase/supabase-js'
 
@@ -70,8 +72,8 @@ function AppInner() {
       case 'import':         return <Import />
       case 'equilibre':      return <Placeholder icon="⚖️"  label="Équilibre financier"      description="Module en cours de développement — Phase 2" />
       case 'objectifs':      return <Placeholder icon="🎯"  label="Objectifs commerciaux"    description="Module en cours de développement — Phase 2" />
-      case 'bilan':          return <Placeholder icon="🏦"  label="Bilan comptable"           description="Module en cours de développement — Phase 2" />
-      case 'ratios':         return <Placeholder icon="📐"  label="Ratios financiers"         description="Module en cours de développement — Phase 2" />
+      case 'bilan':          return <Bilan />
+      case 'ratios':         return <Ratios />
       case 'budget':         return <Placeholder icon="💰"  label="Budget prévisionnel"       description="Module en cours de développement — Phase 2" />
       case 'saisie':         return <Placeholder icon="📝"  label="Saisie manuelle"           description="Module en cours de développement — Phase 2" />
       case 'verification':   return <Placeholder icon="🔍"  label="Vérification"              description="Module en cours de développement — Phase 3" />
