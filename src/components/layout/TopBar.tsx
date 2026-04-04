@@ -17,37 +17,18 @@ const TAB_ICONS: Record<string, string> = {
 }
 
 const ANALYSIS_TABS = ['cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios', 'budget']
+const PL_TABS       = ['cr', 'sig', 'equilibre']
 
-interface TopBarProps {
-  allMonths: string[]
-}
+interface TopBarProps { allMonths: string[] }
 
 export function TopBar({ allMonths }: TopBarProps) {
-  const tab     = useAppStore(s => s.tab)
-  const filters = useAppStore(s => s.filters)
-  const RAW     = useAppStore(s => s.RAW)
+  const tab        = useAppStore(s => s.tab)
+  const filters    = useAppStore(s => s.filters)
+  const RAW        = useAppStore(s => s.RAW)
   const setFilters = useAppStore(s => s.setFilters)
 
   const isAnalysis = ANALYSIS_TABS.includes(tab)
-  const isPL       = ['cr', 'sig', 'equilibre'].includes(tab)
-
-  const Toggle = ({ label, stateKey }: { label: string; stateKey: keyof typeof filters }) => (
-    <button
-      onClick={() => setFilters({ [stateKey]: !filters[stateKey] })}
-      className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
-      style={{
-        background: filters[stateKey] ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)',
-        color:      filters[stateKey] ? '#93c5fd' : '#64748b',
-        border:     'none',
-        cursor:     'pointer',
-        boxShadow:  filters[stateKey]
-          ? 'inset 0 0 0 1px rgba(59,130,246,0.35)'
-          : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
-      }}
-    >
-      {label}
-    </button>
-  )
+  const isPL       = PL_TABS.includes(tab)
 
   const selectStyle: React.CSSProperties = {
     background: 'transparent',
@@ -60,78 +41,88 @@ export function TopBar({ allMonths }: TopBarProps) {
     fontFamily: 'inherit',
   }
 
-  return (
-    <div
-      className="sticky top-0 z-10 flex items-center justify-between gap-3 flex-wrap"
+  const Toggle = ({ label, stateKey }: { label: string; stateKey: 'showMonths' | 'showN1Full' | 'excludeOD' }) => (
+    <button
+      onClick={() => setFilters({ [stateKey]: !filters[stateKey] })}
       style={{
-        padding: '0 24px',
-        height: 52,
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
-        background: 'rgba(10,15,26,0.98)',
-        backdropFilter: 'blur(20px)',
-        flexShrink: 0,
+        padding: '5px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600,
+        cursor: 'pointer', border: 'none', transition: 'all 0.15s',
+        background: filters[stateKey] ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.05)',
+        color:      filters[stateKey] ? '#93c5fd' : '#64748b',
+        boxShadow:  filters[stateKey]
+          ? 'inset 0 0 0 1px rgba(59,130,246,0.35)'
+          : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
       }}
     >
+      {label}
+    </button>
+  )
+
+  return (
+    <div style={{
+      padding: '0 24px', height: 52, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      borderBottom: '1px solid rgba(255,255,255,0.05)',
+      background: 'rgba(10,15,26,0.98)',
+      position: 'sticky', top: 0, zIndex: 10,
+      backdropFilter: 'blur(20px)',
+    }}>
+
       {/* Titre */}
-      <div className="flex items-center gap-2.5 min-w-0 flex-shrink-0">
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-          style={{ background: 'rgba(59,130,246,0.15)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 7, fontSize: 15,
+          background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {TAB_ICONS[tab] || '📊'}
         </div>
-        <span className="text-sm font-bold text-white tracking-tight">
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.2px' }}>
           {TAB_LABELS[tab] || tab}
         </span>
       </div>
 
       {/* Filtres */}
-      <div className="flex items-center gap-2 flex-wrap">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
 
-        {/* Sélecteurs de période */}
-        {isAnalysis && allMonths.length > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1 rounded-lg"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <span className="text-xs opacity-50">📅</span>
-            <select
-              value={filters.startM}
-              onChange={e => setFilters({ startM: e.target.value })}
-              style={selectStyle}
-            >
-              {allMonths.map(m => {
-                const inN  = RAW?.mn?.includes(m)
-                const inN1 = RAW?.m1?.includes(m)
-                return (
-                  <option key={m} value={m} style={{ background: '#0f172a' }}>
-                    {monthLabel(m)}{inN ? ' ·N' : inN1 ? ' ·N-1' : ''}
-                  </option>
-                )
-              })}
-            </select>
-            <span className="text-[#334155] text-xs">→</span>
-            <select
-              value={filters.endM}
-              onChange={e => setFilters({ endM: e.target.value })}
-              style={selectStyle}
-            >
-              {allMonths
-                .filter(m => monthIdx(m) >= monthIdx(filters.startM))
-                .map(m => {
-                  const inN  = RAW?.mn?.includes(m)
-                  const inN1 = RAW?.m1?.includes(m)
-                  return (
-                    <option key={m} value={m} style={{ background: '#0f172a' }}>
+        {/* Sélecteurs de période — toujours visibles sur les onglets analyse */}
+        {isAnalysis && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '4px 12px',
+            borderRadius: 8, background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}>
+            <span style={{ fontSize: 11, opacity: 0.5 }}>📅</span>
+
+            {allMonths.length > 0 ? (
+              <>
+                <select value={filters.startM} onChange={e => setFilters({ startM: e.target.value })} style={selectStyle}>
+                  {allMonths.map(m => {
+                    const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
+                    return <option key={m} value={m} style={{ background: '#0f172a' }}>
                       {monthLabel(m)}{inN ? ' ·N' : inN1 ? ' ·N-1' : ''}
                     </option>
-                  )
-                })}
-            </select>
+                  })}
+                </select>
+                <span style={{ color: '#334155', fontSize: 12 }}>→</span>
+                <select value={filters.endM} onChange={e => setFilters({ endM: e.target.value })} style={selectStyle}>
+                  {allMonths.filter(m => monthIdx(m) >= monthIdx(filters.startM)).map(m => {
+                    const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
+                    return <option key={m} value={m} style={{ background: '#0f172a' }}>
+                      {monthLabel(m)}{inN ? ' ·N' : inN1 ? ' ·N-1' : ''}
+                    </option>
+                  })}
+                </select>
+              </>
+            ) : (
+              <span style={{ fontSize: 11, color: '#475569' }}>Aucune donnée — importez un FEC</span>
+            )}
           </div>
         )}
 
+        {/* Toggles */}
         {isPL && (
-          <div className="flex items-center gap-1.5">
-            <Toggle label="Mois"     stateKey="showMonths" />
-            <Toggle label="N-1"      stateKey="showN1Full" />
-            <Toggle label="Hors OD"  stateKey="excludeOD"  />
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Toggle label="Mois"    stateKey="showMonths" />
+            <Toggle label="N-1"     stateKey="showN1Full" />
+            <Toggle label="Hors OD" stateKey="excludeOD"  />
           </div>
         )}
       </div>
