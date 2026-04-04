@@ -210,8 +210,6 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
     return result
   }
 
-  const nbExtraCols = (showN1Full ? 1 : 0) + (showBudget ? 3 : 0)
-
   return (
     <div style={{ overflowX:'auto' }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
