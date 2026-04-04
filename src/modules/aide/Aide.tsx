@@ -1,223 +1,109 @@
-import { useState } from 'react'
 import { useAppStore } from '@/store'
 import type { TabId } from '@/types'
 
-const SECTIONS = [
-  {
-    icon: '📁', title: 'Import FEC', color: '#3b82f6',
-    items: [
-      { q: 'Quels formats sont acceptés ?',
-        a: 'Fichiers FEC EBP Grand Livre (.txt ou .csv), séparés par tabulation ou point-virgule. Formats Sage et Axonaut supportés.' },
-      { q: 'Comment importer ?',
-        a: 'Onglet Import → glissez le fichier dans la zone N ou N-1. La société et la période sont détectées automatiquement depuis le nom du fichier et les dates.' },
-      { q: 'Plusieurs sociétés possibles ?',
-        a: 'Oui. Importez un fichier par société. Les boutons dans la sidebar permettent de sélectionner une ou plusieurs sociétés à la fois.' },
-      { q: 'Les données semblent vides après import ?',
-        a: 'Vérifiez dans l\'onglet Vérification le nombre d\'écritures. Si 0, assurez-vous que le fichier contient des comptes 6/7 et un en-tête reconnu (CompteNum, Debit, Credit, EcritureDate).' },
-    ]
-  },
-  {
-    icon: '📊', title: 'Tableaux P&L', color: '#10b981',
-    items: [
-      { q: 'Différence entre CR et SIG ?',
-        a: 'Le CR (Compte de Résultat) présente charges et produits en deux blocs. Le SIG décompose la formation du résultat : Marge → Valeur Ajoutée → EBE → Résultat d\'exploitation → Résultat net.' },
-      { q: 'Que signifie "Hors OD" ?',
-        a: 'Les OD (Opérations Diverses) sont des régularisations comptables (comptes 713, 603, 6412). Les exclure permet d\'analyser l\'activité réelle sans ces ajustements.' },
-      { q: 'Comment filtrer sur une période ?',
-        a: 'Utilisez les sélecteurs de date en haut. Les mois ·N sont l\'exercice en cours, ·N-1 l\'exercice précédent.' },
-      { q: 'Clic sur une ligne du tableau ?',
-        a: 'Cliquer sur une ligne avec ▸ déplie le détail des comptes comptables sous-jacents avec leur volume et leurs écritures.' },
-    ]
-  },
-  {
-    icon: '💰', title: 'Budget & Objectifs', color: '#f59e0b',
-    items: [
-      { q: 'Comment créer un budget ?',
-        a: 'Onglet Budget → sélectionnez la société → "⚡ Générer depuis FEC N-1". Le budget est pré-rempli avec les montants N-1. Modifiez les cellules mois par mois et sauvegardez.' },
-      { q: 'Budget visible dans les tableaux ?',
-        a: 'Oui, après sauvegarde les colonnes Budget, Écart € et Écart % apparaissent dans CR et SIG. Activez le toggle "Budget" si nécessaire.' },
-      { q: 'Barres de progression dans Objectifs ?',
-        a: 'Vert = objectif atteint (≥100%), orange = en cours (≥75%), rouge = en retard (<75%). Les KPIs CA, Marge, VA, EBE, RE et Résultat net sont affichés.' },
-    ]
-  },
-  {
-    icon: '📝', title: 'Saisie', color: '#8b5cf6',
-    items: [
-      { q: 'Saisie manuelle ?',
-        a: 'Mode "Saisie manuelle" → saisissez le montant HT, le montant TTC (la TVA est calculée automatiquement en %), la catégorie et la contrepartie. Mise à jour immédiate de tous les onglets.' },
-      { q: 'Scanner une facture ?',
-        a: 'Mode "Scanner (OCR)" → importez une photo ou PDF. Claude AI extrait la date, les montants HT/TTC, la catégorie et le fournisseur. Le formulaire est pré-rempli automatiquement.' },
-      { q: 'Import en masse CSV ?',
-        a: 'Mode "Import CSV" → colonnes : date, category, subcategory, label, amount_ht, amount_ttc, counterpart, payment_mode. Séparateur virgule ou point-virgule.' },
-    ]
-  },
-  {
-    icon: '💧', title: 'Trésorerie', color: '#14b8a6',
-    items: [
-      { q: 'Comment lire le tableau ?',
-        a: 'Encaissements (comptes 706-708) et décaissements (comptes 6xx) mois par mois. Cliquez sur une catégorie ▸ pour voir le détail par compte comptable. Le cumul montre la position accumulée.' },
-      { q: 'Écart avec le relevé bancaire ?',
-        a: 'Normal : la trésorerie est calculée en comptabilité d\'engagement (FEC), pas en trésorerie réelle. Utilisez la Saisie pour enregistrer les flux effectifs et les retrouver dans la ligne "Saisies manuelles".' },
-    ]
-  },
-  {
-    icon: '🔍', title: 'Vérification', color: '#6366f1',
-    items: [
-      { q: 'Que vérifie cet onglet ?',
-        a: 'L\'équilibre débit/crédit pour chaque société et exercice. Un écart > 1 € signale une anomalie dans le FEC. Affiche aussi le nombre de comptes et d\'écritures chargés.' },
-      { q: 'Données incomplètes ?',
-        a: 'Si le nombre d\'écritures est 0, le fichier n\'a pas été reconnu. Vérifiez que l\'en-tête contient CompteNum, Debit, Credit, EcritureDate.' },
-    ]
-  },
-]
-
-const QUICK_START: { step: string; label: string; tab: TabId; icon: string }[] = [
-  { step: '1', label: 'Importer les fichiers FEC',       tab: 'import',    icon: '📁' },
-  { step: '2', label: 'Analyser le Compte de Résultat',  tab: 'cr',        icon: '📋' },
-  { step: '3', label: 'Consulter les SIG',                tab: 'sig',       icon: '📊' },
-  { step: '4', label: 'Générer le budget depuis N-1',     tab: 'budget',    icon: '💰' },
-  { step: '5', label: 'Suivre les objectifs',             tab: 'objectifs', icon: '🎯' },
-]
-
-const TIPS = [
-  { tip: 'Cliquer sur une ligne ▸ du tableau P&L',   action: 'affiche le détail des comptes' },
-  { tip: 'Cliquer sur une catégorie de Trésorerie',  action: 'déplie le détail par compte' },
-  { tip: 'Toggle "Mois" dans CR/SIG',                action: 'affiche/masque les colonnes mensuelles' },
-  { tip: 'Toggle "N-1" dans CR/SIG',                 action: 'compare avec l\'exercice précédent' },
-  { tip: 'Boutons société dans la sidebar',          action: 'sélectionne une ou plusieurs sociétés' },
-  { tip: 'Sélecteurs de date en haut',               action: 'filtre sur une plage de mois' },
-]
-
 export function Aide() {
-  const RAW    = useAppStore(s => s.RAW)
   const setTab = useAppStore(s => s.setTab)
+  const RAW    = useAppStore(s => s.RAW)
 
-  const [openSection, setOpenSection] = useState<string | null>(null)
-  const [openQ,       setOpenQ]       = useState<string | null>(null)
+  const go = (tab: TabId) => () => setTab(tab)
+
+  const card = (color: string, bg: string) => ({
+    background: bg, borderRadius: 10, padding: '12px 16px',
+    border: `1px solid ${color}30`, marginBottom: 8,
+  } as React.CSSProperties)
+
+  const h2 = (color: string) => ({
+    fontSize: 12, fontWeight: 700, color, textTransform: 'uppercase' as const,
+    letterSpacing: '0.7px', marginBottom: 10,
+  })
+
+  const li = { fontSize: 12, color: '#94a3b8', marginBottom: 6, lineHeight: 1.7 } as React.CSSProperties
+  const accent = { color: '#f1f5f9', fontWeight: 600 } as React.CSSProperties
 
   return (
-    <div style={{ padding: '20px 24px', maxWidth: 860 }}>
+    <div style={{ padding: '20px 24px', maxWidth: 820, color: '#f1f5f9' }}>
 
-      {/* En-tête */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 20, fontWeight: 800, color: '#f1f5f9', marginBottom: 6 }}>
-          Aide & Documentation
-        </div>
-        <div style={{ fontSize: 12, color: '#475569' }}>
-          Adam Boards — Tableau de bord financier pour TPE/PME
-          {RAW && (
-            <span style={{ marginLeft: 12, color: '#334155' }}>
-              · {RAW.keys.length} société{RAW.keys.length > 1 ? 's' : ''} · {RAW.mn.length} mois N · {RAW.m1.length} mois N-1
-            </span>
-          )}
-        </div>
+      {/* Titre */}
+      <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Aide & Documentation</div>
+      <div style={{ fontSize: 12, color: '#475569', marginBottom: 24 }}>
+        Adam Boards — Tableau de bord financier pour TPE/PME
+        {RAW ? ` · ${RAW.keys.length} société(s) · ${RAW.mn.length} mois N` : ' · Aucune donnée chargée'}
       </div>
 
       {/* Démarrage rapide */}
-      <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 12, padding: 16, marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#60a5fa', marginBottom: 12 }}>🚀 Démarrage rapide</div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {QUICK_START.map(({ step, label, tab, icon }) => (
-            <div key={step} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(59,130,246,0.25)', color: '#93c5fd', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {step}
-              </span>
-              <span style={{ fontSize: 12, color: '#94a3b8', flex: 1 }}>{icon} {label}</span>
-              <button
-                onClick={() => setTab(tab)}
-                style={{ padding: '3px 10px', borderRadius: 6, background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)', color: '#60a5fa', fontSize: 11, cursor: 'pointer', fontWeight: 600 }}>
-                Ouvrir →
-              </button>
-            </div>
-          ))}
-        </div>
+      <div style={card('#3b82f6', 'rgba(59,130,246,0.06)')}>
+        <div style={h2('#60a5fa')}>🚀 Démarrage rapide</div>
+        {([
+          ['1', 'Importer un fichier FEC (N et N-1)',  'import'],
+          ['2', 'Consulter le Compte de Résultat',      'cr'],
+          ['3', 'Analyser les Soldes Intermédiaires',   'sig'],
+          ['4', 'Générer le budget depuis N-1',         'budget'],
+          ['5', 'Suivre les objectifs vs budget',       'objectifs'],
+        ] as [string, string, TabId][]).map(([n, label, tab]) => (
+          <div key={n} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+            <span style={{ width:20, height:20, borderRadius:'50%', background:'rgba(59,130,246,0.25)', color:'#93c5fd', fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{n}</span>
+            <span style={{ fontSize:12, color:'#94a3b8', flex:1 }}>{label}</span>
+            <button onClick={go(tab)} style={{ padding:'3px 10px', borderRadius:6, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#60a5fa', fontSize:11, cursor:'pointer', fontWeight:600 }}>
+              Ouvrir →
+            </button>
+          </div>
+        ))}
       </div>
 
-      {/* Astuces */}
-      <div style={{ background: '#0f172a', borderRadius: 12, padding: 14, marginBottom: 20, border: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>💡 Astuces</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 6 }}>
-          {TIPS.map(({ tip, action }) => (
-            <div key={tip} style={{ display: 'flex', gap: 8, fontSize: 11 }}>
-              <span style={{ color: '#3b82f6', flexShrink: 0 }}>▸</span>
-              <span style={{ color: '#64748b' }}><span style={{ color: '#94a3b8' }}>{tip}</span> → {action}</span>
-            </div>
-          ))}
-        </div>
+      {/* Import FEC */}
+      <div style={card('#3b82f6', '#0f172a')}>
+        <div style={h2('#3b82f6')}>📁 Import FEC</div>
+        <p style={li}>• Formats acceptés : <span style={accent}>EBP Grand Livre</span> (.txt/.csv) séparé par tabulation ou point-virgule.</p>
+        <p style={li}>• Glissez le fichier dans la zone <span style={accent}>N</span> (exercice en cours) ou <span style={accent}>N-1</span> (exercice précédent). La société et la période sont détectées automatiquement.</p>
+        <p style={li}>• Plusieurs sociétés possibles : importez un fichier par société, sélectionnez-les dans la sidebar.</p>
+        <p style={li}>• Si les données semblent vides, vérifiez dans <button onClick={go('verification')} style={{ background:'none', border:'none', color:'#6366f1', cursor:'pointer', fontWeight:700, padding:0 }}>Vérification</button> le nombre d'écritures et l'équilibre débit/crédit.</p>
       </div>
 
-      {/* FAQ */}
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
-        Questions fréquentes
+      {/* Tableaux P&L */}
+      <div style={card('#10b981', '#0f172a')}>
+        <div style={h2('#10b981')}>📊 Tableaux financiers</div>
+        <p style={li}>• <span style={accent}>CR</span> : charges et produits en deux blocs. <span style={accent}>SIG</span> : formation du résultat étape par étape (Marge → VA → EBE → RE → RN).</p>
+        <p style={li}>• Cliquez sur une ligne <span style={accent}>▸</span> pour afficher le détail des comptes comptables sous-jacents.</p>
+        <p style={li}>• Toggle <span style={accent}>Mois</span> : affiche/masque les colonnes mensuelles. Toggle <span style={accent}>N-1</span> : compare avec l'exercice précédent.</p>
+        <p style={li}>• Toggle <span style={accent}>Hors OD</span> : exclut les opérations diverses (régularisations comptables, comptes 713, 603, 6412).</p>
+        <p style={li}>• Filtrez sur une période via les sélecteurs de date en haut (mois ·N = exercice en cours, ·N-1 = exercice précédent).</p>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {SECTIONS.map(section => {
-          const isOpen = openSection === section.title
-          return (
-            <div key={section.title} style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+      {/* Budget */}
+      <div style={card('#f59e0b', '#0f172a')}>
+        <div style={h2('#f59e0b')}>💰 Budget & Objectifs</div>
+        <p style={li}>• <button onClick={go('budget')} style={{ background:'none', border:'none', color:'#f59e0b', cursor:'pointer', fontWeight:700, padding:0 }}>Budget</button> → sélectionnez la société → <span style={accent}>⚡ Générer depuis FEC N-1</span> pour pré-remplir. Modifiez cellule par cellule et sauvegardez.</p>
+        <p style={li}>• Les colonnes Budget, Écart € et Écart % apparaissent dans CR et SIG une fois le budget sauvegardé.</p>
+        <p style={li}>• <button onClick={go('objectifs')} style={{ background:'none', border:'none', color:'#f59e0b', cursor:'pointer', fontWeight:700, padding:0 }}>Objectifs</button> → barres de progression : vert ≥100%, orange ≥75%, rouge &lt;75%.</p>
+      </div>
 
-              {/* Header */}
-              <button
-                onClick={() => setOpenSection(isOpen ? null : section.title)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '12px 16px', background: isOpen ? `${section.color}10` : '#0f172a',
-                  border: 'none', cursor: 'pointer',
-                  borderBottom: isOpen ? `1px solid ${section.color}20` : 'none',
-                }}
-              >
-                <span style={{ fontSize: 16 }}>{section.icon}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: section.color, flex: 1, textAlign: 'left' }}>
-                  {section.title}
-                </span>
-                <span style={{ fontSize: 10, color: '#334155', marginRight: 8 }}>{section.items.length} questions</span>
-                <span style={{ fontSize: 11, color: '#475569' }}>{isOpen ? '▾' : '▸'}</span>
-              </button>
+      {/* Saisie */}
+      <div style={card('#8b5cf6', '#0f172a')}>
+        <div style={h2('#8b5cf6')}>📝 Saisie</div>
+        <p style={li}>• <span style={accent}>Saisie manuelle</span> : renseignez HT + TTC, la TVA est calculée automatiquement. Mise à jour immédiate de tous les onglets.</p>
+        <p style={li}>• <span style={accent}>Scanner OCR</span> : importez photo ou PDF de facture. Claude AI extrait date, montants HT/TTC, catégorie et fournisseur automatiquement.</p>
+        <p style={li}>• <span style={accent}>Import CSV</span> : colonnes requises : date, category, subcategory, label, amount_ht, amount_ttc, counterpart, payment_mode.</p>
+      </div>
 
-              {/* Questions */}
-              {isOpen && (
-                <div style={{ background: '#080d1a' }}>
-                  {section.items.map((item, i) => {
-                    const key = `${section.title}__${i}`
-                    const qOpen = openQ === key
-                    return (
-                      <div key={key} style={{ borderBottom: i < section.items.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
-                        <button
-                          onClick={() => setOpenQ(qOpen ? null : key)}
-                          style={{
-                            width: '100%', display: 'flex', alignItems: 'flex-start', gap: 8,
-                            padding: '10px 16px 10px 20px', background: 'transparent',
-                            border: 'none', cursor: 'pointer', textAlign: 'left',
-                          }}
-                        >
-                          <span style={{ fontSize: 10, color: '#334155', marginTop: 2, flexShrink: 0 }}>
-                            {qOpen ? '▾' : '▸'}
-                          </span>
-                          <span style={{ fontSize: 12, color: qOpen ? '#f1f5f9' : '#94a3b8', fontWeight: qOpen ? 600 : 400 }}>
-                            {item.q}
-                          </span>
-                        </button>
-                        {qOpen && (
-                          <div style={{ padding: '2px 16px 12px 36px', fontSize: 12, color: '#64748b', lineHeight: 1.7 }}>
-                            {item.a}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })}
+      {/* Trésorerie */}
+      <div style={card('#14b8a6', '#0f172a')}>
+        <div style={h2('#14b8a6')}>💧 Trésorerie</div>
+        <p style={li}>• Cliquez sur une catégorie <span style={accent}>▸</span> pour afficher le détail par compte comptable (ex : "Salaires" → 641, 642, 645, 646).</p>
+        <p style={li}>• Les saisies manuelles apparaissent en violet dans les lignes "Saisies manuelles".</p>
+        <p style={li}>• La trésorerie est calculée en comptabilité d'engagement (FEC). Un écart avec votre relevé bancaire est normal (délais de paiement).</p>
+      </div>
+
+      {/* Vérification */}
+      <div style={card('#6366f1', '#0f172a')}>
+        <div style={h2('#6366f1')}>🔍 Vérification</div>
+        <p style={li}>• Contrôle l'équilibre débit/crédit pour chaque société et exercice. Un écart &gt;1€ signale une anomalie dans le FEC.</p>
+        <p style={li}>• Affiche le nombre de comptes et d'écritures chargés, ainsi que les mois disponibles N et N-1.</p>
+        <p style={li}>• Si "0 écritures" : vérifiez que l'en-tête du fichier contient <span style={accent}>CompteNum, Debit, Credit, EcritureDate</span>.</p>
       </div>
 
       {/* Footer */}
-      <div style={{ marginTop: 24, padding: 14, borderRadius: 10, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', fontSize: 12, color: '#475569' }}>
-        <span style={{ color: '#10b981', fontWeight: 700 }}>Adam Boards</span> est développé par{' '}
-        <span style={{ color: '#94a3b8' }}>Jean-Marc Dolmaire</span>.
-        Pour toute question, contactez votre administrateur.
+      <div style={{ marginTop: 20, padding: 14, borderRadius: 10, background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', fontSize: 12, color: '#475569' }}>
+        <span style={{ color: '#10b981', fontWeight: 700 }}>Adam Boards</span> · Développé par <span style={{ color: '#94a3b8' }}>Jean-Marc Dolmaire</span> · Pour toute question contactez votre administrateur.
       </div>
     </div>
   )
