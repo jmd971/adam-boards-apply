@@ -135,7 +135,7 @@ export function Saisie() {
           {entries.slice(0,30).map(e => (
             <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px', borderRadius: 8, background: '#0f172a', border: '1px solid rgba(255,255,255,0.04)', fontSize: 11 }}>
               <span style={{ color: '#475569', minWidth: 80 }}>{e.entry_date}</span>
-              <span style={{ color: '#334155', minWidth: 60, padding: '2px 7px', borderRadius: 20, background: e.category === 'Vente' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: e.category === 'Vente' ? '#10b981' : '#ef4444' }}>{e.category}</span>
+              <span style={{ minWidth: 60, padding: '2px 7px', borderRadius: 20, background: e.category === 'Vente' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: e.category === 'Vente' ? '#10b981' : '#ef4444' }}>{e.category}</span>
               <span style={{ color: '#94a3b8', flex: 1 }}>{e.subcategory} {e.label ? '— ' + e.label : ''}</span>
               <span style={{ fontFamily: 'monospace', fontWeight: 600, color: e.category === 'Vente' ? '#10b981' : '#f1f5f9' }}>{parseFloat(e.amount_ttc).toLocaleString('fr-FR')} €</span>
               <span style={{ color: '#334155' }}>{e.payment_mode}</span>
