@@ -1,20 +1,8 @@
-interface BadgeProps {
-  children: React.ReactNode
-  color?: 'blue' | 'green' | 'red' | 'amber' | 'purple' | 'muted'
-}
-
-const colors = {
-  blue:   'bg-brand-blue/15 text-brand-blue border-brand-blue/25',
-  green:  'bg-brand-green/15 text-brand-green border-brand-green/25',
-  red:    'bg-brand-red/15 text-brand-red border-brand-red/25',
-  amber:  'bg-brand-amber/15 text-brand-amber border-brand-amber/25',
-  purple: 'bg-brand-purple/15 text-brand-purple border-brand-purple/25',
-  muted:  'bg-white/5 text-muted border-white/10',
-}
-
+interface BadgeProps { children: React.ReactNode; color?: 'blue'|'green'|'red'|'amber'|'purple'|'muted' }
+const C = { blue:'var(--blue)', green:'var(--green)', red:'var(--red)', amber:'var(--amber)', purple:'var(--purple)', muted:'var(--text-2)' }
 export function Badge({ children, color = 'muted' }: BadgeProps) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${colors[color]}`}>
+    <span style={{ display:'inline-flex', alignItems:'center', padding:'2px 8px', borderRadius:20, fontSize:11, fontWeight:600, color:C[color], background:`${C[color]}18`, border:`1px solid ${C[color]}30` }}>
       {children}
     </span>
   )
