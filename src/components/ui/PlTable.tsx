@@ -50,7 +50,6 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
     const varPct  = d.cumulN1S !== 0 ? varAmt / Math.abs(d.cumulN1S) : null
     const budE    = d.cumulN - (d.budTotal || 0)
     const budEP   = d.budTotal ? budE / Math.abs(d.budTotal) : null
-    const isPos   = d.cumulN >= 0
 
     rows.push(
       <tr key={row.id}
