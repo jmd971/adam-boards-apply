@@ -46,7 +46,7 @@ export function Saisie() {
     setSaving(true)
     const ht = form.amount_ht_saisie || String(parseFloat(form.amount_ttc) / (1 + parseFloat(form.tva_rate)/100))
     const { data, error } = await sb.from('manual_entries').insert({
-      ...form, amount_ht: ht, amount_ht_saisie: form.amount_ht_saisie,
+      ...form, amount_ht: ht,
       account_num: catConfig?.acc, source: 'manual',
     }).select().single()
     setSaving(false)
