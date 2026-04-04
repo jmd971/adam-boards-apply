@@ -3,7 +3,7 @@ import { useAppStore } from '@/store'
 import { PlTable } from '@/components/ui'
 import { KpiCard } from '@/components/ui'
 import { CR } from '@/lib/structure'
-import { computePlCalc, mergePL, solde, sumArr, fmt, monthIdx } from '@/lib/calc'
+import { computePlCalc, fmt, monthIdx } from '@/lib/calc'
 
 export function CompteResultat() {
   const { RAW, filters, budData } = useAppStore(s => ({
