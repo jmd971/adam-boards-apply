@@ -219,7 +219,6 @@ export function Creances() {
                 </thead>
                 <tbody>
                   {sorted.map((c, i) => {
-                    const pct90  = totalCreances > 0 ? (c.buckets[4]/totalCreances)*100 : 0
                     const pctCli = totalCreances > 0 ? (c.total/totalCreances)*100      : 0
                     const bk     = c.buckets[4]>0 ? 4 : c.buckets[3]>0 ? 3 : c.buckets[2]>0 ? 2 : c.buckets[1]>0 ? 1 : 0
                     const risk   = bk>=4?'Critique':bk>=3?'Urgent':bk>=2?'Attention':bk>=1?'Normal':'OK'
