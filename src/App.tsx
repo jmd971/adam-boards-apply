@@ -8,6 +8,7 @@ import { Spinner }          from '@/components/ui'
 import { LoginPage }        from '@/modules/auth/LoginPage'
 import { CompteResultat }   from '@/modules/cr/CompteResultat'
 import { Sig }              from '@/modules/sig/Sig'
+import { Dashboard }        from '@/modules/dashboard/Dashboard'
 import { Equilibre }        from '@/modules/equilibre/Equilibre'
 import { Objectifs }        from '@/modules/objectifs/Objectifs'
 import { Bilan }            from '@/modules/bilan/Bilan'
@@ -62,7 +63,7 @@ function AppInner() {
   )
 
   const TabContent = () => {
-    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide') return (
+    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
@@ -70,6 +71,7 @@ function AppInner() {
       </div>
     )
     switch (tab) {
+      case 'dashboard':      return <Dashboard />
       case 'cr':             return <CompteResultat />
       case 'sig':            return <Sig />
       case 'equilibre':      return <Equilibre />
