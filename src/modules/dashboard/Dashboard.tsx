@@ -159,16 +159,16 @@ export function Dashboard() {
     else if (kpis.txEbe < 0.05)
       list.push({ icon:'⚠️', priority:1, title:'EBE insuffisant', color:'var(--amber)',
         msg:`${pct(kpis.txEbe)} du CA — Seuil critique : 5% (banquiers observent ce ratio)` })
-    else if (kpis.txEbe > 0.15)
-      list.push({ icon:'✅', priority:3, title:'Excellente rentabilité', color:'var(--green)',
+    else if (kpis.txEbe > 0.10)
+      list.push({ icon:'✅', priority:3, title:'Bonne rentabilité', color:'var(--green)',
         msg:`EBE à ${pct(kpis.txEbe)} du CA — Très bonne capacité à générer de la trésorerie` })
 
     if (kpis.evoCa !== null) {
-      if (kpis.evoCa > 0.10)
-        list.push({ icon:'📈', priority:3, title:'CA en forte progression', color:'var(--green)',
+      if (kpis.evoCa > 0.05)
+        list.push({ icon:'📈', priority:3, title:'CA en progression', color:'var(--green)',
           msg:`+${pct(kpis.evoCa)} vs N-1 — CA de ${fmt(kpis.ca)} € pour ${fmt(kpis.caN1)} € l'an passé` })
-      else if (kpis.evoCa < -0.05)
-        list.push({ icon:'📉', priority:1, title:'CA en recul vs N-1', color:'var(--red)',
+      else if (kpis.evoCa < -0.02)
+        list.push({ icon:'📉', priority:1, title:'CA en recul vs N-1', color:'var(--amber)',
           msg:`${pct(kpis.evoCa)} vs N-1 — Perte de ${fmt(Math.abs(kpis.ca - kpis.caN1))} € de CA` })
     }
 
@@ -178,19 +178,18 @@ export function Dashboard() {
       const kpisPrev = computeKpis(RAW, selCo, [prevM])
       if (kpisPrev.ca > 0 && kpisLast.ca > 0) {
         const evo = (kpisLast.ca - kpisPrev.ca) / kpisPrev.ca
-        if (evo > 0.15)
-          list.push({ icon:'🚀', priority:3, title:`CA ${lastLabel} en forte hausse`, color:'var(--green)',
+        if (evo > 0.05)
+          list.push({ icon:'🚀', priority:3, title:`CA ${lastLabel} en hausse`, color:'var(--green)',
             msg:`+${pct(evo)} vs mois précédent (${fmt(kpisLast.ca)} € vs ${fmt(kpisPrev.ca)} €)` })
-        else if (evo < -0.15)
+        else if (evo < -0.05)
           list.push({ icon:'📉', priority:1, title:`Baisse CA en ${lastLabel}`, color:'var(--red)',
             msg:`${pct(evo)} vs mois précédent (${fmt(kpisLast.ca)} € vs ${fmt(kpisPrev.ca)} €)` })
       }
     }
 
-    // Toujours afficher au moins 1 alerte synthétique
-    if (list.length === 0 && kpis.ca > 0)
-      list.push({ icon:'📊', priority:3, title:'Situation stable', color:'var(--blue)',
-        msg:`CA : ${fmt(kpis.ca)} € · Marge : ${pct(kpis.txMarge)} · EBE : ${pct(kpis.txEbe)} du CA` })
+    // Toujours afficher une synthèse
+    list.push({ icon:'📊', priority:4, title:'Synthèse de la période', color:'var(--blue)',
+      msg:`CA : ${fmt(kpis.ca)} € · Marge brute : ${pct(kpis.txMarge)} · EBE : ${pct(kpis.txEbe)} · Résultat : ${fmt(kpis.re)} €` })
 
     return list.sort((a, b) => a.priority - b.priority).slice(0, 6)
   }, [RAW, selCo.join(','), selectedMs.join(','), kpis])
