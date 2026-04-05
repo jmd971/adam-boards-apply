@@ -98,7 +98,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
       const varPct   = d.cumulN1S !== 0 ? varAmt / Math.abs(d.cumulN1S) : null
       const budE     = d.cumulN - (d.budTotal || 0)
       const budEP    = d.budTotal ? budE / Math.abs(d.budTotal) : null
-      const clickable = hasAccs && !row.bold
+      const clickable = hasAccs
 
       // Ligne principale
       result.push(
