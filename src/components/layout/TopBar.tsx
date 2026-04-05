@@ -22,9 +22,9 @@ const TAB_META: Record<string, { label: string; icon: string }> = {
 const PL_TABS       = ['cr','sig','equilibre']
 const ANALYSIS_TABS = ['dashboard','cr','sig','equilibre','objectifs','bilan','ratios','budget']
 
-interface TopBarProps { allMonths: string[] }
+interface TopBarProps { allMonths: string[]; onMenuClick?: () => void }
 
-export function TopBar({ allMonths }: TopBarProps) {
+export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
   const tab        = useAppStore(s => s.tab)
   const filters    = useAppStore(s => s.filters)
   const RAW        = useAppStore(s => s.RAW)
