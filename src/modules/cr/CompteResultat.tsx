@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { PlTable, EcrituresModal } from '@/components/ui'
 import { CR } from '@/lib/structure'
-import { computePlCalc, fmt, monthIdx } from '@/lib/calc'
+import { computePlCalc, monthIdx } from '@/lib/calc'
 
 export function CompteResultat() {
   const RAW     = useAppStore(s => s.RAW)
