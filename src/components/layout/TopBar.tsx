@@ -63,6 +63,14 @@ export function TopBar({ allMonths }: TopBarProps) {
       borderBottom:'1px solid var(--border-0)', position:'sticky', top:0, zIndex:10,
     }}>
 
+      {/* Hamburger mobile */}
+      <button onClick={onMenuClick} className="mobile-menu-btn" style={{
+        display:'none', alignItems:'center', justifyContent:'center',
+        width:36, height:36, borderRadius:'var(--radius-sm)',
+        background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)',
+        color:'var(--text-1)', cursor:'pointer', flexShrink:0, fontSize:16,
+      }}>☰</button>
+
       {/* Titre */}
       <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
         <div style={{ width:30, height:30, borderRadius:'var(--radius-sm)', background:'rgba(59,130,246,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>
