@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { PlTable, EcrituresModal } from '@/components/ui'
 import { SIG } from '@/lib/structure'
-import { computePlCalc, fmt, monthIdx } from '@/lib/calc'
+import { computePlCalc, monthIdx } from '@/lib/calc'
 
 export function Sig() {
   const RAW     = useAppStore(s => s.RAW)
@@ -33,7 +33,7 @@ export function Sig() {
         <PlTable
           struct={SIG} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
-          showN1Full={filters.showN1Full} showBudget={filters.showBudget ?? false} caTotal={caTotal}
+          showN1Full={filters.showN1Full} showBudget={false} caTotal={caTotal}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
         />
       </div>
