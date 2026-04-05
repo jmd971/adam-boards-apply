@@ -18,6 +18,7 @@ import { Budget }           from '@/modules/budget/Budget'
 import { Saisie }           from '@/modules/saisie/Saisie'
 import { Tresorerie }       from '@/modules/tresorerie/Tresorerie'
 import { Verification }     from '@/modules/verification/Verification'
+import { Creances }         from '@/modules/creances/Creances'
 import { Complementaire }   from '@/modules/complementaire/Complementaire'
 import { Aide }             from '@/modules/aide/Aide'
 import { useCompanyData }   from '@/hooks/useCompanyData'
@@ -63,7 +64,7 @@ function AppInner() {
   )
 
   const TabContent = () => {
-    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard') return (
+    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
@@ -83,6 +84,7 @@ function AppInner() {
       case 'saisie':         return <Saisie />
       case 'tresorerie':     return <Tresorerie />
       case 'verification':   return <Verification />
+      case 'creances':       return <Creances />
       case 'complementaire': return <Complementaire />
       case 'aide':           return <Aide />
       default: return null
