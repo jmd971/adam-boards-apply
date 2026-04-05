@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
-import { fmt, pct, fiscalIndex } from '@/lib/calc'
-import { KpiCard } from '@/components/ui'
+import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { KpiCard, EcrituresModal } from '@/components/ui'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
@@ -232,6 +232,7 @@ export function Tresorerie() {
 
   const [view,     setView]     = useState<'realise' | 'previsionnel'>('realise')
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
   const toggle = (key: string) => setExpanded(p => ({ ...p, [key]: !p[key] }))
 
   const selCo  = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
@@ -300,10 +301,17 @@ export function Tresorerie() {
         {isOpen && accList.sort(([,a],[,b]) => b.vals.reduce((s:number,v:number)=>s+v,0) - a.vals.reduce((s:number,v:number)=>s+v,0)).map(([acc, a]) => {
           const tot = a.vals.reduce((s:number,v:number)=>s+v,0)
           return (
-            <tr key={acc} style={{ borderBottom:'1px solid rgba(255,255,255,0.02)', background:'rgba(0,0,0,0.15)' }}>
+            <tr key={acc}
+              onClick={() => {
+                const ents = mergeEntries(RAW, selCo, 'pn', acc)
+                setModal({ title:`${acc} — ${a.label}`, entries: ents, cumN: tot, cumN1: 0 })
+              }}
+              style={{ borderBottom:'1px solid rgba(255,255,255,0.02)', background:'rgba(0,0,0,0.15)', cursor:'pointer' }}>
               <td style={{ padding:'5px 12px 5px 44px', fontSize:10, color:'var(--text-2)', whiteSpace:'nowrap', position:'sticky', left:0, background:'rgba(6,11,20,0.95)', zIndex:2 }}>
+                <span style={{ color:'var(--blue)', marginRight:4, fontSize:9 }}>▸</span>
                 <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6 }}>{acc}</span>
                 <span>{a.label}</span>
+                {mergeEntries(RAW, selCo, 'pn', acc).length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{mergeEntries(RAW, selCo, 'pn', acc).length} éc.</span>}
               </td>
               {a.vals.map((v:number, i:number) => (
                 <td key={i} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:10, color: v===0?'var(--text-3)':'var(--text-2)' }}>{v!==0?fmt(v):'—'}</td>
@@ -336,6 +344,7 @@ export function Tresorerie() {
   )
 
   return (
+    <>
     <div>
       {/* Toggle vue */}
       <div style={{ display:'flex', gap:4, padding:'16px 24px 12px', background:'var(--bg-0)', position:'sticky', top:54, zIndex:9, borderBottom:'1px solid var(--border-0)' }}>
@@ -410,5 +419,7 @@ export function Tresorerie() {
         </div>
       )}
     </div>
+      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
+    </>
   )
 }
