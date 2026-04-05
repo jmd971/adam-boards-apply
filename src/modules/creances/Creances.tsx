@@ -40,40 +40,23 @@ export function Creances() {
     for (const co of selCo) {
       const bn = RAW.companies[co]?.bn ?? {}
       for (const [acc, acctData] of Object.entries(bn)) {
-        if (!acc.startsWith('411')) continue
+        if (!acc.startsWith('41') || acc.startsWith('419')) continue
         const data    = acctData as any
         const entries = data?.e ?? []
         const topArr  = data?.top ?? []
         const lbl     = data?.l || acc
 
         if (entries.length > 0) {
-          // Grouper les écritures par contrepartie client
-          const byClient: Record<string, {entries:any[];total:number;oldest:string}> = {}
+          // Chaque compte 41x = 1 client — l'intitulé (lbl) EST le nom client
+          const key = acc
+          if (!map[key]) map[key] = { name:lbl, account:acc, total:0, buckets:[0,0,0,0,0], entries:[], oldest:'' }
           for (const e of entries) {
             const montant = Math.round(((e[3]||0) - (e[2]||0)) * 100) / 100
             if (montant <= 0) continue
-            // Extraire le nom client depuis le libellé (ex: "FACT SP00001 - REVENDEUR FALCON")
-            const raw   = String(e[1] || '')
-            const parts = raw.split(' - ')
-            const cName = parts.length > 1 ? parts[parts.length-1].trim() : lbl
-            if (!byClient[cName]) byClient[cName] = { entries:[], total:0, oldest:'' }
-            byClient[cName].entries.push(e)
-            byClient[cName].total += montant
-            if (!byClient[cName].oldest || String(e[0]) < byClient[cName].oldest) byClient[cName].oldest = String(e[0])
-          }
-          // Créer une ligne par client
-          for (const [cName, cd] of Object.entries(byClient)) {
-            const key = `${acc}__${cName}`
-            if (!map[key]) map[key] = { name:cName, account:acc, total:0, buckets:[0,0,0,0,0], entries:[], oldest:'' }
-            map[key].total   += cd.total
-            map[key].entries.push(...cd.entries)
-            if (!map[key].oldest || cd.oldest < map[key].oldest) map[key].oldest = cd.oldest
-            // Calculer les buckets depuis les écritures
-            for (const e of cd.entries) {
-              const m = Math.round(((e[3]||0)-(e[2]||0))*100)/100
-              if (m > 0) map[key].buckets[bucket(String(e[0]||''))] += m
-            }
-          }
+            map[key].total += montant
+            map[key].entries.push(e)
+            map[key].buckets[bucket(String(e[0]||''))] += montant
+            if (!map[key].oldest || String(e[0]) < map[key].oldest) map[key].oldest = String(e[0])
         } else if (topArr.length > 0) {
           for (const t of topArr) {
             const [cName,, montant] = t
