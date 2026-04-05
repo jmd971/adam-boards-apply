@@ -14,6 +14,7 @@ const NAV: NavItem[] = [
   { id: 'bilan',          label: 'Bilan',            icon: '🏦', group: 'analyse' },
   { id: 'ratios',         label: 'Ratios',           icon: '📐', group: 'analyse' },
   { id: 'complementaire', label: 'Complémentaire',   icon: '📈', group: 'analyse' },
+  { id: 'creances',       label: 'Créances clients', icon: '📋', group: 'analyse' },
   { id: 'import',         label: 'Import',           icon: '📁', group: 'admin'   },
   { id: 'verification',   label: 'Vérification',     icon: '🔍', group: 'admin'   },
   { id: 'aide',           label: 'Aide',             icon: '❓', group: 'aide'    },

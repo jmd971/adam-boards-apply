@@ -15,11 +15,12 @@ const TAB_META: Record<string, { label: string; icon: string }> = {
   verification:   { label:'Vérification',         icon:'🔍' },
   complementaire: { label:'Complémentaire',       icon:'📈' },
   tresorerie:     { label:'Trésorerie',           icon:'💧' },
+  creances:       { label:'Créances clients',      icon:'📋' },
   aide:           { label:'Aide',                 icon:'❓' },
 }
 
 const PL_TABS       = ['cr','sig','equilibre']
-const ANALYSIS_TABS = ['cr','sig','equilibre','objectifs','bilan','ratios','budget']
+const ANALYSIS_TABS = ['dashboard','cr','sig','equilibre','objectifs','bilan','ratios','budget']
 
 interface TopBarProps { allMonths: string[] }
 
