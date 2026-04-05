@@ -199,7 +199,7 @@ export function Dashboard() {
           <LineChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
             <XAxis dataKey="month" tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} width={50} />
+            <YAxis tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} width={50} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize:11 }} />
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
@@ -221,7 +221,7 @@ export function Dashboard() {
             <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }} barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} />
-              <YAxis tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} width={50} />
+              <YAxis tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} width={50} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize:11 }} />
               <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
@@ -279,7 +279,7 @@ export function Dashboard() {
           <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
             <XAxis dataKey="month" tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={v => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} width={50} />
+            <YAxis tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} tick={{ fontSize:10, fill:'var(--text-2)' }} axisLine={false} tickLine={false} width={50} />
             <Tooltip content={<CustomTooltip />} />
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} />
             <Bar dataKey="Résultat" radius={[3,3,0,0]}>
