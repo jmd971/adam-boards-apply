@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { PlData, SigRow, RAWData } from '@/types'
-import { fmt, pct, monthLabel, mergeEntries } from '@/lib/calc'
+import { fmt, pct, monthLabel, mergeEntries, mergeLabel } from '@/lib/calc'
 
 interface PlTableProps {
   struct: SigRow[]
@@ -211,8 +211,8 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
       if (isOpen && row.accs && row.accs.length > 0) {
         for (const acc of row.accs) {
           const co   = selCo[0] || RAW.keys[0]
-          const pnLbl = (RAW.companies[co]?.pn?.[acc] as any)?.l || (RAW.companies[co]?.p1?.[acc] as any)?.l
-          const lbl  = getAccLabel(acc, pnLbl)
+          const pnLbl = mergeLabel(RAW, selCo, 'pn', acc) || mergeLabel(RAW, selCo, 'p1', acc)
+          const lbl  = getAccLabel(acc, pnLbl || undefined)
           const ents = mergeEntries(RAW, selCo, 'pn', acc)
           const cumN = d.monthsN.reduce((s, v) => s + v, 0)
 
