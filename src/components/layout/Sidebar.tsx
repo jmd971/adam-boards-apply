@@ -3,6 +3,7 @@ import { getCoColor } from '@/lib/calc'
 import type { NavItem, TabId } from '@/types'
 
 const NAV: NavItem[] = [
+  { id: 'dashboard',       label: 'Dashboard',        icon: '🏠', group: 'ops'     },
   { id: 'saisie',         label: 'Saisie',          icon: '📝', group: 'ops'     },
   { id: 'tresorerie',     label: 'Trésorerie',       icon: '💧', group: 'ops'     },
   { id: 'equilibre',      label: 'Équilibre',        icon: '⚖️', group: 'ops'     },

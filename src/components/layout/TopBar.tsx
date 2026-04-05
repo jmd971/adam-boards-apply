@@ -2,6 +2,7 @@ import { useAppStore } from '@/store'
 import { monthIdx, monthLabel } from '@/lib/calc'
 
 const TAB_META: Record<string, { label: string; icon: string }> = {
+  dashboard:    dashboard:      { label:'Dashboard',            icon:'🏠' },
   cr:             { label:'Compte de résultat',  icon:'📋' },
   sig:            { label:'SIG',                  icon:'📊' },
   equilibre:      { label:'Équilibre',            icon:'⚖️' },
