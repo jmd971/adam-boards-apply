@@ -57,6 +57,7 @@ export function Creances() {
             map[key].entries.push(e)
             map[key].buckets[bucket(String(e[0]||''))] += montant
             if (!map[key].oldest || String(e[0]) < map[key].oldest) map[key].oldest = String(e[0])
+          }
         } else if (topArr.length > 0) {
           for (const t of topArr) {
             const [cName,, montant] = t
