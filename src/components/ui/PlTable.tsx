@@ -15,6 +15,46 @@ interface PlTableProps {
   onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
 }
 
+// Plan comptable de référence pour les labels de comptes
+const PLAN_COMPTABLE: Record<string, string> = {
+  '601':'Achats stockés - Matières premières','602':'Achats stockés - Autres appr.','604':'Achats d'études et prestat.',
+  '605':'Achats de matériel','606':'Achats non stockés de mat. et fournitures','607':'Achats de marchandises',
+  '608':'Frais annexes d'achat','609':'Rabais, remises sur achats',
+  '611':'Sous-traitance générale','612':'Redevances de crédit-bail','613':'Locations','614':'Charges locatives',
+  '615':'Entretien et réparations','616':'Primes d'assurances','617':'Études et recherches',
+  '618':'Divers (doc., déplacements...)','621':'Personnel extérieur à l'entreprise',
+  '622':'Rémunérations d'intermédiaires','623':'Publicité, publications','624':'Transports de biens',
+  '625':'Déplacements, missions','626':'Frais postaux et de télécommunications',
+  '627':'Services bancaires','628':'Divers','631':'Impôts, taxes (exploit.)','633':'Impôts sur les salaires',
+  '635':'Autres impôts et taxes','637':'Autres impôts locaux',
+  '641':'Rémunérations du personnel','642':'Congés payés','645':'Charges de sécurité sociale',
+  '646':'Cotisations sociales patronales','647':'Autres charges sociales',
+  '651':'Redevances pour concessions','654':'Pertes sur créances irrécouvrables',
+  '661':'Charges d'intérêts','664':'Dividendes','665':'Escomptes accordés','668':'Autres charges financières',
+  '671':'Charges exceptionnelles sur opér. gestion','675':'Valeurs comptables des éléments cédés',
+  '681':'DAP d'exploitation','686':'DAP financières','687':'DAP exceptionnelles',
+  '695':'Impôt sur les bénéfices','696':'Imposition forfaitaire','697':'Intégration fiscale',
+  '706':'Prestations de services','7061':'Prestations de services – France',
+  '70611':'Prestations de services – clients','707':'Ventes de marchandises','7072':'Ventes de marchandises – DOM',
+  '708':'Produits des activités annexes','7080':'Locations diverses','709':'Rabais, remises accordés',
+  '713':'Variation des stocks (prod.)','715':'Travaux faits par l'entreprise pour elle-même',
+  '741':'Subventions d'exploitation','751':'Redevances pour concessions',
+  '761':'Produits de participations','764':'Revenus de valeurs mobilières','768':'Autres produits financiers',
+  '771':'Produits exceptionnels sur opérations de gestion','775':'Produits des cessions d'actifs',
+  '781':'RAP d'exploitation','786':'RAP financières',
+}
+
+const getAccLabel = (acc: string, pnLabel?: string): string => {
+  if (pnLabel) return pnLabel
+  // Cherche du plus précis au moins précis
+  for (let len = acc.length; len >= 3; len--) {
+    const key = acc.slice(0, len)
+    if (PLAN_COMPTABLE[key]) return PLAN_COMPTABLE[key]
+  }
+  return acc
+}
+
+
 export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, onOpenModal }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
@@ -171,7 +211,8 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
       if (isOpen && row.accs && row.accs.length > 0) {
         for (const acc of row.accs) {
           const co   = selCo[0] || RAW.keys[0]
-          const lbl  = RAW.companies[co]?.pn?.[acc]?.l || RAW.companies[co]?.p1?.[acc]?.l || acc
+          const pnLbl = (RAW.companies[co]?.pn?.[acc] as any)?.l || (RAW.companies[co]?.p1?.[acc] as any)?.l
+          const lbl  = getAccLabel(acc, pnLbl)
           const ents = mergeEntries(RAW, selCo, 'pn', acc)
           const cumN = d.monthsN.reduce((s, v) => s + v, 0)
 
