@@ -204,7 +204,7 @@ export type TabId =
   | 'dashboard'
   | 'cr' | 'sig' | 'equilibre' | 'objectifs' | 'bilan' | 'ratios'
   | 'import' | 'budget' | 'saisie' | 'verification' | 'complementaire'
-  | 'tresorerie' | 'aide'
+  | 'tresorerie' | 'creances' | 'aide'
 
 export interface NavItem {
   id: TabId
