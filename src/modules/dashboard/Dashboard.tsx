@@ -76,11 +76,6 @@ export function Dashboard() {
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
 
   // Mois filtrés selon la période sélectionnée
-  const allMonths = useMemo(() =>
-    [...new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? [])])].sort(),
-    [RAW?.mn?.join(','), RAW?.m1?.join(',')]
-  )
-
   const selectedMs = useMemo(() => {
     if (!RAW?.mn?.length) return []
     if (!filters.startM || !filters.endM) return RAW.mn
