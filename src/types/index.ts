@@ -201,6 +201,7 @@ export interface PrevRow {
 // ─── App State ─────────────────────────────────────────────────────────────
 
 export type TabId =
+  | 'dashboard'
   | 'cr' | 'sig' | 'equilibre' | 'objectifs' | 'bilan' | 'ratios'
   | 'import' | 'budget' | 'saisie' | 'verification' | 'complementaire'
   | 'tresorerie' | 'aide'
