@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { computeBilan } from '@/lib/bilan'
@@ -6,6 +6,7 @@ import { SIG } from '@/lib/structure'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { exportRatiosXlsx, printModule } from '@/lib/export'
 import { ExportBar } from '@/components/ui'
+import { evalThreshold, formatThresholdValue } from '@/lib/alertThresholds'
 
 interface RatioCardProps {
   label: string; value: string; icon: string
@@ -27,6 +28,9 @@ function RatioCard({ label, value, icon, sub, color = '#3b82f6', status }: Ratio
 export function Ratios() {
   const printRef = useRef<HTMLDivElement>(null)
   const budData = useAppStore(s => s.budData)
+  const alertThresholds = useAppStore(s => s.alertThresholds)
+  const setThresholds = useAppStore(s => s.setAlertThresholds)
+  const [showConfig, setShowConfig] = useState(false)
 
   const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
@@ -61,32 +65,91 @@ export function Ratios() {
 
   const nbMonths = selectedMs.length || 12
   const caMensuel = ca / nbMonths
+  const bfrJours = ca > 0 ? (bfr / ca) * 365 * (nbMonths / 12) : 0
+
+  // Helper: evaluate a threshold by id
+  const ev = (id: string, value: number): 'good' | 'warn' | 'bad' => {
+    const t = alertThresholds.find(t => t.id === id)
+    return t ? evalThreshold(value, t) : 'good'
+  }
+  const thSub = (id: string): string => {
+    const t = alertThresholds.find(t => t.id === id)
+    if (!t) return ''
+    return `Seuils : ${formatThresholdValue(t.warn, t.unit)} / ${formatThresholdValue(t.bad, t.unit)}`
+  }
 
   const ratios = [
-    { label:'Chiffre d\'affaires',  value:`${fmt(ca)} €`,       icon:'💰', sub:`${fmt(caMensuel)} €/mois`, color:'#10b981' },
-    { label:'Taux de valeur ajoutée', value:pct(tauxVA),          icon:'⚙️',  sub:`VA = ${fmt(va)} €`,       color:'#3b82f6',
-      status: tauxVA > 0.3 ? 'good' as const : tauxVA > 0.15 ? 'warn' as const : 'bad' as const },
-    { label:'Taux d\'EBE',          value:pct(tauxEBE),          icon:'📊', sub:`EBE = ${fmt(ebe)} €`,      color:'#f59e0b',
-      status: tauxEBE > 0.1 ? 'good' as const : tauxEBE > 0.05 ? 'warn' as const : 'bad' as const },
-    { label:'Résultat exploitation', value:`${fmt(re)} €`,        icon:'🎯', color: re >= 0 ? '#10b981' : '#ef4444',
-      status: re >= 0 ? 'good' as const : 'bad' as const },
-    { label:'Rentabilité nette',    value:pct(tauxRnet),         icon:'📈', sub:`RN = ${fmt(rnet)} €`,      color: rnet >= 0 ? '#10b981' : '#ef4444',
-      status: rnet >= 0 ? 'good' as const : 'bad' as const },
-    { label:'BFR',                  value:`${fmt(bfr)} €`,        icon:'🔄', sub:'Stocks + Clients - Fourn.',
-      color: bfr < 0 ? '#10b981' : '#f97316', status: bfr < 0 ? 'good' as const : bfr < ca * 0.1 ? 'warn' as const : 'bad' as const },
-    { label:'Trésorerie nette',     value:`${fmt(n.tresoActif)} €`, icon:'💧', color:'#14b8a6' },
-    { label:'Levier financier',     value:ratioDet.toFixed(2) + 'x', icon:'⚖️', sub:'Dettes / Capitaux propres',
-      color:'#8b5cf6', status: ratioDet < 1 ? 'good' as const : ratioDet < 2 ? 'warn' as const : 'bad' as const },
-    { label:'Capitaux propres',     value:`${fmt(n.capitaux)} €`, icon:'🏦', color:'#10b981' },
+    { label:'Chiffre d\'affaires',    value:`${fmt(ca)} €`,        icon:'💰', sub:`${fmt(caMensuel)} €/mois`, color:'#10b981' },
+    { label:'Taux de valeur ajoutée', value:pct(tauxVA),            icon:'⚙️',  sub:`VA = ${fmt(va)} € · ${thSub('txVA')}`,       color:'#3b82f6',
+      status: ev('txVA', tauxVA * 100) },
+    { label:'Taux d\'EBE',           value:pct(tauxEBE),            icon:'📊', sub:`EBE = ${fmt(ebe)} € · ${thSub('txEbe')}`,      color:'#f59e0b',
+      status: ev('txEbe', tauxEBE * 100) },
+    { label:'Résultat exploitation',  value:`${fmt(re)} €`,          icon:'🎯', sub: thSub('txRnet'),
+      color: re >= 0 ? '#10b981' : '#ef4444', status: ev('txRnet', ca > 0 ? (re / ca) * 100 : 0) },
+    { label:'Rentabilité nette',      value:pct(tauxRnet),           icon:'📈', sub:`RN = ${fmt(rnet)} € · ${thSub('txRnet')}`,
+      color: rnet >= 0 ? '#10b981' : '#ef4444', status: ev('txRnet', tauxRnet * 100) },
+    { label:'BFR',                    value:`${fmt(bfr)} €`,          icon:'🔄', sub:`${Math.round(bfrJours)} jours de CA · ${thSub('bfrJours')}`,
+      color: bfr < 0 ? '#10b981' : '#f97316', status: ev('bfrJours', bfrJours) },
+    { label:'Trésorerie nette',       value:`${fmt(n.tresoActif)} €`, icon:'💧', color:'#14b8a6' },
+    { label:'Levier financier',       value:ratioDet.toFixed(2) + 'x', icon:'⚖️', sub:`Dettes / CP · ${thSub('levier')}`,
+      color:'#8b5cf6', status: ev('levier', ratioDet) },
+    { label:'Capitaux propres',       value:`${fmt(n.capitaux)} €`,   icon:'🏦', color:'#10b981' },
   ]
+
+  const updateTh = (id: string, field: 'warn' | 'bad', value: string) => {
+    const v = parseFloat(value)
+    if (isNaN(v)) return
+    setThresholds(alertThresholds.map(t => t.id === id ? { ...t, [field]: v } : t))
+  }
+
+  const inputSt: React.CSSProperties = {
+    width: 58, padding: '3px 5px', borderRadius: 5, fontSize: 11, fontFamily: 'monospace',
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+    color: '#cbd5e1', textAlign: 'right', outline: 'none',
+  }
 
   return (
     <div ref={printRef} className="module-ratios" style={{ padding:'20px 24px' }}>
-      <ExportBar
-        onPdf={() => printModule(printRef, 'module-print')}
-        onExcel={() => exportRatiosXlsx('Ratios', ratios.map(r => ({ label: r.label, value: r.value, sub: r.sub, status: r.status })))}
-      />
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12, marginTop: 12 }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 4 }}>
+        <ExportBar
+          onPdf={() => printModule(printRef, 'module-print')}
+          onExcel={() => exportRatiosXlsx('Ratios', ratios.map(r => ({ label: r.label, value: r.value, sub: r.sub, status: r.status })))}
+        />
+        <button onClick={() => setShowConfig(v => !v)} className="print-hide" style={{
+          padding:'7px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+          background: showConfig ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
+          border:'1px solid var(--border-1)', color: showConfig ? '#93c5fd' : 'var(--text-1)',
+        }}>
+          Seuils
+        </button>
+      </div>
+
+      {/* Threshold config */}
+      {showConfig && (
+        <div className="print-hide" style={{
+          background:'#0f172a', borderRadius:12, padding:'14px 16px', marginBottom:12,
+          border:'1px solid rgba(255,255,255,0.06)',
+        }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
+            Seuils d'alerte personnalisés
+          </div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(270px,1fr))', gap:6 }}>
+            {alertThresholds.map(t => (
+              <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:6, background:'rgba(255,255,255,0.02)' }}>
+                <span style={{ flex:1, fontSize:11, color:'#94a3b8' }}>{t.label}</span>
+                <span style={{ fontSize:9, color:'#f59e0b' }}>W</span>
+                <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.warn} onChange={e => updateTh(t.id, 'warn', e.target.value)} style={inputSt} />
+                <span style={{ fontSize:9, color:'#ef4444' }}>C</span>
+                <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.bad} onChange={e => updateTh(t.id, 'bad', e.target.value)} style={inputSt} />
+                <span style={{ fontSize:9, color:'#475569', minWidth:28 }}>{t.unit}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop:6, fontSize:10, color:'#334155' }}>W = alerte (orange) · C = critique (rouge) · Les changements sont sauvegardés automatiquement</div>
+        </div>
+      )}
+
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
         {ratios.map((r, i) => <RatioCard key={i} {...r} />)}
       </div>
 
