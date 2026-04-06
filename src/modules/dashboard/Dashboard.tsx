@@ -86,15 +86,20 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-function ThresholdConfigPanel() {
+function ThresholdConfigPanel({ onClose }: { onClose: () => void }) {
   const thresholds = useAppStore(s => s.alertThresholds)
   const setThresholds = useAppStore(s => s.setAlertThresholds)
+  const [draft, setDraft] = useState(thresholds)
+  const dirty = JSON.stringify(draft) !== JSON.stringify(thresholds)
 
   const update = (id: string, field: 'warn' | 'bad', value: string) => {
     const v = parseFloat(value)
     if (isNaN(v)) return
-    setThresholds(thresholds.map(t => t.id === id ? { ...t, [field]: v } : t))
+    setDraft(prev => prev.map(t => t.id === id ? { ...t, [field]: v } : t))
   }
+
+  const apply = () => { setThresholds(draft); onClose() }
+  const reset = () => setDraft(thresholds)
 
   const inputSt: React.CSSProperties = {
     width: 64, padding: '4px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'monospace',
@@ -111,7 +116,7 @@ function ThresholdConfigPanel() {
         Configuration des seuils d'alerte
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 8 }}>
-        {thresholds.map(t => (
+        {draft.map(t => (
           <div key={t.id} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
             borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
@@ -119,28 +124,31 @@ function ThresholdConfigPanel() {
             <span style={{ flex: 1, fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>{t.label}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
               <span style={{ color: '#f59e0b' }}>W</span>
-              <input
-                type="number"
-                step={t.unit === 'x' ? '0.1' : '1'}
-                value={t.warn}
-                onChange={e => update(t.id, 'warn', e.target.value)}
-                style={inputSt}
-              />
+              <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.warn}
+                onChange={e => update(t.id, 'warn', e.target.value)} style={inputSt} />
               <span style={{ color: '#ef4444', marginLeft: 4 }}>C</span>
-              <input
-                type="number"
-                step={t.unit === 'x' ? '0.1' : '1'}
-                value={t.bad}
-                onChange={e => update(t.id, 'bad', e.target.value)}
-                style={inputSt}
-              />
+              <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.bad}
+                onChange={e => update(t.id, 'bad', e.target.value)} style={inputSt} />
               <span style={{ fontSize: 9, color: '#475569', minWidth: 30 }}>{t.unit}</span>
             </div>
           </div>
         ))}
       </div>
-      <div style={{ marginTop: 8, fontSize: 10, color: '#334155' }}>
-        W = seuil d'alerte (orange) · C = seuil critique (rouge) · {thresholds[0]?.direction === 'below' ? '"below" = alerte si valeur inférieure' : ''}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+        <button onClick={apply} disabled={!dirty} style={{
+          padding: '7px 20px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: dirty ? 'pointer' : 'not-allowed',
+          background: dirty ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'rgba(255,255,255,0.05)',
+          border: 'none', color: dirty ? '#fff' : '#475569', opacity: dirty ? 1 : 0.5,
+        }}>
+          Valider
+        </button>
+        <button onClick={reset} disabled={!dirty} style={{
+          padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: dirty ? 'pointer' : 'not-allowed',
+          background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: dirty ? '#94a3b8' : '#334155',
+        }}>
+          Annuler
+        </button>
+        <span style={{ fontSize: 10, color: '#334155' }}>W = alerte (orange) · C = critique (rouge)</span>
       </div>
     </div>
   )
@@ -328,7 +336,7 @@ export function Dashboard() {
       </div>
 
       {/* Threshold config panel */}
-      {showThresholdConfig && <ThresholdConfigPanel />}
+      {showThresholdConfig && <ThresholdConfigPanel onClose={() => setShowThresholdConfig(false)} />}
 
       {/* KPIs */}
       <div className="print-kpis" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:12 }}>

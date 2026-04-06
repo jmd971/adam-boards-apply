@@ -96,11 +96,17 @@ export function Ratios() {
     { label:'Capitaux propres',       value:`${fmt(n.capitaux)} €`,   icon:'🏦', color:'#10b981' },
   ]
 
+  const [draft, setDraft] = useState(alertThresholds)
+  const draftDirty = JSON.stringify(draft) !== JSON.stringify(alertThresholds)
+
   const updateTh = (id: string, field: 'warn' | 'bad', value: string) => {
     const v = parseFloat(value)
     if (isNaN(v)) return
-    setThresholds(alertThresholds.map(t => t.id === id ? { ...t, [field]: v } : t))
+    setDraft(prev => prev.map(t => t.id === id ? { ...t, [field]: v } : t))
   }
+
+  const applyThresholds = () => { setThresholds(draft); setShowConfig(false) }
+  const resetDraft = () => setDraft(alertThresholds)
 
   const inputSt: React.CSSProperties = {
     width: 58, padding: '3px 5px', borderRadius: 5, fontSize: 11, fontFamily: 'monospace',
@@ -134,7 +140,7 @@ export function Ratios() {
             Seuils d'alerte personnalisés
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(270px,1fr))', gap:6 }}>
-            {alertThresholds.map(t => (
+            {draft.map(t => (
               <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:6, background:'rgba(255,255,255,0.02)' }}>
                 <span style={{ flex:1, fontSize:11, color:'#94a3b8' }}>{t.label}</span>
                 <span style={{ fontSize:9, color:'#f59e0b' }}>W</span>
@@ -145,7 +151,22 @@ export function Ratios() {
               </div>
             ))}
           </div>
-          <div style={{ marginTop:6, fontSize:10, color:'#334155' }}>W = alerte (orange) · C = critique (rouge) · Les changements sont sauvegardés automatiquement</div>
+          <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:10 }}>
+            <button onClick={applyThresholds} disabled={!draftDirty} style={{
+              padding:'7px 20px', borderRadius:8, fontSize:12, fontWeight:600, cursor: draftDirty ? 'pointer' : 'not-allowed',
+              background: draftDirty ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'rgba(255,255,255,0.05)',
+              border:'none', color: draftDirty ? '#fff' : '#475569', opacity: draftDirty ? 1 : 0.5,
+            }}>
+              Valider
+            </button>
+            <button onClick={resetDraft} disabled={!draftDirty} style={{
+              padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:500, cursor: draftDirty ? 'pointer' : 'not-allowed',
+              background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color: draftDirty ? '#94a3b8' : '#334155',
+            }}>
+              Annuler
+            </button>
+            <span style={{ fontSize:10, color:'#334155' }}>W = alerte (orange) · C = critique (rouge)</span>
+          </div>
         </div>
       )}
 
