@@ -12,7 +12,20 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail]     = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
+
+  // Lire l'erreur OAuth depuis le hash de l'URL si présent
+  const urlError = (() => {
+    const h = window.location.hash
+    if (h.includes('error=')) {
+      const msg = decodeURIComponent(h.match(/error_description=([^&]*)/)?.[1] ?? '')
+      window.history.replaceState(null, '', window.location.pathname)
+      if (msg.includes('expired') || msg.includes('Invalid')) return 'Le lien de confirmation a expiré. Reconnectez-vous avec email + mot de passe.'
+      return msg || 'Erreur de connexion OAuth.'
+    }
+    return null
+  })()
+
+  const [error, setError]     = useState<string | null>(urlError)
 
   const handleSubmit = async () => {
     if (!email || !password) return
