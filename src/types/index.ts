@@ -42,6 +42,7 @@ export interface ManualEntry {
   payment_date?: string
   echeancier_data?: EcheancierData | null
   source: 'manual' | 'ocr' | 'csv'
+  invoice_url?: string
   created_at: string
 }
 

@@ -1,8 +1,11 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useAppStore } from '@/store'
-import { computePlCalc, fmt, pct, monthIdx } from '@/lib/calc'
+import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { computeBilan } from '@/lib/bilan'
 import { SIG } from '@/lib/structure'
+import { usePeriodFilter } from '@/hooks/usePeriodFilter'
+import { exportRatiosXlsx, printModule } from '@/lib/export'
+import { ExportBar } from '@/components/ui'
 
 interface RatioCardProps {
   label: string; value: string; icon: string
@@ -22,29 +25,14 @@ function RatioCard({ label, value, icon, sub, color = '#3b82f6', status }: Ratio
 }
 
 export function Ratios() {
-  const RAW     = useAppStore(s => s.RAW)
-  const filters = useAppStore(s => s.filters)
+  const printRef = useRef<HTMLDivElement>(null)
   const budData = useAppStore(s => s.budData)
 
-  const selectedMs = useMemo(() => {
-    const allMonths = [...new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? [])])].sort()
-    if (!filters.startM || !filters.endM) return RAW?.mn ?? []
-    return allMonths.filter(m => monthIdx(m) >= monthIdx(filters.startM) && monthIdx(m) <= monthIdx(filters.endM))
-  }, [RAW?.mn?.join(','), RAW?.m1?.join(','), filters.startM, filters.endM])
-
-  const msSrc = useMemo(() =>
-    selectedMs.map(m => (RAW?.mn ?? []).includes(m) ? 'pn' as const : 'p1' as const),
-    [selectedMs, RAW?.mn?.join(',')]
-  )
-
-  const allMsN1Same = useMemo(() =>
-    selectedMs.map(m => `${parseInt(m.slice(0,4))-1}-${m.slice(5,7)}`).filter(m => (RAW?.m1 ?? []).includes(m)),
-    [selectedMs, RAW?.m1?.join(',')]
-  )
+  const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1Same.map(() => 'p1' as const), budData as any, SIG, filters.excludeOD)
+    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, SIG, filters.excludeOD)
   }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
   const bilan = useMemo(() => {
@@ -93,8 +81,12 @@ export function Ratios() {
   ]
 
   return (
-    <div style={{ padding:'20px 24px' }}>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12 }}>
+    <div ref={printRef} className="module-ratios" style={{ padding:'20px 24px' }}>
+      <ExportBar
+        onPdf={() => printModule(printRef, 'module-print')}
+        onExcel={() => exportRatiosXlsx('Ratios', ratios.map(r => ({ label: r.label, value: r.value, sub: r.sub, status: r.status })))}
+      />
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:12, marginTop: 12 }}>
         {ratios.map((r, i) => <RatioCard key={i} {...r} />)}
       </div>
 

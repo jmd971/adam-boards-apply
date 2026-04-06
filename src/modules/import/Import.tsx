@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectPeriod } from '@/lib/fec'
+import { parseFEC, detectCompany, detectPeriod, type ParseWarning } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 
@@ -11,6 +11,8 @@ interface ImportResult {
   months: number
   entries: number
   error?: string
+  warnings?: ParseWarning[]
+  skippedLines?: number
 }
 
 export function Import() {
@@ -57,6 +59,8 @@ export function Import() {
           period,
           months: parsed.months.length,
           entries: parsed.entryCount,
+          warnings: parsed.warnings,
+          skippedLines: parsed.skippedLines,
         })
       } catch (e: any) {
         newResults.push({ file: file.name, company: '', period: '', months: 0, entries: 0, error: e.message })
@@ -122,14 +126,27 @@ export function Import() {
             <div className="space-y-2">
               <div className="text-xs font-semibold text-muted mb-2">Résultats</div>
               {results.map((r, i) => (
-                <div key={i} className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs"
-                  style={{ background: r.error ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)' }}>
-                  <span>{r.error ? '❌' : '✅'}</span>
-                  <span className="font-mono text-muted">{r.file}</span>
-                  {r.error
-                    ? <span className="text-brand-red">{r.error}</span>
-                    : <span className="text-brand-green">{r.company} · {r.period} · {r.months} mois · {r.entries.toLocaleString()} écritures</span>
-                  }
+                <div key={i}>
+                  <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs"
+                    style={{ background: r.error ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)' }}>
+                    <span>{r.error ? '❌' : '✅'}</span>
+                    <span className="font-mono text-muted">{r.file}</span>
+                    {r.error
+                      ? <span className="text-brand-red">{r.error}</span>
+                      : <span className="text-brand-green">{r.company} · {r.period} · {r.months} mois · {r.entries.toLocaleString()} écritures
+                          {r.skippedLines ? <span style={{ color:'#f59e0b' }}> · {r.skippedLines} ignorée(s)</span> : null}
+                        </span>
+                    }
+                  </div>
+                  {!r.error && r.warnings && r.warnings.length > 0 && (
+                    <div style={{ marginLeft:32, marginBottom:4 }}>
+                      {r.warnings.map((w, j) => (
+                        <div key={j} style={{ fontSize:11, paddingLeft:8, color: w.type === 'format' ? '#ef4444' : w.type === 'skip' ? '#f59e0b' : '#64748b' }}>
+                          {w.type === 'format' ? '⚠️' : w.type === 'skip' ? '⏭️' : 'ℹ️'} {w.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

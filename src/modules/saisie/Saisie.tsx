@@ -3,6 +3,7 @@ import { useAppStore } from '@/store'
 import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
 import { buildRAW } from '@/lib/calc'
+import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 
 const CATEGORIES = [
@@ -45,9 +46,11 @@ function calcTvaAmount(ht: number, ttc: number): number {
 export function Saisie() {
   const RAW            = useAppStore(s => s.RAW)
   const filters        = useAppStore(s => s.filters)
+  const role           = useAppStore(s => s.role) as Role
   const setRAW         = useAppStore(s => s.setRAW)
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const manualEntries  = useAppStore(s => s.manualEntries)
+  const isReadOnly     = !canWrite(role)
   
   const [mode,       setMode]       = useState<Mode>('manual')
   const [entries,    setEntries]    = useState<ManualEntry[]>([])
@@ -56,6 +59,7 @@ export function Saisie() {
   const [msg,        setMsg]        = useState<string | null>(null)
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrResult,  setOcrResult]  = useState<string | null>(null)
+  const [ocrFile,    setOcrFile]    = useState<File | null>(null)
 
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
@@ -99,11 +103,24 @@ export function Saisie() {
     }
   }
 
+  // ── Upload facture vers Supabase Storage ───────────────────────────────────
+  const uploadInvoice = async (file: File): Promise<string | null> => {
+    const ext = file.name.split('.').pop() || 'jpg'
+    const path = `${form.company_key}/${Date.now()}.${ext}`
+    const { error } = await sb.storage.from('invoice').upload(path, file)
+    if (error) {
+      setMsg(`⚠️ Upload facture échoué : ${error.message}`)
+      return null
+    }
+    const { data } = sb.storage.from('invoice').getPublicUrl(path)
+    return data.publicUrl
+  }
+
   // ── OCR ───────────────────────────────────────────────────────────────────
   const handleOCR = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    setOcrLoading(true); setOcrResult(null); setMsg(null)
+    setOcrLoading(true); setOcrResult(null); setMsg(null); setOcrFile(file)
     try {
       const toBase64 = (f: File): Promise<string> => new Promise((res, rej) => {
         const r = new FileReader()
@@ -130,11 +147,37 @@ export function Saisie() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.data.session?.access_token}` },
         body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 500, messages }),
-      })
+      }).catch(() => null)
+
+      // Erreur réseau
+      if (!resp) {
+        setOcrResult(null)
+        setMsg('⚠️ OCR indisponible (erreur réseau). La facture sera stockée — remplissez le formulaire manuellement.')
+        setMode('manual')
+        return
+      }
+
+      // Erreur serveur (quota, 500, etc.)
+      if (!resp.ok) {
+        const errBody = await resp.text().catch(() => '')
+        const reason = resp.status === 429 ? 'quota API dépassé'
+          : resp.status >= 500 ? 'serveur OCR indisponible'
+          : `erreur ${resp.status}`
+        setOcrResult(null)
+        setMsg(`⚠️ OCR échoué (${reason}). La facture sera stockée — remplissez le formulaire manuellement.${errBody ? '\n' + errBody : ''}`)
+        setMode('manual')
+        return
+      }
+
       const raw  = await resp.json()
       const text = raw?.content?.[0]?.text ?? ''
       const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (!jsonMatch) throw new Error('Réponse OCR invalide')
+      if (!jsonMatch) {
+        setOcrResult(null)
+        setMsg('⚠️ OCR : réponse illisible. La facture sera stockée — remplissez le formulaire manuellement.')
+        setMode('manual')
+        return
+      }
 
       const parsed = JSON.parse(jsonMatch[0])
       const ttc    = parseFloat(parsed.amount_ttc) || 0
@@ -153,7 +196,8 @@ export function Saisie() {
       }))
       setMode('manual')
     } catch (err: any) {
-      setMsg('❌ OCR : ' + (err.message || 'Erreur'))
+      setMsg('⚠️ OCR : ' + (err.message || 'Erreur inattendue') + '. La facture sera stockée — remplissez le formulaire manuellement.')
+      setMode('manual')
     } finally {
       setOcrLoading(false)
     }
@@ -216,6 +260,12 @@ export function Saisie() {
     const tvaAmt  = calcTvaAmount(ht, ttc)
     const tvaRte  = calcTvaRate(ht, ttc)
 
+    // Upload facture si présente
+    let invoiceUrl: string | null = null
+    if (ocrFile) {
+      invoiceUrl = await uploadInvoice(ocrFile)
+    }
+
     const { data, error } = await sb.from('manual_entries').insert({
       company_key:  form.company_key,
       entry_date:   form.entry_date,
@@ -230,7 +280,8 @@ export function Saisie() {
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
       account_num:  catConfig?.acc ?? '658',
-      source:       'manual',
+      source:       ocrFile ? 'ocr' : 'manual',
+      ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
     }).select().single()
 
     setSaving(false)
@@ -244,6 +295,7 @@ export function Saisie() {
     await refreshStore(newEntry)
     setMsg('✅ Entrée ajoutée et tableaux mis à jour')
     setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'' }))
+    setOcrFile(null)
     setTimeout(() => setMsg(null), 3000)
   }
 
@@ -265,11 +317,17 @@ export function Saisie() {
   return (
     <div style={{ padding:'16px 24px', maxWidth:920 }}>
 
+      {isReadOnly && (
+        <div style={{ padding:'8px 14px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', color:'#f59e0b', fontSize:11, fontWeight:600, marginBottom:16 }}>
+          Mode consultation — vous ne pouvez pas ajouter de saisies.
+        </div>
+      )}
+
       {/* Tabs */}
       <div style={{ display:'flex', gap:6, marginBottom:20, padding:4, background:'rgba(255,255,255,0.03)', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)' }}>
-        <button onClick={() => setMode('manual')} style={tabSt(mode==='manual')}>✏️ Saisie manuelle</button>
-        <button onClick={() => setMode('ocr')}    style={tabSt(mode==='ocr')}>   📷 Scanner (OCR)</button>
-        <button onClick={() => setMode('csv')}    style={tabSt(mode==='csv')}>   📄 Import CSV</button>
+        <button onClick={() => setMode('manual')} style={tabSt(mode==='manual')} disabled={isReadOnly}>✏️ Saisie manuelle</button>
+        <button onClick={() => setMode('ocr')}    style={tabSt(mode==='ocr')}    disabled={isReadOnly}>📷 Scanner (OCR)</button>
+        <button onClick={() => setMode('csv')}    style={tabSt(mode==='csv')}    disabled={isReadOnly}>📄 Import CSV</button>
       </div>
 
       {/* OCR */}
@@ -290,7 +348,12 @@ export function Saisie() {
               <span style={{ color:'#475569' }}>Formulaire pré-rempli → passez en Saisie manuelle</span>
             </div>
           )}
-          <div style={{ marginTop:16, fontSize:11, color:'#334155' }}>JPG · PNG · PDF · Propulsé par Claude AI</div>
+          {ocrFile && !ocrResult && (
+            <div style={{ marginTop:12, fontSize:12, color:'#f59e0b' }}>
+              📎 {ocrFile.name} — prêt à être enregistré avec la saisie
+            </div>
+          )}
+          <div style={{ marginTop:16, fontSize:11, color:'#334155' }}>JPG · PNG · PDF · Propulsé par Claude AI · Facture stockée automatiquement</div>
         </div>
       )}
 
@@ -389,7 +452,7 @@ export function Saisie() {
           </div>
 
           <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:14 }}>
-            <button onClick={handleSubmit} disabled={saving || !form.amount_ht}
+            <button onClick={handleSubmit} disabled={saving || !form.amount_ht || isReadOnly}
               style={{ padding:'8px 20px', borderRadius:8, background:'linear-gradient(135deg,#3b82f6,#6366f1)', border:'none', color:'#fff', fontSize:12, fontWeight:600, cursor: saving||!form.amount_ht ? 'not-allowed':'pointer', opacity: saving||!form.amount_ht ? 0.6:1 }}>
               {saving ? 'Enregistrement...' : '+ Ajouter'}
             </button>
@@ -407,7 +470,7 @@ export function Saisie() {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
             <thead>
               <tr style={{ background:'#0f172a' }}>
-                {['Date','Catégorie','Sous-cat. / Libellé','Contrepartie','HT €','TVA €','TTC €','Règlement','Source'].map(h => (
+                {['Date','Catégorie','Sous-cat. / Libellé','Contrepartie','HT €','TVA €','TTC €','Règlement','Source','Pièce'].map(h => (
                   <th key={h} style={{ padding:'6px 8px', textAlign: h==='HT €'||h==='TVA €'||h==='TTC €' ? 'right':'left', color:'#475569', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)', whiteSpace:'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -436,6 +499,11 @@ export function Saisie() {
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: e.category==='Vente' ? '#10b981':'#f1f5f9' }}>{ttc.toFixed(2)}</td>
                     <td style={{ padding:'6px 8px', color:'#334155' }}>{e.payment_mode||'—'}</td>
                     <td style={{ padding:'6px 8px', color:'#8b5cf6', fontSize:9 }}>{e.source}</td>
+                    <td style={{ padding:'6px 8px', fontSize:9 }}>
+                      {e.invoice_url
+                        ? <a href={e.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color:'#3b82f6', textDecoration:'none' }}>📄 Voir</a>
+                        : <span style={{ color:'#334155' }}>—</span>}
+                    </td>
                   </tr>
                 )
               })}

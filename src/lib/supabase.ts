@@ -8,20 +8,19 @@ export const OCR_PROXY_URL = `${SUPABASE_URL}/functions/v1/ocr-proxy`
 
 /**
  * Retourne le rôle de l'utilisateur.
- * En base TEST la table user_roles n'existe pas → toujours 'admin'.
- * En base PROD, décommenter le bloc try/catch ci-dessous.
+ * En mode test (VITE_ENV !== 'prod') → toujours 'admin'.
+ * En prod, lookup dans la table user_roles.
  */
-export async function getUserRole(_userId: string): Promise<string> {
-  return 'admin'
+export async function getUserRole(userId: string): Promise<string> {
+  const env = import.meta.env.VITE_ENV ?? 'test'
+  if (env !== 'prod') return 'admin'
 
-  /* PROD — décommenter quand la table user_roles existe :
   try {
     const { data, error } = await sb
-      .from('user_roles').select('role').eq('user_id', _userId).single()
+      .from('user_roles').select('role').eq('user_id', userId).single()
     if (error) return 'viewer'
     return data?.role ?? 'viewer'
   } catch {
     return 'viewer'
   }
-  */
 }

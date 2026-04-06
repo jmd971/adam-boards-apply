@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { fmt, pct, monthIdx } from '@/lib/calc'
+import { fmt, pct } from '@/lib/calc'
+import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 
 // Groupes de comptes pour chaque KPI
 const ACCS = {
@@ -36,22 +37,9 @@ function sumAccs(
 }
 
 export function Objectifs() {
-  const RAW     = useAppStore(s => s.RAW)
-  const filters = useAppStore(s => s.filters)
   const budData = useAppStore(s => s.budData)
 
-  // Sélection des mois N et N-1
-  const msN = useMemo(() => {
-    if (!RAW?.mn?.length) return []
-    if (!filters.startM || !filters.endM) return RAW.mn
-    return RAW.mn.filter((m: string) => monthIdx(m) >= monthIdx(filters.startM) && monthIdx(m) <= monthIdx(filters.endM))
-  }, [RAW?.mn?.join(','), filters.startM, filters.endM])
-
-  const msN1 = useMemo(() => {
-    return msN.map((m: string) => `${parseInt(m.slice(0,4))-1}-${m.slice(5,7)}`).filter((m: string) => (RAW?.m1 ?? []).includes(m))
-  }, [msN, RAW?.m1?.join(',')])
-
-  const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
+  const { RAW, selCo, selectedMs: msN, allMsN1Same: msN1 } = usePeriodFilter()
 
   // Calcul des valeurs N, N-1 et budget
   const kpiData = useMemo(() => {

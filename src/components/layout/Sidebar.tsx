@@ -1,5 +1,6 @@
 import { useAppStore } from '@/store'
 import type { TabId } from '@/types'
+import { canAccessTab, roleLabel, roleColor, type Role } from '@/lib/roles'
 
 interface SidebarProps { onTabChange?: (t: TabId) => void }
 
@@ -31,6 +32,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
   const tab     = useAppStore(s => s.tab)
   const setTab  = useAppStore(s => s.setTab)
   const user    = useAppStore(s => s.user)
+  const role    = useAppStore(s => s.role) as Role
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
   const setFilters = useAppStore(s => s.setFilters)
@@ -97,7 +99,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       {/* Navigation */}
       <nav style={{ flex:1, padding:'8px 0 12px', overflowY:'auto' }}>
         {GROUPS.map(g => {
-          const items = NAV.filter(n => n.group === g.key)
+          const items = NAV.filter(n => n.group === g.key && canAccessTab(role, n.id))
           return (
             <div key={g.key}>
               <div style={{ padding:'12px 16px 4px', fontSize:9, fontWeight:700, letterSpacing:'1.2px', color:'#334155', textTransform:'uppercase' }}>
@@ -133,7 +135,12 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       {/* Footer */}
       {user && (
         <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border-0)', flexShrink:0 }}>
-          <div style={{ fontSize:10, color:'#475569', marginBottom:4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{user.email}</div>
+          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
+            <div style={{ fontSize:10, color:'#475569', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{user.email}</div>
+            <span style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:10, background:`${roleColor(role)}20`, color:roleColor(role), whiteSpace:'nowrap' }}>
+              {roleLabel(role)}
+            </span>
+          </div>
           {RAW?.mn?.length && (
             <div style={{ fontSize:9, color:'#334155' }}>
               N: {RAW.mn[0]} → {RAW.mn[RAW.mn.length-1]}

@@ -271,4 +271,79 @@
     height: 150px !important;
     max-height: 150px !important;
   }
+
+  /* ════════════════════════════════════════════════════
+     Module print — CR, SIG, Bilan, Ratios, Equilibre
+     ════════════════════════════════════════════════════ */
+  .module-print {
+    background: #fff !important;
+    color: #1e293b !important;
+    padding: 8px !important;
+    font-size: 10px !important;
+
+    --bg-0: #fff;
+    --bg-1: #f8fafc;
+    --bg-2: #f1f5f9;
+    --bg-3: #e2e8f0;
+    --border-0: #e2e8f0;
+    --border-1: #cbd5e1;
+    --border-2: #94a3b8;
+    --text-0: #0f172a;
+    --text-1: #334155;
+    --text-2: #64748b;
+    --text-3: #94a3b8;
+    --card-bg: #f8fafc;
+    --blue: #2563eb;
+    --green: #059669;
+    --red: #dc2626;
+    --purple: #7c3aed;
+  }
+
+  .module-print * {
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* KPI cards */
+  .module-print .grid {
+    gap: 8px !important;
+  }
+
+  /* Charts: reduce height */
+  .module-print .recharts-responsive-container {
+    height: 160px !important;
+    max-height: 160px !important;
+  }
+
+  /* Table: compact */
+  .module-print table {
+    font-size: 9px !important;
+  }
+  .module-print table td,
+  .module-print table th {
+    padding: 4px 6px !important;
+    background: #fff !important;
+  }
+  .module-print table tr {
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+
+  /* Ratio cards */
+  .module-print .module-ratios > div > div {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
+  }
+
+  /* Bilan sections */
+  .module-print .module-bilan div {
+    background: #fff !important;
+  }
+
+  /* Avoid page breaks inside charts and cards */
+  .module-print .rounded-xl,
+  .module-print table {
+    break-inside: avoid !important;
+  }
 }

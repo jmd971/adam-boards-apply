@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { sb, getUserRole } from '@/lib/supabase'
 import { useAppStore } from '@/store'
+import { canAccessTab, type Role } from '@/lib/roles'
 import { Sidebar }          from '@/components/layout/Sidebar'
 import { TopBar }           from '@/components/layout/TopBar'
-import { Spinner }          from '@/components/ui'
+import { Spinner, ErrorBoundary } from '@/components/ui'
 import { LoginPage }        from '@/modules/auth/LoginPage'
 import { CompteResultat }   from '@/modules/cr/CompteResultat'
 import { Sig }              from '@/modules/sig/Sig'
@@ -31,6 +32,7 @@ const queryClient = new QueryClient({
 function AppInner() {
   const user        = useAppStore(s => s.user)
   const setUser     = useAppStore(s => s.setUser)
+  const role        = useAppStore(s => s.role) as Role
   const setRole     = useAppStore(s => s.setRole)
   const dataLoading = useAppStore(s => s.dataLoading)
   const RAW         = useAppStore(s => s.RAW)
@@ -67,8 +69,10 @@ function AppInner() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Fermer le nav mobile lors du changement d'onglet
-  const handleTabChange = (t: any) => { setTab(t); setNavOpen(false) }
+  // Fermer le nav mobile lors du changement d'onglet (avec vérification rôle)
+  const handleTabChange = (t: any) => {
+    if (canAccessTab(role, t)) { setTab(t); setNavOpen(false) }
+  }
 
   useCompanyData()
 
@@ -87,6 +91,13 @@ function AppInner() {
   )
 
   const TabContent = () => {
+    if (!canAccessTab(role, tab)) return (
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
+        <span style={{ fontSize:40 }}>🔒</span>
+        <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Accès restreint</div>
+        <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Votre rôle ne permet pas d'accéder à cet onglet. Contactez votre administrateur.</div>
+      </div>
+    )
     if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
@@ -94,24 +105,26 @@ function AppInner() {
         <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Importez un fichier FEC depuis l'onglet Import pour commencer.</div>
       </div>
     )
-    switch (tab) {
-      case 'dashboard':      return <Dashboard />
-      case 'cr':             return <CompteResultat />
-      case 'sig':            return <Sig />
-      case 'equilibre':      return <Equilibre />
-      case 'objectifs':      return <Objectifs />
-      case 'bilan':          return <Bilan />
-      case 'ratios':         return <Ratios />
-      case 'import':         return <Import />
-      case 'budget':         return <Budget />
-      case 'saisie':         return <Saisie />
-      case 'tresorerie':     return <Tresorerie />
-      case 'verification':   return <Verification />
-      case 'creances':       return <Creances />
-      case 'complementaire': return <Complementaire />
-      case 'aide':           return <Aide />
-      default: return null
+    const modules: Record<string, [string, React.ReactNode]> = {
+      dashboard:      ['Dashboard',       <Dashboard />],
+      cr:             ['Compte résultat', <CompteResultat />],
+      sig:            ['SIG',             <Sig />],
+      equilibre:      ['Équilibre',       <Equilibre />],
+      objectifs:      ['Objectifs',       <Objectifs />],
+      bilan:          ['Bilan',           <Bilan />],
+      ratios:         ['Ratios',          <Ratios />],
+      import:         ['Import',          <Import />],
+      budget:         ['Budget',          <Budget />],
+      saisie:         ['Saisie',          <Saisie />],
+      tresorerie:     ['Trésorerie',      <Tresorerie />],
+      verification:   ['Vérification',    <Verification />],
+      creances:       ['Créances',        <Creances />],
+      complementaire: ['Complémentaire',  <Complementaire />],
+      aide:           ['Aide',            <Aide />],
     }
+    const entry = modules[tab]
+    if (!entry) return null
+    return <ErrorBoundary key={tab} moduleName={entry[0]}>{entry[1]}</ErrorBoundary>
   }
 
   return (
@@ -141,5 +154,9 @@ function AppInner() {
 }
 
 export default function App() {
-  return <QueryClientProvider client={queryClient}><AppInner /></QueryClientProvider>
+  return (
+    <ErrorBoundary moduleName="Application">
+      <QueryClientProvider client={queryClient}><AppInner /></QueryClientProvider>
+    </ErrorBoundary>
+  )
 }

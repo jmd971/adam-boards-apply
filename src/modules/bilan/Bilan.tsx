@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { computeBilan } from '@/lib/bilan'
 import { fmt } from '@/lib/calc'
-import { KpiCard } from '@/components/ui'
+import { KpiCard, ExportBar } from '@/components/ui'
+import { exportBilanXlsx, printModule } from '@/lib/export'
 
 export function Bilan() {
+  const printRef = useRef<HTMLDivElement>(null)
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
 
@@ -41,8 +43,12 @@ export function Bilan() {
   )
 
   return (
-    <div style={{ padding:'20px 24px', maxWidth:900 }}>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24 }}>
+    <div ref={printRef} className="module-bilan" style={{ padding:'20px 24px', maxWidth:900 }}>
+      <ExportBar
+        onPdf={() => printModule(printRef, 'module-print')}
+        onExcel={() => exportBilanXlsx('Bilan', n)}
+      />
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24, marginTop:12 }}>
         <KpiCard label="Total Actif"        value={`${fmt(n.totalActif)} €`}  color="#3b82f6" />
         <KpiCard label="Capitaux propres"   value={`${fmt(n.capitaux)} €`}    color="#10b981" />
         <KpiCard label="Dettes financières" value={`${fmt(n.detteFin)} €`}    color="#f97316" />
