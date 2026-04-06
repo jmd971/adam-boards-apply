@@ -3,7 +3,7 @@
 export interface CompanyDataRow {
   id: string
   company_key: string
-  period: 'N' | 'N-1'
+  period: 'N' | 'N-1' | 'N-2'
   fiscal_year: string
   pl_data: Record<string, FecAccount>
   bilan_data: Record<string, BilanAccount>
@@ -73,8 +73,10 @@ export interface CompanyRaw {
   name: string
   pn: Record<string, FecAccount>   // N
   p1: Record<string, FecAccount>   // N-1
+  p2: Record<string, FecAccount>   // N-2
   bn: Record<string, BilanAccount> // bilan N
   b1: Record<string, BilanAccount> // bilan N-1
+  b2: Record<string, BilanAccount> // bilan N-2
   bud: BudgetData
   cdN: Record<string, ClientInfo>
   cdN1: Record<string, ClientInfo>
@@ -86,6 +88,7 @@ export interface RAWData {
   companies: Record<string, CompanyRaw>
   mn: string[]   // months N
   m1: string[]   // months N-1
+  m2: string[]   // months N-2
   keys: string[]
 }
 

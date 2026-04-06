@@ -72,6 +72,7 @@ export function Import() {
   }, [canEdit])
 
   const dropZones = [
+    { id: 'n2', label: 'N-2 (Avant-dernier)', period: 'N-2' },
     { id: 'n1', label: 'N-1 (Exercice précédent)', period: 'N-1' },
     { id: 'n',  label: 'N (Exercice en cours)',    period: 'N'   },
   ]
@@ -85,7 +86,7 @@ export function Import() {
 
       {canEdit ? (
         <>
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="grid grid-cols-3 gap-4 mb-6">
             {dropZones.map(z => (
               <div key={z.id}>
                 <div className="text-xs font-semibold text-muted mb-2">{z.label}</div>

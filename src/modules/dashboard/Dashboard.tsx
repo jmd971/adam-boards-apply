@@ -16,7 +16,7 @@ const SERV_ACCS  = ['61','62']
 const PERS_ACCS  = ['641','642','645','646']
 const AMORT_ACCS = ['681']
 
-function sumAccs(RAW: any, selCo: string[], field: 'pn'|'p1', month: string, prefixes: string[], charge = false): number {
+function sumAccs(RAW: any, selCo: string[], field: 'pn'|'p1'|'p2', month: string, prefixes: string[], charge = false): number {
   let total = 0
   for (const co of selCo) {
     const data = RAW.companies[co]?.[field] ?? {}
@@ -50,6 +50,22 @@ function computeKpis(RAW: any, selCo: string[], months: string[]) {
     txEbe:   ca > 0 ? ebe/ca   : 0,
     txRe:    ca > 0 ? re/ca    : 0,
   }
+}
+
+/** Compute KPIs for a given period field (pn, p1, p2) and its months */
+function computeKpisPeriod(RAW: any, selCo: string[], field: 'pn'|'p1'|'p2', months: string[]) {
+  let ca=0, ach=0, serv=0, pers=0, amrt=0
+  for (const m of months) {
+    ca   += sumAccs(RAW, selCo, field, m, CA_ACCS)
+    ach  += sumAccs(RAW, selCo, field, m, ACHAT_ACCS, true)
+    serv += sumAccs(RAW, selCo, field, m, SERV_ACCS,  true)
+    pers += sumAccs(RAW, selCo, field, m, PERS_ACCS,  true)
+    amrt += sumAccs(RAW, selCo, field, m, AMORT_ACCS, true)
+  }
+  const marge = ca - ach
+  const ebe   = marge - serv - pers
+  const re    = ebe - amrt
+  return { ca, marge, ebe, re }
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -188,6 +204,27 @@ export function Dashboard() {
 
     return list.sort((a, b) => a.priority - b.priority).slice(0, 6)
   }, [RAW, selCo.join(','), selectedMs.join(','), kpis])
+
+  // ── Tendance 3 ans ──────────────────────────────────────────────────
+  const hasN2 = (RAW?.m2?.length ?? 0) > 0
+  const trendData = useMemo(() => {
+    if (!RAW || !selectedMs.length) return null
+    const kN  = computeKpisPeriod(RAW, selCo, 'pn', RAW.mn ?? [])
+    const kN1 = computeKpisPeriod(RAW, selCo, 'p1', RAW.m1 ?? [])
+    const kN2 = hasN2 ? computeKpisPeriod(RAW, selCo, 'p2', RAW.m2 ?? []) : null
+
+    const fyN  = RAW.mn?.[0]?.slice(0, 4) ?? 'N'
+    const fyN1 = RAW.m1?.[0]?.slice(0, 4) ?? 'N-1'
+    const fyN2 = RAW.m2?.[0]?.slice(0, 4) ?? 'N-2'
+
+    const metrics = [
+      { key: "Chiffre d'affaires", N: kN.ca, N1: kN1.ca, N2: kN2?.ca },
+      { key: 'Marge brute',        N: kN.marge, N1: kN1.marge, N2: kN2?.marge },
+      { key: 'EBE',                N: kN.ebe, N1: kN1.ebe, N2: kN2?.ebe },
+      { key: 'Résultat exploit.',   N: kN.re, N1: kN1.re, N2: kN2?.re },
+    ]
+    return { metrics, fyN, fyN1, fyN2, hasN2: !!kN2 }
+  }, [RAW, selCo.join(','), selectedMs.join(','), hasN2])
 
   const totalCharges = chargesData.reduce((s, c) => s + c.value, 0)
   const tickFmt      = (v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)
@@ -355,6 +392,65 @@ export function Dashboard() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* Tendance 3 ans */}
+      {trendData && (trendData.hasN2 || (RAW?.m1?.length ?? 0) > 0) && (
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+            {trendData.hasN2 ? '📅 Tendance 3 exercices' : '📅 Tendance N vs N-1'}
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={trendData.metrics.map(m => ({
+              name: m.key,
+              [trendData.fyN]: Math.round(m.N),
+              [trendData.fyN1]: Math.round(m.N1),
+              ...(trendData.hasN2 ? { [trendData.fyN2]: Math.round(m.N2 ?? 0) } : {}),
+            }))} barGap={4}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <XAxis dataKey="name" tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis tickFormatter={tickFmt} tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} width={52} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize:11 }} />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
+              {trendData.hasN2 && <Bar dataKey={trendData.fyN2} fill="#64748b" opacity={0.5} radius={[3,3,0,0]} />}
+              <Bar dataKey={trendData.fyN1} fill="#6366f1" opacity={0.7} radius={[3,3,0,0]} />
+              <Bar dataKey={trendData.fyN} fill="#3b82f6" radius={[3,3,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* Tableau récapitulatif */}
+          <div style={{ marginTop:12, overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+              <thead>
+                <tr>
+                  <th style={{ padding:'6px 10px', textAlign:'left', color:'#64748b', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Indicateur</th>
+                  {trendData.hasN2 && <th style={{ padding:'6px 10px', textAlign:'right', color:'#64748b', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{trendData.fyN2}</th>}
+                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#6366f1', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{trendData.fyN1}</th>
+                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{trendData.fyN}</th>
+                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#64748b', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Var. N/N-1</th>
+                </tr>
+              </thead>
+              <tbody>
+                {trendData.metrics.map(m => {
+                  const varAmt = m.N - m.N1
+                  const varPctVal = m.N1 !== 0 ? varAmt / Math.abs(m.N1) : null
+                  return (
+                    <tr key={m.key} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                      <td style={{ padding:'6px 10px', color:'#94a3b8', fontWeight:600 }}>{m.key}</td>
+                      {trendData.hasN2 && <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', color:'#64748b' }}>{fmt(m.N2 ?? 0)} €</td>}
+                      <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8' }}>{fmt(m.N1)} €</td>
+                      <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', color:'#f1f5f9', fontWeight:700 }}>{fmt(m.N)} €</td>
+                      <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: varAmt >= 0 ? '#10b981' : '#ef4444' }}>
+                        {varAmt >= 0 ? '+' : ''}{fmt(varAmt)} € {varPctVal != null ? `(${varPctVal >= 0 ? '+' : ''}${pct(varPctVal)})` : ''}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       </div>{/* fin print-charts */}
 

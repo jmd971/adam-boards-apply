@@ -66,29 +66,31 @@ export function getCoColor(key: string): string {
 
 export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: string; data: BudgetData; status: string }[], manualEntries: ManualEntry[] = []): RAWData {
   const companies: Record<string, CompanyRaw> = {}
-  const allMsN = new Set<string>(), allMsN1 = new Set<string>()
+  const allMsN = new Set<string>(), allMsN1 = new Set<string>(), allMsN2 = new Set<string>()
   const allKeys = [...new Set(companyData.map(r => r.company_key).filter(Boolean))]
 
   for (const co of allKeys) {
     const rows = companyData.filter(r => r.company_key === co)
     const budget = budgets.find(b => b.company_key === co)
-    companies[co] = { name: co.replace(/_/g, ' '), pn: {}, p1: {}, bn: {}, b1: {}, bud: budget?.data ?? {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }
+    companies[co] = { name: co.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: budget?.data ?? {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }
     for (const row of rows) {
-      const isN = row.period === 'N', field = isN ? 'pn' : 'p1', bf = isN ? 'bn' : 'b1'
+      const plField = row.period === 'N' ? 'pn' : row.period === 'N-1' ? 'p1' : 'p2'
+      const bField  = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
+      const msSet   = row.period === 'N' ? allMsN : row.period === 'N-1' ? allMsN1 : allMsN2
       for (const [acc, acct] of Object.entries(row.pl_data ?? {})) {
-        companies[co][field][acc] = acct as any
-        for (const m of Object.keys((acct as any).mo ?? {})) { if (isN) allMsN.add(m); else allMsN1.add(m) }
+        companies[co][plField][acc] = acct as any
+        for (const m of Object.keys((acct as any).mo ?? {})) msSet.add(m)
       }
-      for (const [acc, acct] of Object.entries(row.bilan_data ?? {})) companies[co][bf][acc] = acct as any
-      if (isN) { companies[co].cdN = row.client_data ?? {}; companies[co].veN = row.ve_entries ?? [] }
-      else     { companies[co].cdN1 = row.client_data ?? {}; companies[co].veN1 = row.ve_entries ?? [] }
+      for (const [acc, acct] of Object.entries(row.bilan_data ?? {})) companies[co][bField][acc] = acct as any
+      if (row.period === 'N') { companies[co].cdN = row.client_data ?? {}; companies[co].veN = row.ve_entries ?? [] }
+      else if (row.period === 'N-1') { companies[co].cdN1 = row.client_data ?? {}; companies[co].veN1 = row.ve_entries ?? [] }
     }
   }
 
   const mn1Arr = [...allMsN1].sort()
   for (const me of manualEntries) {
     const mco = me.company_key; if (!mco) continue
-    if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, bn: {}, b1: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
+    if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
     const mMonth = mDate.slice(0, 7)
     const isN1 = mn1Arr.length > 0 && mMonth >= mn1Arr[0] && mMonth <= mn1Arr[mn1Arr.length - 1]
@@ -103,7 +105,7 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
     companies[mco][plField][acc].mo[mMonth][1] = Math.round((companies[mco][plField][acc].mo[mMonth][1] + credit) * 100) / 100
     companies[mco][plField][acc].e.push([mDate, me.label || me.counterpart || '', debit, credit, 'SA', 0])
   }
-  return { companies, mn: [...allMsN].sort(), m1: [...allMsN1].sort(), keys: allKeys }
+  return { companies, mn: [...allMsN].sort(), m1: [...allMsN1].sort(), m2: [...allMsN2].sort(), keys: allKeys }
 }
 
 export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {

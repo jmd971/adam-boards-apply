@@ -77,9 +77,9 @@ function AppInner() {
   useCompanyData()
 
   const allMonths = useMemo(() => {
-    const ms = new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? [])])
+    const ms = new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? []), ...(RAW?.m2 ?? [])])
     return [...ms].sort()
-  }, [RAW?.mn?.join(','), RAW?.m1?.join(',')])
+  }, [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')])
 
   if (!user) return <LoginPage onLogin={(u: User) => { setUser(u); getUserRole(u.id).then(setRole) }} />
 

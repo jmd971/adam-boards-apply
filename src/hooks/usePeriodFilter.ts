@@ -13,8 +13,8 @@ export function usePeriodFilter() {
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
 
   const allMonths = useMemo(() =>
-    [...new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? [])])].sort(),
-    [RAW?.mn?.join(','), RAW?.m1?.join(',')]
+    [...new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? []), ...(RAW?.m2 ?? [])])].sort(),
+    [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')]
   )
 
   const selectedMs = useMemo(() => {
