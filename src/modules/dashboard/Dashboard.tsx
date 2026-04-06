@@ -1,11 +1,13 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts'
 import { fmt, pct, monthIdx } from '@/lib/calc'
+import { computeBilan } from '@/lib/bilan'
 import { KpiCard } from '@/components/ui'
+import { evalThreshold, formatThresholdValue } from '@/lib/alertThresholds'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 const CHARGE_COLORS = ['#ef4444','#f97316','#f59e0b','#8b5cf6','#6366f1','#3b82f6','#14b8a6']
@@ -84,10 +86,71 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
+function ThresholdConfigPanel() {
+  const thresholds = useAppStore(s => s.alertThresholds)
+  const setThresholds = useAppStore(s => s.setAlertThresholds)
+
+  const update = (id: string, field: 'warn' | 'bad', value: string) => {
+    const v = parseFloat(value)
+    if (isNaN(v)) return
+    setThresholds(thresholds.map(t => t.id === id ? { ...t, [field]: v } : t))
+  }
+
+  const inputSt: React.CSSProperties = {
+    width: 64, padding: '4px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'monospace',
+    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+    color: '#cbd5e1', textAlign: 'right', outline: 'none',
+  }
+
+  return (
+    <div className="print-hide" style={{
+      background: 'var(--bg-1)', borderRadius: 'var(--radius-lg)', padding: '14px 16px',
+      border: '1px solid var(--border-1)',
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 10 }}>
+        Configuration des seuils d'alerte
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 8 }}>
+        {thresholds.map(t => (
+          <div key={t.id} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+            borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+          }}>
+            <span style={{ flex: 1, fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>{t.label}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
+              <span style={{ color: '#f59e0b' }}>W</span>
+              <input
+                type="number"
+                step={t.unit === 'x' ? '0.1' : '1'}
+                value={t.warn}
+                onChange={e => update(t.id, 'warn', e.target.value)}
+                style={inputSt}
+              />
+              <span style={{ color: '#ef4444', marginLeft: 4 }}>C</span>
+              <input
+                type="number"
+                step={t.unit === 'x' ? '0.1' : '1'}
+                value={t.bad}
+                onChange={e => update(t.id, 'bad', e.target.value)}
+                style={inputSt}
+              />
+              <span style={{ fontSize: 9, color: '#475569', minWidth: 30 }}>{t.unit}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 8, fontSize: 10, color: '#334155' }}>
+        W = seuil d'alerte (orange) · C = seuil critique (rouge) · {thresholds[0]?.direction === 'below' ? '"below" = alerte si valeur inférieure' : ''}
+      </div>
+    </div>
+  )
+}
+
 export function Dashboard() {
   const RAW      = useAppStore(s => s.RAW)
   const filters  = useAppStore(s => s.filters)
   const printRef = useRef<HTMLDivElement>(null)
+  const [showThresholdConfig, setShowThresholdConfig] = useState(false)
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
 
@@ -144,66 +207,62 @@ export function Dashboard() {
     }).filter(c => c.value > 0)
   }, [RAW, selCo.join(','), selectedMs.join(',')])
 
-  // ── Alertes ───────────────────────────────────────────────────────────
+  // ── Bilan (pour alertes BFR / levier) ──────────────────────────────
+  const bilan = useMemo(() => {
+    if (!RAW || !selCo.length) return null
+    return computeBilan(RAW, selCo)
+  }, [RAW, selCo.join(',')])
+
+  // ── Alertes basées sur les seuils configurables ───────────────────
+  const alertThresholds = useAppStore(s => s.alertThresholds)
+
   const alertes = useMemo(() => {
     if (!kpis || !selectedMs.length) return []
     const list: { icon: string; title: string; msg: string; color: string; priority: number }[] = []
-    const lastM = selectedMs[selectedMs.length - 1]
-    const prevM = selectedMs[selectedMs.length - 2]
-    const lastLabel = MONTHS_SHORT[parseInt(lastM.slice(5))-1]
 
-    // — Alertes structurelles (période filtrée)
-    if (kpis.re < 0)
-      list.push({ icon:'🔴', priority:0, title:'Résultat négatif', color:'var(--red)',
-        msg:`Perte de ${fmt(Math.abs(kpis.re))} € — Charges > Produits de ${fmt(Math.abs(kpis.re))} €` })
+    // Helper: build ratio values map (values in % for %-based thresholds)
+    const ca = kpis.ca
+    const nbMonths = selectedMs.length || 12
+    const bfrVal = bilan ? (bilan.n.stocks + bilan.n.clients - bilan.n.fournisseurs) : 0
+    const bfrJours = ca > 0 ? (bfrVal / ca) * 365 * (nbMonths / 12) : 0
+    const levierVal = bilan && bilan.n.capitaux > 0 ? bilan.n.detteFin / bilan.n.capitaux : 0
+    const evoVal = kpis.evoCa !== null ? kpis.evoCa * 100 : null
 
-    if (kpis.txMarge < 0.15)
-      list.push({ icon:'⚠️', priority:1, title:'Taux de marge critique', color:'var(--red)',
-        msg:`${pct(kpis.txMarge)} du CA — Objectif minimum : 30%` })
-    else if (kpis.txMarge < 0.25)
-      list.push({ icon:'⚡', priority:2, title:'Taux de marge à surveiller', color:'var(--amber)',
-        msg:`${pct(kpis.txMarge)} du CA — Une hausse de prix ou baisse des achats améliorerait la rentabilité` })
-
-    if (kpis.txEbe < 0)
-      list.push({ icon:'🔴', priority:0, title:'EBE négatif', color:'var(--red)',
-        msg:`EBE de ${fmt(kpis.ebe)} € — Les charges de fonctionnement dépassent la valeur créée` })
-    else if (kpis.txEbe < 0.05)
-      list.push({ icon:'⚠️', priority:1, title:'EBE insuffisant', color:'var(--amber)',
-        msg:`${pct(kpis.txEbe)} du CA — Seuil critique : 5% (banquiers observent ce ratio)` })
-    else if (kpis.txEbe > 0.10)
-      list.push({ icon:'✅', priority:3, title:'Bonne rentabilité', color:'var(--green)',
-        msg:`EBE à ${pct(kpis.txEbe)} du CA — Très bonne capacité à générer de la trésorerie` })
-
-    if (kpis.evoCa !== null) {
-      if (kpis.evoCa > 0.05)
-        list.push({ icon:'📈', priority:3, title:'CA en progression', color:'var(--green)',
-          msg:`+${pct(kpis.evoCa)} vs N-1 — CA de ${fmt(kpis.ca)} € pour ${fmt(kpis.caN1)} € l'an passé` })
-      else if (kpis.evoCa < -0.02)
-        list.push({ icon:'📉', priority:1, title:'CA en recul vs N-1', color:'var(--amber)',
-          msg:`${pct(kpis.evoCa)} vs N-1 — Perte de ${fmt(Math.abs(kpis.ca - kpis.caN1))} € de CA` })
+    const ratioValues: Record<string, { value: number; display: string; detail: string }> = {
+      txMarge:  { value: kpis.txMarge * 100,  display: pct(kpis.txMarge),  detail: `Marge : ${fmt(kpis.marge)} € / CA : ${fmt(ca)} €` },
+      txEbe:    { value: kpis.txEbe * 100,    display: pct(kpis.txEbe),    detail: `EBE : ${fmt(kpis.ebe)} €` },
+      txRnet:   { value: kpis.txRe * 100,     display: pct(kpis.txRe),     detail: `Résultat : ${fmt(kpis.re)} €` },
+      txVA:     { value: ca > 0 ? ((kpis.marge - kpis.serv) / ca) * 100 : 0, display: ca > 0 ? pct((kpis.marge - kpis.serv) / ca) : '—', detail: `VA estimée sur la période` },
+      bfrJours: { value: bfrJours,             display: `${Math.round(bfrJours)} jours`, detail: `BFR : ${fmt(bfrVal)} €` },
+      levier:   { value: levierVal,            display: `${levierVal.toFixed(2)}x`,      detail: `Dettes : ${fmt(bilan?.n.detteFin ?? 0)} € / CP : ${fmt(bilan?.n.capitaux ?? 0)} €` },
+      evoCa:    { value: evoVal ?? 0,          display: evoVal != null ? pct(kpis.evoCa!) : '—', detail: `N : ${fmt(ca)} € / N-1 : ${fmt(kpis.caN1)} €` },
     }
 
-    // — Alertes du mois courant vs mois précédent
-    if (prevM) {
-      const kpisLast = computeKpis(RAW, selCo, [lastM])
-      const kpisPrev = computeKpis(RAW, selCo, [prevM])
-      if (kpisPrev.ca > 0 && kpisLast.ca > 0) {
-        const evo = (kpisLast.ca - kpisPrev.ca) / kpisPrev.ca
-        if (evo > 0.05)
-          list.push({ icon:'🚀', priority:3, title:`CA ${lastLabel} en hausse`, color:'var(--green)',
-            msg:`+${pct(evo)} vs mois précédent (${fmt(kpisLast.ca)} € vs ${fmt(kpisPrev.ca)} €)` })
-        else if (evo < -0.05)
-          list.push({ icon:'📉', priority:1, title:`Baisse CA en ${lastLabel}`, color:'var(--red)',
-            msg:`${pct(evo)} vs mois précédent (${fmt(kpisLast.ca)} € vs ${fmt(kpisPrev.ca)} €)` })
+    // Evaluate each threshold
+    for (const t of alertThresholds) {
+      const rv = ratioValues[t.id]
+      if (!rv) continue
+      if (t.id === 'evoCa' && evoVal === null) continue
+
+      const status = evalThreshold(rv.value, t)
+      if (status === 'good') {
+        list.push({ icon: '✅', priority: 3, title: `${t.label} : ${rv.display}`, color: 'var(--green)',
+          msg: `${rv.detail} — Seuil OK (> ${formatThresholdValue(t.warn, t.unit)})` })
+      } else if (status === 'warn') {
+        list.push({ icon: '⚠️', priority: 1, title: `${t.label} : ${rv.display}`, color: 'var(--amber)',
+          msg: `${rv.detail} — Seuil d'alerte : ${formatThresholdValue(t.warn, t.unit)}` })
+      } else {
+        list.push({ icon: '🔴', priority: 0, title: `${t.label} : ${rv.display}`, color: 'var(--red)',
+          msg: `${rv.detail} — Seuil critique : ${formatThresholdValue(t.bad, t.unit)}` })
       }
     }
 
-    // Toujours afficher une synthèse
-    list.push({ icon:'📊', priority:4, title:'Synthèse de la période', color:'var(--blue)',
-      msg:`CA : ${fmt(kpis.ca)} € · Marge brute : ${pct(kpis.txMarge)} · EBE : ${pct(kpis.txEbe)} · Résultat : ${fmt(kpis.re)} €` })
+    // Synthèse toujours visible
+    list.push({ icon: '📊', priority: 4, title: 'Synthèse de la période', color: 'var(--blue)',
+      msg: `CA : ${fmt(kpis.ca)} € · Marge : ${pct(kpis.txMarge)} · EBE : ${pct(kpis.txEbe)} · Résultat : ${fmt(kpis.re)} €` })
 
-    return list.sort((a, b) => a.priority - b.priority).slice(0, 6)
-  }, [RAW, selCo.join(','), selectedMs.join(','), kpis])
+    return list.sort((a, b) => a.priority - b.priority).slice(0, 8)
+  }, [RAW, selCo.join(','), selectedMs.join(','), kpis, bilan, alertThresholds])
 
   // ── Tendance 3 ans ──────────────────────────────────────────────────
   const hasN2 = (RAW?.m2?.length ?? 0) > 0
@@ -258,10 +317,18 @@ export function Dashboard() {
           {selCo.map(co => RAW.companies[co]?.name || co).join(' · ')}
           {selectedMs.length > 0 && ` · ${selectedMs.length} mois analysés`}
         </div>
-        <button onClick={handlePrint} className="print-hide" style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color:'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-          📄 Exporter PDF
-        </button>
+        <div className="print-hide" style={{ display:'flex', gap:8 }}>
+          <button onClick={() => setShowThresholdConfig(v => !v)} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background: showThresholdConfig ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color: showThresholdConfig ? '#93c5fd' : 'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+            Seuils
+          </button>
+          <button onClick={handlePrint} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color:'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+            PDF
+          </button>
+        </div>
       </div>
+
+      {/* Threshold config panel */}
+      {showThresholdConfig && <ThresholdConfigPanel />}
 
       {/* KPIs */}
       <div className="print-kpis" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:12 }}>

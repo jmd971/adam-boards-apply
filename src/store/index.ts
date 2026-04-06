@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@supabase/supabase-js'
 import type { RAWData, TabId, ManualEntry, FilterState } from '@/types'
+import { DEFAULT_THRESHOLDS, type AlertThreshold } from '@/lib/alertThresholds'
 
 // ─── Auth slice ────────────────────────────────────────────────────────────
 
@@ -32,8 +33,10 @@ interface DataState {
 interface UIState {
   tab: TabId
   filters: FilterState
+  alertThresholds: AlertThreshold[]
   setTab: (tab: TabId) => void
   setFilters: (partial: Partial<FilterState>) => void
+  setAlertThresholds: (thresholds: AlertThreshold[]) => void
 }
 
 // ─── Combined store ────────────────────────────────────────────────────────
@@ -72,9 +75,11 @@ export const useAppStore = create<AppStore>()(
         selCo: [],
         budCo: '',
       },
+      alertThresholds: DEFAULT_THRESHOLDS,
       setTab: (tab) => set({ tab }),
       setFilters: (partial) =>
         set(state => ({ filters: { ...state.filters, ...partial } })),
+      setAlertThresholds: (alertThresholds) => set({ alertThresholds }),
     }),
     {
       name: 'adamboards-store',
@@ -86,6 +91,7 @@ export const useAppStore = create<AppStore>()(
           selCo:      s.filters.selCo,
           budCo:      s.filters.budCo,
         },
+        alertThresholds: s.alertThresholds,
       }),
     }
   )
