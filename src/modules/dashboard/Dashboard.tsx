@@ -195,19 +195,9 @@ export function Dashboard() {
 
   // ── Export PDF ────────────────────────────────────────────────────────
   const handlePrint = () => {
-    const style = document.createElement('style')
-    style.innerHTML = `@media print {
-      body > * { display: none !important; }
-      #__dashboard_print { display: block !important; }
-      @page { size: A4 landscape; margin: 8mm; }
-    }`
-    document.head.appendChild(style)
-    if (printRef.current) printRef.current.id = '__dashboard_print'
+    printRef.current?.classList.add('dashboard-print')
     window.print()
-    setTimeout(() => {
-      document.head.removeChild(style)
-      printRef.current?.removeAttribute('id')
-    }, 1000)
+    setTimeout(() => printRef.current?.classList.remove('dashboard-print'), 500)
   }
 
   if (!RAW) return (
@@ -231,13 +221,13 @@ export function Dashboard() {
           {selCo.map(co => RAW.companies[co]?.name || co).join(' · ')}
           {selectedMs.length > 0 && ` · ${selectedMs.length} mois analysés`}
         </div>
-        <button onClick={handlePrint} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color:'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+        <button onClick={handlePrint} className="print-hide" style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color:'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
           📄 Exporter PDF
         </button>
       </div>
 
       {/* KPIs */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:12 }}>
+      <div className="print-kpis" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:12 }}>
         <KpiCard label="Chiffre d'affaires" value={`${fmt(kpis?.ca ?? 0)} €`} color="var(--green)"
           trend={kpis?.evoCa != null ? kpis.evoCa * 100 : undefined}
           sub={kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined} />
@@ -253,7 +243,7 @@ export function Dashboard() {
 
       {/* Alertes */}
       {alertes.length > 0 && (
-        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'14px 16px', border:'1px solid var(--border-1)' }}>
+        <div className="print-alertes" style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'14px 16px', border:'1px solid var(--border-1)' }}>
           <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
             🔔 Alertes — {lastLabel || 'Période sélectionnée'}
           </div>
@@ -270,6 +260,9 @@ export function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Graphiques */}
+      <div className="print-charts">
 
       {/* Graphique CA */}
       <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
@@ -362,6 +355,8 @@ export function Dashboard() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      </div>{/* fin print-charts */}
 
     </div>
   )

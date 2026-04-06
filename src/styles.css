@@ -175,3 +175,100 @@
   .kpi-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
   .chart-grid { grid-template-columns: 1fr !important; }
 }
+
+/* ════════════════════════════════════════════════════
+   PRINT — Dashboard PDF export (A4 paysage)
+   ════════════════════════════════════════════════════ */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 8mm;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* Masquer sidebar, topbar, overlay mobile */
+  .sidebar-wrapper { display: none !important; }
+  .main-content { margin-left: 0 !important; }
+  .main-content > *:not(main) { display: none !important; }
+  .print-hide { display: none !important; }
+
+  /* Fond clair global */
+  body, #root, .main-content, main {
+    background: #fff !important;
+    color: #1e293b !important;
+  }
+
+  /* Container dashboard */
+  .dashboard-print {
+    background: #fff !important;
+    color: #1e293b !important;
+    padding: 4px !important;
+    font-size: 9px !important;
+    gap: 6px !important;
+  }
+
+  /* Remap CSS vars pour le print */
+  .dashboard-print {
+    --bg-0: #fff;
+    --bg-1: #f8fafc;
+    --bg-2: #f1f5f9;
+    --bg-3: #e2e8f0;
+    --border-0: #e2e8f0;
+    --border-1: #cbd5e1;
+    --border-2: #94a3b8;
+    --text-0: #0f172a;
+    --text-1: #334155;
+    --text-2: #64748b;
+    --text-3: #94a3b8;
+  }
+
+  /* KPIs : une ligne de 4 */
+  .dashboard-print .print-kpis {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 6px !important;
+    margin-bottom: 6px !important;
+  }
+
+  .dashboard-print .print-kpis > * {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+    padding: 6px 8px !important;
+  }
+
+  /* Alertes : compactes */
+  .dashboard-print .print-alertes {
+    margin-bottom: 6px !important;
+    padding: 6px 8px !important;
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+  }
+
+  /* Graphiques : grille 2×2 */
+  .dashboard-print .print-charts {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 6px !important;
+  }
+
+  .dashboard-print .print-charts > * {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 6px !important;
+    padding: 6px 8px !important;
+    break-inside: avoid !important;
+  }
+
+  /* Hauteurs graphiques réduites pour tenir sur 1 page */
+  .dashboard-print .recharts-responsive-container {
+    height: 150px !important;
+    max-height: 150px !important;
+  }
+}
