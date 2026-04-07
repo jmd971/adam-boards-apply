@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { sb, getUserRole } from '@/lib/supabase'
+import { sb, getUserRoleAndTenant } from '@/lib/supabase'
 import { useAppStore } from '@/store'
 import { canAccessTab, type Role } from '@/lib/roles'
 import { Sidebar }          from '@/components/layout/Sidebar'
@@ -22,6 +22,7 @@ import { Verification }     from '@/modules/verification/Verification'
 import { Creances }         from '@/modules/creances/Creances'
 import { Complementaire }   from '@/modules/complementaire/Complementaire'
 import { Rapprochement }    from '@/modules/rapprochement/Rapprochement'
+import { Depot }            from '@/modules/depot/Depot'
 import { Aide }             from '@/modules/aide/Aide'
 import { useCompanyData }   from '@/hooks/useCompanyData'
 import type { User }        from '@supabase/supabase-js'
@@ -35,6 +36,7 @@ function AppInner() {
   const setUser     = useAppStore(s => s.setUser)
   const role        = useAppStore(s => s.role) as Role
   const setRole     = useAppStore(s => s.setRole)
+  const setTenant   = useAppStore(s => s.setTenant)
   const dataLoading = useAppStore(s => s.dataLoading)
   const RAW         = useAppStore(s => s.RAW)
   const tab         = useAppStore(s => s.tab)
@@ -53,18 +55,25 @@ function AppInner() {
       window.history.replaceState(null, '', window.location.pathname)
     }
 
+    const resolveAuth = (userId: string) =>
+      getUserRoleAndTenant(userId).then(({ role, tenantId, tenantName }) => {
+        setRole(role)
+        setTenant(tenantId, tenantName)
+      })
+
     sb.auth.getSession().then(({ data }) => {
       if (data.session?.user) {
         setUser(data.session.user)
-        getUserRole(data.session.user.id).then(setRole)
+        resolveAuth(data.session.user.id)
       }
     })
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         setUser(session?.user ?? null)
-        if (session?.user) getUserRole(session.user.id).then(setRole)
+        if (session?.user) resolveAuth(session.user.id)
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
+        setTenant(null, null)
       }
     })
     return () => subscription.unsubscribe()
@@ -82,7 +91,7 @@ function AppInner() {
     return [...ms].sort()
   }, [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')])
 
-  if (!user) return <LoginPage onLogin={(u: User) => { setUser(u); getUserRole(u.id).then(setRole) }} />
+  if (!user) return <LoginPage onLogin={(u: User) => { setUser(u); getUserRoleAndTenant(u.id).then(({ role, tenantId, tenantName }) => { setRole(role); setTenant(tenantId, tenantName) }) }} />
 
   if (dataLoading) return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, background:'#080d1a', color:'#f1f5f9' }}>
@@ -99,7 +108,7 @@ function AppInner() {
         <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Votre rôle ne permet pas d'accéder à cet onglet. Contactez votre administrateur.</div>
       </div>
     )
-    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances') return (
+    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances' && tab !== 'depot') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
@@ -122,6 +131,7 @@ function AppInner() {
       creances:       ['Créances',        <Creances />],
       complementaire: ['Complémentaire',  <Complementaire />],
       rapprochement:  ['Rapprochement',   <Rapprochement />],
+      depot:          ['Dépôts',          <Depot />],
       aide:           ['Aide',            <Aide />],
     }
     const entry = modules[tab]

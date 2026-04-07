@@ -1,7 +1,17 @@
+// ─── Tenant ───────────────────────────────────────────────────────────────
+
+export interface Tenant {
+  id: string
+  name: string
+  slug: string
+  created_at: string
+}
+
 // ─── Supabase / Data ───────────────────────────────────────────────────────
 
 export interface CompanyDataRow {
   id: string
+  tenant_id: string
   company_key: string
   period: 'N' | 'N-1' | 'N-2'
   fiscal_year: string
@@ -18,6 +28,7 @@ export interface CompanyDataRow {
 
 export interface BudgetRow {
   id: string
+  tenant_id: string
   company_key: string
   data: BudgetData
   status: 'draft' | 'validated'
@@ -26,6 +37,7 @@ export interface BudgetRow {
 
 export interface ManualEntry {
   id: string
+  tenant_id: string
   company_key: string
   entry_date: string
   amount_ttc: string
@@ -208,7 +220,7 @@ export type TabId =
   | 'dashboard'
   | 'cr' | 'sig' | 'equilibre' | 'objectifs' | 'bilan' | 'ratios'
   | 'import' | 'budget' | 'saisie' | 'verification' | 'complementaire'
-  | 'tresorerie' | 'creances' | 'rapprochement' | 'aide'
+  | 'tresorerie' | 'creances' | 'rapprochement' | 'depot' | 'aide'
 
 export interface NavItem {
   id: TabId
@@ -225,4 +237,34 @@ export interface FilterState {
   excludeOD: boolean
   selCo: string[]
   budCo: string
+}
+
+// ─── Dépôts FEC ───────────────────────────────────────────────────────────
+
+export interface DepositLink {
+  id: string
+  tenant_id: string
+  token: string
+  company_key: string
+  label: string | null
+  period: 'N' | 'N-1' | 'N-2'
+  created_by: string | null
+  active: boolean
+  created_at: string
+}
+
+export interface Deposit {
+  id: string
+  tenant_id: string
+  link_id: string
+  company_key: string
+  period: string
+  file_name: string
+  file_path: string
+  file_size: number | null
+  status: 'pending' | 'integrated' | 'rejected'
+  reject_reason: string | null
+  integrated_at: string | null
+  integrated_by: string | null
+  deposited_at: string
 }

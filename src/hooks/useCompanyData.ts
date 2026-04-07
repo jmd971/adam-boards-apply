@@ -7,6 +7,7 @@ import type { CompanyDataRow, ManualEntry } from '@/types'
 
 export function useCompanyData() {
   const user            = useAppStore(s => s.user)
+  const tenantId        = useAppStore(s => s.tenantId)
   const setRAW          = useAppStore(s => s.setRAW)
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const setBudData      = useAppStore(s => s.setBudData)
@@ -16,8 +17,8 @@ export function useCompanyData() {
 
   const query = useQuery({
     // Inclure l'user ID dans la clé → refetch automatique après login
-    queryKey: ['companyData', user?.id ?? 'anonymous'],
-    enabled:  !!user,   // ne pas lancer sans utilisateur connecté
+    queryKey: ['companyData', user?.id ?? 'anonymous', tenantId],
+    enabled:  !!user && !!tenantId,
     queryFn: async () => {
       const [cdRes, bdRes, meRes] = await Promise.all([
         sb.from('company_data').select('*'),

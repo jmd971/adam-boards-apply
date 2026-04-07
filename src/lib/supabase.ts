@@ -6,21 +6,35 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 export const sb            = createClient(SUPABASE_URL, SUPABASE_KEY)
 export const OCR_PROXY_URL = `${SUPABASE_URL}/functions/v1/ocr-proxy`
 
-/**
- * Retourne le rôle de l'utilisateur.
- * En mode test (VITE_ENV !== 'prod') → toujours 'admin'.
- * En prod, lookup dans la table user_roles.
- */
-export async function getUserRole(userId: string): Promise<string> {
-  const env = import.meta.env.VITE_ENV ?? 'test'
-  if (env !== 'prod') return 'admin'
+interface RoleAndTenant {
+  role: string
+  tenantId: string | null
+  tenantName: string | null
+}
 
+/**
+ * Retourne le rôle et le tenant de l'utilisateur.
+ * Lookup dans la table user_roles avec jointure sur tenants.
+ */
+export async function getUserRoleAndTenant(userId: string): Promise<RoleAndTenant> {
   try {
     const { data, error } = await sb
-      .from('user_roles').select('role').eq('user_id', userId).single()
-    if (error) return 'viewer'
-    return data?.role ?? 'viewer'
+      .from('user_roles')
+      .select('role, tenant_id, tenants(name)')
+      .eq('user_id', userId)
+      .single()
+
+    if (error || !data) {
+      const env = import.meta.env.VITE_ENV ?? 'test'
+      return { role: env !== 'prod' ? 'admin' : 'viewer', tenantId: null, tenantName: null }
+    }
+
+    return {
+      role: data.role ?? 'viewer',
+      tenantId: data.tenant_id ?? null,
+      tenantName: (data.tenants as any)?.name ?? null,
+    }
   } catch {
-    return 'viewer'
+    return { role: 'viewer', tenantId: null, tenantName: null }
   }
 }

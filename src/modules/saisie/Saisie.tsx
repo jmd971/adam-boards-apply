@@ -5,6 +5,7 @@ import { Spinner } from '@/components/ui'
 import { buildRAW } from '@/lib/calc'
 import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
+import { useTenantId } from '@/store'
 
 const CATEGORIES = [
   { cat: 'Vente',   subs: ['Prestation de service','Vente de marchandise','Activité annexe','Autre vente'],   acc: '706' },
@@ -47,6 +48,7 @@ export function Saisie() {
   const RAW            = useAppStore(s => s.RAW)
   const filters        = useAppStore(s => s.filters)
   const role           = useAppStore(s => s.role) as Role
+  const tenantId       = useTenantId()
   const setRAW         = useAppStore(s => s.setRAW)
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const manualEntries  = useAppStore(s => s.manualEntries)
@@ -106,7 +108,7 @@ export function Saisie() {
   // ── Upload facture vers Supabase Storage ───────────────────────────────────
   const uploadInvoice = async (file: File): Promise<string | null> => {
     const ext = file.name.split('.').pop() || 'jpg'
-    const path = `${form.company_key}/${Date.now()}.${ext}`
+    const path = `${tenantId}/${form.company_key}/${Date.now()}.${ext}`
     const { error } = await sb.storage.from('invoice').upload(path, file)
     if (error) {
       setMsg(`⚠️ Upload facture échoué : ${error.message}`)
@@ -221,6 +223,7 @@ export function Saisie() {
       const ht  = parseFloat(row.amount_ht  || row.montant_ht  || '0') || 0
       const ttc = parseFloat(row.amount_ttc || row.montant_ttc || '0') || 0
       imported.push({
+        tenant_id:    tenantId,
         company_key:  form.company_key,
         entry_date:   row.date || row.entry_date || '',
         category:     row.category || row.categorie || 'Depense',
@@ -267,6 +270,7 @@ export function Saisie() {
     }
 
     const { data, error } = await sb.from('manual_entries').insert({
+      tenant_id:    tenantId,
       company_key:  form.company_key,
       entry_date:   form.entry_date,
       category:     form.category,

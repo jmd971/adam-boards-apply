@@ -17,6 +17,7 @@ interface ImportResult {
 
 export function Import() {
   const role = useAppStore(s => s.role)
+  const tenantId = useAppStore(s => s.tenantId)
   const canEdit = role === 'admin' || role === 'editor'
   const [importing, setImporting]   = useState(false)
   const [dragOver, setDragOver]     = useState<string | null>(null)
@@ -39,6 +40,7 @@ export function Import() {
           : detectPeriod(parsed.months)
 
         const { error } = await sb.from('company_data').upsert({
+          tenant_id: tenantId,
           company_key: co,
           period,
           fiscal_year: fy,
@@ -49,7 +51,7 @@ export function Import() {
           source: 'manual',
           client_data: parsed.clientData,
           ve_entries: parsed.veEntries,
-        }, { onConflict: 'company_key,period' })
+        }, { onConflict: 'tenant_id,company_key,period' })
 
         if (error) throw error
 

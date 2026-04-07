@@ -426,6 +426,7 @@ export function Budget() {
   const filters    = useAppStore(s => s.filters)
   const budData    = useAppStore(s => s.budData)
   const setBudData = useAppStore(s => s.setBudData)
+  const tenantId   = useAppStore(s => s.tenantId)
 
   const [budCo,     setBudCo]     = useState(filters.selCo[0] ?? '')
   const [saving,    setSaving]    = useState(false)
@@ -480,8 +481,8 @@ export function Budget() {
   const handleSave = async () => {
     setSaving(true)
     const { error } = await sb.from('budget').upsert(
-      { company_key: budCo, data: coBud, status: 'draft' },
-      { onConflict: 'company_key' }
+      { tenant_id: tenantId, company_key: budCo, data: coBud, status: 'draft' },
+      { onConflict: 'tenant_id,company_key' }
     )
     setSaving(false)
     setMsg(error ? '❌ ' + error.message : '✅ Budget sauvegardé')

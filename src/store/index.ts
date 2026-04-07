@@ -9,8 +9,11 @@ import { DEFAULT_THRESHOLDS, type AlertThreshold } from '@/lib/alertThresholds'
 interface AuthState {
   user: User | null
   role: string
+  tenantId: string | null
+  tenantName: string | null
   setUser: (user: User | null) => void
   setRole: (role: string) => void
+  setTenant: (id: string | null, name: string | null) => void
 }
 
 // ─── Data slice ────────────────────────────────────────────────────────────
@@ -49,8 +52,11 @@ export const useAppStore = create<AppStore>()(
       // Auth
       user: null,
       role: 'viewer',
+      tenantId: null,
+      tenantName: null,
       setUser: (user) => set({ user }),
       setRole: (role) => set({ role }),
+      setTenant: (tenantId, tenantName) => set({ tenantId, tenantName }),
 
       // Data
       RAW: null,
@@ -98,8 +104,9 @@ export const useAppStore = create<AppStore>()(
 )
 
 // Sélecteurs typés
-export const useUser    = () => useAppStore(s => s.user)
-export const useRole    = () => useAppStore(s => s.role)
+export const useUser     = () => useAppStore(s => s.user)
+export const useRole     = () => useAppStore(s => s.role)
+export const useTenantId = () => useAppStore(s => s.tenantId)
 export const useRAW     = () => useAppStore(s => s.RAW)
 export const useFilters = () => useAppStore(s => s.filters)
 export const useTab     = () => useAppStore(s => s.tab)

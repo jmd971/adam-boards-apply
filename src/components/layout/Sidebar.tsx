@@ -1,4 +1,6 @@
 import { useAppStore } from '@/store'
+import { useQuery } from '@tanstack/react-query'
+import { sb } from '@/lib/supabase'
 import type { TabId } from '@/types'
 import { canAccessTab, roleLabel, roleColor, type Role } from '@/lib/roles'
 
@@ -18,6 +20,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'complementaire',  label:'Complémentaire',     icon:'📈', group:'analyse' },
   { id:'creances',        label:'Créances clients',   icon:'📋', group:'analyse' },
   { id:'rapprochement',   label:'Rapprochement',      icon:'🏦', group:'ops'     },
+  { id:'depot',            label:'Dépôts clients',     icon:'📥', group:'admin'   },
   { id:'import',          label:'Import',             icon:'📁', group:'admin'   },
   { id:'verification',    label:'Vérification',       icon:'🔍', group:'admin'   },
   { id:'aide',            label:'Aide',               icon:'❓', group:'admin'   },
@@ -30,10 +33,11 @@ const GROUPS = [
 ]
 
 export function Sidebar({ onTabChange }: SidebarProps) {
-  const tab     = useAppStore(s => s.tab)
-  const setTab  = useAppStore(s => s.setTab)
-  const user    = useAppStore(s => s.user)
-  const role    = useAppStore(s => s.role) as Role
+  const tab        = useAppStore(s => s.tab)
+  const setTab     = useAppStore(s => s.setTab)
+  const user       = useAppStore(s => s.user)
+  const role       = useAppStore(s => s.role) as Role
+  const tenantName = useAppStore(s => s.tenantName)
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
   const setFilters = useAppStore(s => s.setFilters)
@@ -42,6 +46,18 @@ export function Sidebar({ onTabChange }: SidebarProps) {
     setTab(id)
     onTabChange?.(id)
   }
+
+  const { data: pendingCount = 0 } = useQuery<number>({
+    queryKey: ['deposits_pending_count'],
+    enabled: !!user,
+    refetchInterval: 30_000,
+    queryFn: async () => {
+      const { count } = await sb.from('deposits')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending')
+      return count ?? 0
+    },
+  })
 
   const companies = RAW?.keys ?? []
   const selCo = filters.selCo
@@ -62,6 +78,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
               <span style={{ color:'#3b82f6' }}>adam</span>boards
             </div>
             <div style={{ fontSize:9, color:'#475569', letterSpacing:'1.5px', textTransform:'uppercase', marginTop:1 }}>Tableau de bord financier</div>
+            {tenantName && <div style={{ fontSize:9, color:'#3b82f6', marginTop:2, fontWeight:600 }}>{tenantName}</div>}
           </div>
         </div>
       </div>
@@ -124,6 +141,13 @@ export function Sidebar({ onTabChange }: SidebarProps) {
                   >
                     <span style={{ fontSize:15, flexShrink:0 }}>{item.icon}</span>
                     <span>{item.label}</span>
+                    {item.id === 'depot' && pendingCount > 0 && (
+                      <span style={{
+                        marginLeft: 4, fontSize: 9, fontWeight: 700,
+                        padding: '1px 6px', borderRadius: 10,
+                        background: '#ef4444', color: '#fff',
+                      }}>{pendingCount}</span>
+                    )}
                     {active && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:'#3b82f6', flexShrink:0 }} />}
                   </button>
                 )
