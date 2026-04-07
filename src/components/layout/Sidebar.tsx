@@ -17,6 +17,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'ratios',          label:'Ratios',             icon:'📐', group:'analyse' },
   { id:'complementaire',  label:'Complémentaire',     icon:'📈', group:'analyse' },
   { id:'creances',        label:'Créances clients',   icon:'📋', group:'analyse' },
+  { id:'rapprochement',   label:'Rapprochement',      icon:'🏦', group:'ops'     },
   { id:'import',          label:'Import',             icon:'📁', group:'admin'   },
   { id:'verification',    label:'Vérification',       icon:'🔍', group:'admin'   },
   { id:'aide',            label:'Aide',               icon:'❓', group:'admin'   },

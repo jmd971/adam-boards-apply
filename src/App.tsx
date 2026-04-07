@@ -21,6 +21,7 @@ import { Tresorerie }       from '@/modules/tresorerie/Tresorerie'
 import { Verification }     from '@/modules/verification/Verification'
 import { Creances }         from '@/modules/creances/Creances'
 import { Complementaire }   from '@/modules/complementaire/Complementaire'
+import { Rapprochement }    from '@/modules/rapprochement/Rapprochement'
 import { Aide }             from '@/modules/aide/Aide'
 import { useCompanyData }   from '@/hooks/useCompanyData'
 import type { User }        from '@supabase/supabase-js'
@@ -120,6 +121,7 @@ function AppInner() {
       verification:   ['Vérification',    <Verification />],
       creances:       ['Créances',        <Creances />],
       complementaire: ['Complémentaire',  <Complementaire />],
+      rapprochement:  ['Rapprochement',   <Rapprochement />],
       aide:           ['Aide',            <Aide />],
     }
     const entry = modules[tab]
