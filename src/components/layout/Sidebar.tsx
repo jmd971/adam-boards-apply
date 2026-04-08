@@ -172,6 +172,19 @@ export function Sidebar({ onTabChange }: SidebarProps) {
               {RAW.m1?.length ? `\nN-1: ${RAW.m1[0]} → ${RAW.m1[RAW.m1.length-1]}` : ''}
             </div>
           )}
+          <button
+            onClick={() => sb.auth.signOut()}
+            style={{
+              marginTop:8, width:'100%', padding:'7px 0', borderRadius:8,
+              border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)',
+              color:'#f87171', fontSize:11, fontWeight:600, cursor:'pointer',
+              transition:'all 0.15s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.18)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)' }}
+          >
+            Déconnexion
+          </button>
         </div>
       )}
     </aside>
