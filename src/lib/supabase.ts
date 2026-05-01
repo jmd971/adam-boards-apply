@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-export const sb            = createClient(SUPABASE_URL, SUPABASE_KEY)
-export const OCR_PROXY_URL = `${SUPABASE_URL}/functions/v1/ocr-proxy`
+export const sb            = createClient(supabaseUrl, supabaseAnonKey)
+export const OCR_PROXY_URL = `${supabaseUrl}/functions/v1/ocr-proxy`
 
 interface RoleAndTenant {
   role: string
