@@ -71,7 +71,7 @@ export const useAppStore = create<AppStore>()(
       setDataLoading:  (dataLoading)   => set({ dataLoading }),
 
       // UI
-      tab: 'cr',
+      tab: 'dashboard',
       filters: {
         startM: '',
         endM: '',
@@ -91,10 +91,12 @@ export const useAppStore = create<AppStore>()(
       name: 'adamboards-store',
       partialize: (s) => ({
         filters: {
+          startM:     s.filters.startM,
+          endM:       s.filters.endM,
           showMonths: s.filters.showMonths,
           showN1Full: s.filters.showN1Full,
           excludeOD:  s.filters.excludeOD,
-          selCo:      s.filters.selCo,
+          selCo:      [...s.filters.selCo],
           budCo:      s.filters.budCo,
         },
         alertThresholds: s.alertThresholds,
