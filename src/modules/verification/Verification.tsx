@@ -51,8 +51,8 @@ export function Verification() {
       return {
         co,
         name:        RAW.companies[co]?.name || co,
-        dN:          Math.round(dN),  cN:  Math.round(cN),  diffN,  okN:  Math.abs(diffN)  < 1,
-        dN1:         Math.round(dN1), cN1: Math.round(cN1), diffN1, okN1: Math.abs(diffN1) < 1,
+        dN:          Math.round(dN),  cN:  Math.round(cN),  diffN,  okN:  Math.abs(diffN)  < 0,01,
+        dN1:         Math.round(dN1), cN1: Math.round(cN1), diffN1, okN1: Math.abs(diffN1) < 0,01,
         nbComptes, nbEcritures,
         msN:  RAW.mn.length,
         msN1: RAW.m1.length,
