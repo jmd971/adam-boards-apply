@@ -8,7 +8,7 @@ export interface ParseWarning {
   line?: number
 }
 
-interface ParsedFEC {
+export interface ParsedFEC {
   plData: Record<string, FecAccount>
   bilanData: Record<string, BilanAccount>
   months: string[]
