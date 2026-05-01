@@ -3,6 +3,17 @@ import { sb } from '@/lib/supabase'
 import { parseFEC, detectCompany, detectPeriod, type ParseWarning } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
+import type { ParsedFEC } from '@/lib/fec'
+
+interface PendingImport {
+  file: File
+  company: string
+  period: string
+  fy: string
+  parsed: ParsedFEC
+  hasConflict: boolean
+  cancelled: boolean
+}
 
 interface ImportResult {
   file: string
@@ -15,68 +26,112 @@ interface ImportResult {
   skippedLines?: number
 }
 
-export function Import() {
-  const role = useAppStore(s => s.role)
-  const tenantId = useAppStore(s => s.tenantId)
-  const canEdit = role === 'admin' || role === 'editor'
-  const [importing, setImporting]   = useState(false)
-  const [dragOver, setDragOver]     = useState<string | null>(null)
-  const [results, setResults]       = useState<ImportResult[]>([])
+const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 Mo
 
+export function Import() {
+  const role     = useAppStore(s => s.role)
+  const tenantId = useAppStore(s => s.tenantId)
+  const canEdit  = role === 'admin' || role === 'comptable'
+
+  const [checking,  setChecking]  = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [dragOver,  setDragOver]  = useState<string | null>(null)
+  const [pending,   setPending]   = useState<PendingImport[]>([])
+  const [results,   setResults]   = useState<ImportResult[]>([])
+
+  // Étape 1 : parse + vérification des conflits
   const handleFiles = useCallback(async (files: FileList | null, fp?: { period: string }) => {
     if (!files || !canEdit) return
-    setImporting(true)
-    const newResults: ImportResult[] = []
+    setChecking(true)
+    const newPending: PendingImport[] = []
 
     for (const file of Array.from(files)) {
       try {
+        if (file.size > MAX_FILE_SIZE) {
+          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0,
+            error: `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(0)} Mo). Limite : ${MAX_FILE_SIZE / 1024 / 1024} Mo.` }])
+          continue
+        }
         const text = await file.text()
         const parsed = parseFEC(text)
-        if (!parsed) throw new Error('Format FEC non reconnu')
+        if (!parsed) {
+          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: 'Format FEC non reconnu' }])
+          continue
+        }
 
-        const co = detectCompany(file.name)
+        const company = detectCompany(file.name)
         const { period, fy } = fp
-          ? { period: fp.period as 'N' | 'N-1', fy: detectPeriod(parsed.months).fy }
+          ? { period: fp.period as 'N' | 'N-1' | 'N-2', fy: detectPeriod(parsed.months).fy }
           : detectPeriod(parsed.months)
 
+        const { data } = await sb.from('company_data')
+          .select('company_key')
+          .eq('tenant_id', tenantId)
+          .eq('company_key', company)
+          .eq('period', period)
+          .maybeSingle()
+
+        newPending.push({ file, company, period, fy, parsed, hasConflict: !!data, cancelled: false })
+      } catch (e: any) {
+        setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: e.message }])
+      }
+    }
+
+    setChecking(false)
+    if (newPending.length > 0) setPending(p => [...newPending, ...p])
+  }, [canEdit, tenantId])
+
+  // Étape 2 : import des fichiers confirmés
+  const confirmImport = async () => {
+    const toImport = pending.filter(p => !p.cancelled)
+    if (!toImport.length) return
+    setImporting(true)
+    const newResults: ImportResult[] = []
+
+    for (const item of toImport) {
+      try {
         const { error } = await sb.from('company_data').upsert({
-          tenant_id: tenantId,
-          company_key: co,
-          period,
-          fiscal_year: fy,
-          pl_data: parsed.plData,
-          bilan_data: parsed.bilanData,
-          months: parsed.months,
-          entry_count: parsed.entryCount,
-          source: 'manual',
-          client_data: parsed.clientData,
-          ve_entries: parsed.veEntries,
+          tenant_id:   tenantId,
+          company_key: item.company,
+          period:      item.period,
+          fiscal_year: item.fy,
+          pl_data:     item.parsed.plData,
+          bilan_data:  item.parsed.bilanData,
+          months:      item.parsed.months,
+          entry_count: item.parsed.entryCount,
+          source:      'manual',
+          client_data: item.parsed.clientData,
+          ve_entries:  item.parsed.veEntries,
         }, { onConflict: 'tenant_id,company_key,period' })
 
         if (error) throw error
 
         newResults.push({
-          file: file.name,
-          company: co,
-          period,
-          months: parsed.months.length,
-          entries: parsed.entryCount,
-          warnings: parsed.warnings,
-          skippedLines: parsed.skippedLines,
+          file:         item.file.name,
+          company:      item.company,
+          period:       item.period,
+          months:       item.parsed.months.length,
+          entries:      item.parsed.entryCount,
+          warnings:     item.parsed.warnings,
+          skippedLines: item.parsed.skippedLines,
         })
       } catch (e: any) {
-        newResults.push({ file: file.name, company: '', period: '', months: 0, entries: 0, error: e.message })
+        newResults.push({ file: item.file.name, company: '', period: '', months: 0, entries: 0, error: e.message })
       }
     }
 
+    setPending([])
     setResults(r => [...newResults, ...r])
     setImporting(false)
-  }, [canEdit])
+  }
+
+  const cancelPending = (idx: number) =>
+    setPending(p => p.map((item, i) => i === idx ? { ...item, cancelled: true } : item))
 
   const dropZones = [
-    { id: 'n2', label: 'N-2 (Avant-dernier)', period: 'N-2' },
+    { id: 'n2', label: 'N-2 (Avant-dernier)',      period: 'N-2' },
     { id: 'n1', label: 'N-1 (Exercice précédent)', period: 'N-1' },
-    { id: 'n',  label: 'N (Exercice en cours)',    period: 'N'   },
+    { id: 'n',  label: 'N (Exercice en cours)',     period: 'N'   },
   ]
 
   return (
@@ -117,17 +172,65 @@ export function Import() {
             ))}
           </div>
 
-          {importing && (
+          {checking && (
             <div className="flex items-center gap-3 px-4 py-3 rounded-xl mb-4"
               style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
               <Spinner size={18} />
-              <span className="text-xs text-brand-blue">Import en cours...</span>
+              <span className="text-xs text-brand-blue">Analyse des fichiers...</span>
+            </div>
+          )}
+
+          {pending.length > 0 && !checking && (
+            <div className="mb-6 rounded-xl overflow-hidden"
+              style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div className="flex items-center justify-between px-4 py-2.5"
+                style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="text-xs font-semibold text-white">Prêt à importer</span>
+                <span className="text-xs text-muted">{pending.filter(p => !p.cancelled).length} fichier(s)</span>
+              </div>
+              <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                {pending.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-xs"
+                    style={{ opacity: item.cancelled ? 0.4 : 1, background: 'rgba(255,255,255,0.02)' }}>
+                    <span className="font-mono text-muted flex-1 truncate">{item.file.name}</span>
+                    <span className="text-white">{item.company} · {item.period}</span>
+                    {item.hasConflict && !item.cancelled && (
+                      <span className="px-2 py-0.5 rounded text-xs"
+                        style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                        ⚠️ Écrase les données existantes
+                      </span>
+                    )}
+                    {!item.cancelled
+                      ? <button onClick={() => cancelPending(i)} className="text-muted hover:text-brand-red transition-colors ml-1">✕</button>
+                      : <span className="text-muted text-xs">Annulé</span>
+                    }
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-3 px-4 py-3"
+                style={{ background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <button
+                  onClick={confirmImport}
+                  disabled={importing || pending.every(p => p.cancelled)}
+                  className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                  style={{ background: '#3b82f6', color: 'white', opacity: pending.every(p => p.cancelled) ? 0.5 : 1 }}>
+                  {importing
+                    ? <span className="flex items-center gap-2"><Spinner size={12} /> Import...</span>
+                    : `Importer (${pending.filter(p => !p.cancelled).length})`}
+                </button>
+                <button onClick={() => setPending([])} className="text-xs text-muted hover:text-white transition-colors">
+                  Tout annuler
+                </button>
+              </div>
             </div>
           )}
 
           {results.length > 0 && (
             <div className="space-y-2">
-              <div className="text-xs font-semibold text-muted mb-2">Résultats</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold text-muted">Résultats</div>
+                <button onClick={() => setResults([])} className="text-xs text-muted hover:text-white transition-colors">Effacer</button>
+              </div>
               {results.map((r, i) => (
                 <div key={i}>
                   <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg text-xs"
@@ -158,7 +261,7 @@ export function Import() {
       ) : (
         <div className="px-4 py-3 rounded-xl text-xs text-muted"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-          Droits insuffisants pour importer des fichiers.
+          L'import de fichiers FEC est réservé aux rôles Administrateur et Comptable. Contactez votre administrateur.
         </div>
       )}
     </div>
