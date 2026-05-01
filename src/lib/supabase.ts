@@ -1,10 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 
-export const SUPABASE_URL = 'https://fuxelqeizkmksapnetqz.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1eGVscWVpemtta3NhcG5ldHF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ0Njg2MTUsImV4cCI6MjA5MDA0NDYxNX0.Hs6UWSkAxYwUZg-c7ykA2k5DmsvqUKYvwVGoteABi-Q'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-export const sb            = createClient(SUPABASE_URL, SUPABASE_KEY)
-export const OCR_PROXY_URL = `${SUPABASE_URL}/functions/v1/ocr-proxy`
+export const sb            = createClient(supabaseUrl, supabaseAnonKey)
+export const OCR_PROXY_URL = `${supabaseUrl}/functions/v1/ocr-proxy`
 
 interface RoleAndTenant {
   role: string
