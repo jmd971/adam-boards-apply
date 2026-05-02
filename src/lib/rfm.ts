@@ -136,7 +136,7 @@ export function computeRFM(txs: SaleTransaction[], refDate?: Date): ClientRFM[] 
     const phone         = list.find(t => t.client_phone)?.client_phone
     const ca            = list.reduce((s, t) => s + t.montant, 0)
     const visits        = new Set(list.map(t => t.commande_ref || t.date_achat)).size
-    const lastDate      = list.map(t => t.date_achat).sort().at(-1)!
+    const lastDate      = list.map(t => t.date_achat).sort().slice(-1)[0]
     const daysSinceLast = Math.max(0, Math.floor((ref.getTime() - new Date(lastDate).getTime()) / 86400000))
     return { key, nom, email, phone, ca, nbVisites: visits, lastDate, daysSinceLast, transactions: list }
   })
@@ -199,7 +199,8 @@ export function exportToGHL(clients: ClientRFM[], segment?: RFMSegment): void {
 
   const csv = [headers, ...rows]
     .map(r => r.map(v => (v.includes(',') || v.includes('"')) ? `"${v.replace(/"/g, '""')}"` : v).join(','))
-    .join('\n')
+    .join('
+')
 
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
