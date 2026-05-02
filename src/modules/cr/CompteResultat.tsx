@@ -137,6 +137,7 @@ export function CompteResultat() {
           selectedMs={selectedMs} showMonths={filters.showMonths}
           showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
+          maxHeight="calc(100vh - 200px)"
         />
       </div>
       {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
