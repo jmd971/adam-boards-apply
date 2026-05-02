@@ -138,7 +138,7 @@ export function Sig() {
         <PlTable
           struct={SIG} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
-          showN1Full={filters.showN1Full} showBudget={false} caTotal={caTotal}
+          showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
         />
       </div>
@@ -146,3 +146,4 @@ export function Sig() {
     </div>
   )
 }
+
