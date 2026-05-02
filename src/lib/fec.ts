@@ -8,7 +8,7 @@ export interface ParseWarning {
   line?: number
 }
 
-interface ParsedFEC {
+export interface ParsedFEC {
   plData: Record<string, FecAccount>
   bilanData: Record<string, BilanAccount>
   months: string[]
@@ -275,15 +275,13 @@ export function parseFEC(text: string): ParsedFEC | null {
     else if (acc[0] >= '1' && acc[0] <= '5') {
       if (!bilanData[acc]) bilanData[acc] = { s: 0, l: label, top: [], e: [] }
       bilanData[acc].s = Math.round((bilanData[acc].s + debit - credit) * 100) / 100
-      if (acc.startsWith('41') && !acc.startsWith('419')) {
-        const dateStr = parseDate(cols[dateCol] || '')
-        ;(bilanData[acc].e as any[]).push([dateStr, ecLib || label, debit, credit, piece || '', isOD])
-        if (compAux && acc.startsWith('411')) {
-          const topArr = bilanData[acc].top as any[]
-          const existing = topArr.find((t: any) => t[0] === compAux)
-          if (existing) existing[2] = (existing[2] || 0) + (credit - debit)
-          else topArr.push([compAux, ecLib || compAux, credit - debit])
-        }
+      const dateStr = parseDate(cols[dateCol] || '')
+      ;(bilanData[acc].e as any[]).push([dateStr, ecLib || label, debit, credit, piece || '', isOD])
+      if (compAux && acc.startsWith('411')) {
+        const topArr = bilanData[acc].top as any[]
+        const existing = topArr.find((t: any) => t[0] === compAux)
+        if (existing) existing[2] = (existing[2] || 0) + (credit - debit)
+        else topArr.push([compAux, ecLib || compAux, credit - debit])
       }
     }
   }

@@ -13,6 +13,8 @@ interface PlTableProps {
   showBudget: boolean
   caTotal: number
   onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
+  maxHeight?: string
+  cumulRowKey?: string
 }
 
 const PLAN: Record<string, string> = {
@@ -61,7 +63,7 @@ function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], 
   return Math.round(total)
 }
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, onOpenModal }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, onOpenModal, maxHeight, cumulRowKey }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
@@ -207,7 +209,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
   }
 
   return (
-    <div style={{ overflowX:'auto' }}>
+    <div style={{ overflowX:'auto', ...(maxHeight ? { overflowY:'auto', maxHeight } : {}) }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
         <thead>
           <tr style={{ position:'sticky', top:0, zIndex:10, background:'var(--bg-1)' }}>
@@ -229,6 +231,30 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
           </tr>
         </thead>
         <tbody>{rows}</tbody>
+        {cumulRowKey && (() => {
+          const cd = plCalc[cumulRowKey]
+          if (!cd) return null
+          let cum = 0
+          const cumulMs = cd.monthsN.map(v => { cum += v; return cum })
+          return (
+            <tfoot>
+              <tr style={{ background:'rgba(139,92,246,0.07)', borderTop:'2px solid rgba(139,92,246,0.3)' }}>
+                <td style={{ position:'sticky', left:0, zIndex:2, background:'#160e2b', padding:'10px 14px', fontSize:13, fontWeight:700, color:'#8b5cf6', borderLeft:'3px solid #8b5cf6', whiteSpace:'nowrap' }}>
+                  📊 Résultat cumulé
+                </td>
+                {showMonths && cumulMs.map((v, i) => (
+                  <td key={i} style={{ padding:'7px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: v < -0.5 ? 'var(--red)' : v > 0.5 ? '#8b5cf6' : 'var(--text-3)' }}>
+                    {Math.abs(v) > 0.5 ? fmt(v) : '—'}
+                  </td>
+                ))}
+                <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:14, fontWeight:800, color: cd.cumulN < -0.5 ? 'var(--red)' : '#8b5cf6', borderLeft:'2px solid var(--border-1)', minWidth:90 }}>
+                  {fmt(cd.cumulN)}
+                </td>
+                <td colSpan={99} />
+              </tr>
+            </tfoot>
+          )
+        })()}
       </table>
     </div>
   )

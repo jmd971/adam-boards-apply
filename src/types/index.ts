@@ -30,9 +30,18 @@ export interface BudgetRow {
   id: string
   tenant_id: string
   company_key: string
+  version_name: string
   data: BudgetData
   status: 'draft' | 'validated'
   updated_at: string
+}
+
+export interface BudgetVersionItem {
+  id?: string
+  company_key: string
+  version_name: string
+  data: Record<string, { b: number[]; t: string; l: string }>
+  status: 'draft' | 'validated'
 }
 
 export interface ManualEntry {
@@ -220,7 +229,7 @@ export type TabId =
   | 'dashboard'
   | 'cr' | 'sig' | 'equilibre' | 'objectifs' | 'bilan' | 'ratios'
   | 'import' | 'budget' | 'saisie' | 'verification' | 'complementaire'
-  | 'tresorerie' | 'creances' | 'rapprochement' | 'depot' | 'aide'
+  | 'tresorerie' | 'creances' | 'rapprochement' | 'depot' | 'aide' | 'ventes'
 
 export interface NavItem {
   id: TabId
@@ -237,6 +246,8 @@ export interface FilterState {
   excludeOD: boolean
   selCo: string[]
   budCo: string
+  showBudget: boolean
+  budVersionKey: string
 }
 
 // ─── Dépôts FEC ───────────────────────────────────────────────────────────

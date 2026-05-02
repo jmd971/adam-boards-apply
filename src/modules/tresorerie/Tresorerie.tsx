@@ -45,12 +45,15 @@ export function Tresorerie() {
   const [view,     setView]     = useState<'realise'|'prev'>('realise')
   const [expanded, setExpanded] = useState<Record<string,boolean>>({})
   const [modal,    setModal]    = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
-  const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number}>>({})
+  const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number;soldeInitial:number}>>({})
+  const [secOpen,  setSecOpen]  = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
+  const [showHelp, setShowHelp] = useState(false)
+  const [dayMonth, setDayMonth] = useState<string>('')
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
   const months = RAW?.mn ?? []
 
-  const getP = (co: string) => params[co] ?? { delaiClient:45, delaiFourn:30, remb:0 }
+  const getP = (co: string) => params[co] ?? { delaiClient:45, delaiFourn:30, remb:0, soldeInitial:0 }
 
   // ── Données réalisées ─────────────────────────────────────────────────
   const treso = useMemo(() => {
@@ -69,7 +72,7 @@ export function Tresorerie() {
         const ec  = catOf(acc, ENC_CATS)
         if (ec) {
           if (!eA[ec][acc]) eA[ec][acc] = { vals: Array(months.length).fill(0), label: lbl }
-          months.forEach((m, mi) => {
+          months.forEach((m: string, mi: number) => {
             const v = mo[m]; if (!v || !Array.isArray(v)) return
             const net = Math.max(0, (v[1] as number) - (v[0] as number))
             eB[ec][mi] += net; eA[ec][acc].vals[mi] += net
@@ -78,7 +81,7 @@ export function Tresorerie() {
         const dc = catOf(acc, DEC_CATS)
         if (dc) {
           if (!dA[dc][acc]) dA[dc][acc] = { vals: Array(months.length).fill(0), label: lbl }
-          months.forEach((m, mi) => {
+          months.forEach((m: string, mi: number) => {
             const v = mo[m]; if (!v || !Array.isArray(v)) return
             const net = Math.max(0, (v[0] as number) - (v[1] as number))
             dB[dc][mi] += net; dA[dc][acc].vals[mi] += net
@@ -112,7 +115,7 @@ export function Tresorerie() {
   }, [])
 
   const forecast = useMemo(() => {
-    let cum=0
+    let cum = selCo.reduce((s, co) => s + (getP(co).soldeInitial || 0), 0)
     return forecastMs.map((m,mi) => {
       let enc=0, dec=0
       for (const co of selCo) {
@@ -131,6 +134,34 @@ export function Tresorerie() {
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
   }, [selCo.join(','), budData, params, forecastMs])
+
+  // ── Vue journalière ────────────────────────────────────────────────────
+  const dayForecast = useMemo(() => {
+    if (!dayMonth) return []
+    const mi = forecastMs.indexOf(dayMonth)
+    if (mi < 0) return []
+    const mData = forecast[mi]
+    if (!mData) return []
+    const [yr, mo] = dayMonth.split('-').map(Number)
+    const daysInMonth = new Date(yr, mo, 0).getDate()
+    const workDays: Date[] = []
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(yr, mo - 1, d)
+      if (dt.getDay() !== 0 && dt.getDay() !== 6) workDays.push(dt)
+    }
+    if (!workDays.length) return []
+    const encPerDay = mData.enc / workDays.length
+    const decPerDay = mData.dec / workDays.length
+    const startCum = mi > 0 ? forecast[mi-1].cum : selCo.reduce((s,co)=>s+(getP(co).soldeInitial||0),0)
+    let cum = startCum
+    return workDays.map(dt => {
+      const enc = Math.round(encPerDay)
+      const dec = Math.round(decPerDay)
+      const fl = enc - dec
+      cum += fl
+      return { date: dt.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short'}), enc, dec, fl, cum }
+    })
+  }, [dayMonth, forecast, forecastMs, selCo.join(','), params])
 
   if (!RAW) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:256,color:'var(--text-2)',fontSize:13}}>
@@ -203,9 +234,12 @@ export function Tresorerie() {
     )
   }
 
-  const Sec = ({label,color}:{label:string;color:string}) => (
-    <tr style={{background:`${color}10`}}>
-      <td colSpan={months.length+2} style={{padding:'10px 12px',fontWeight:800,fontSize:11,color,letterSpacing:'1px',textTransform:'uppercase',borderTop:`2px solid ${color}40`,borderBottom:`1px solid ${color}20`,position:'sticky',left:0}}>{label}</td>
+  const Sec = ({label,color,onToggle,isOpen}:{label:string;color:string;onToggle?:()=>void;isOpen?:boolean}) => (
+    <tr style={{background:`${color}10`,cursor:onToggle?'pointer':'default'}} onClick={onToggle}>
+      <td colSpan={months.length+2} style={{padding:'10px 12px',fontWeight:800,fontSize:11,color,letterSpacing:'1px',textTransform:'uppercase',borderTop:`2px solid ${color}40`,borderBottom:`1px solid ${color}20`,position:'sticky',left:0,userSelect:'none'}}>
+        {onToggle&&<span style={{display:'inline-block',width:14,marginRight:4,fontSize:10}}>{isOpen?'▾':'▸'}</span>}
+        {label}
+      </td>
     </tr>
   )
 
@@ -227,12 +261,25 @@ export function Tresorerie() {
         <div style={{padding:'16px 24px'}}>
           {/* Params */}
           <div style={{background:'var(--bg-1)',borderRadius:'var(--radius-md)',padding:16,border:'1px solid var(--border-1)',marginBottom:20}}>
-            <div style={{fontSize:11,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:'0.8px',marginBottom:12}}>⚙️ Paramètres</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:'0.8px'}}>⚙️ Paramètres</div>
+              <button onClick={()=>setShowHelp(h=>!h)} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
+                {showHelp?'▾':'▸'} Comment ça marche ?
+              </button>
+            </div>
+            {showHelp && (
+              <div style={{background:'rgba(59,130,246,0.06)',borderRadius:8,padding:'12px 14px',marginBottom:14,fontSize:11,color:'var(--text-2)',lineHeight:'1.7',border:'1px solid rgba(59,130,246,0.15)'}}>
+                <div><span style={{color:'var(--blue)',fontWeight:600}}>Délai client (j)</span> — Jours avant qu'un client règle ses factures. Ex : 45 j → les encaissements de jan. arrivent en fév. dans le prévisionnel.</div>
+                <div style={{marginTop:6}}><span style={{color:'var(--amber)',fontWeight:600}}>Délai fourn. (j)</span> — Jours avant de régler vos fournisseurs. Ex : 30 j → les achats de jan. sont décaissés en fév.</div>
+                <div style={{marginTop:6}}><span style={{color:'var(--red)',fontWeight:600}}>Remb./mois (€)</span> — Charge fixe mensuelle sortante (remboursement de prêt, crédit-bail…) déduite chaque mois.</div>
+                <div style={{marginTop:6}}><span style={{color:'var(--purple)',fontWeight:600}}>Solde initial (€)</span> — Solde bancaire de départ utilisé comme point de départ de la trésorerie cumulée.</div>
+              </div>
+            )}
             <div style={{display:'flex',gap:24,flexWrap:'wrap'}}>
               {selCo.map(co=>(
                 <div key={co} style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
                   <span style={{fontSize:12,fontWeight:700,color:'var(--blue)'}}>{RAW.companies[co]?.name||co}</span>
-                  {([['Délai client (j)','delaiClient'],['Délai fourn. (j)','delaiFourn'],['Remb./mois (€)','remb']] as [string,string][]).map(([lbl,key])=>(
+                  {([['Délai client (j)','delaiClient'],['Délai fourn. (j)','delaiFourn'],['Remb./mois (€)','remb'],['Solde initial (€)','soldeInitial']] as [string,string][]).map(([lbl,key])=>(
                     <div key={key} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
                       <span style={{color:'var(--text-2)'}}>{lbl}</span>
                       <input type="number" value={(getP(co) as any)[key]}
@@ -245,11 +292,12 @@ export function Tresorerie() {
             </div>
             {Object.keys(budData).length===0&&<div style={{marginTop:10,fontSize:11,color:'var(--amber)'}}>⚠️ Aucun budget — générez-en un dans l'onglet Budget.</div>}
           </div>
-          {/* Table prévisionnel */}
-          <div style={{overflowX:'auto',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
+
+          {/* Table prévisionnel mensuel */}
+          <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 380px)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)',marginBottom:20}}>
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
               <thead>
-                <tr style={{background:'var(--bg-1)',position:'sticky',top:0,zIndex:5}}>
+                <tr style={{background:'var(--bg-1)'}}>
                   <th style={{...thSt,textAlign:'left',minWidth:200,paddingLeft:12}}>Poste</th>
                   {forecast.map(r=><th key={r.month} style={{...thSt,minWidth:65}}>{r.month}</th>)}
                   <th style={{...thSt,color:'var(--blue)',minWidth:85}}>Total</th>
@@ -271,6 +319,51 @@ export function Tresorerie() {
               </tbody>
             </table>
           </div>
+
+          {/* Vue journalière */}
+          <div style={{background:'var(--bg-1)',borderRadius:'var(--radius-md)',padding:16,border:'1px solid var(--border-1)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:12}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:'0.8px'}}>📅 Vue journalière</div>
+              <select value={dayMonth} onChange={e=>setDayMonth(e.target.value)}
+                style={{background:'var(--bg-0)',border:'1px solid var(--border-1)',borderRadius:6,color:'var(--text-0)',padding:'4px 10px',fontSize:11,outline:'none',cursor:'pointer'}}>
+                <option value="">— Sélectionner un mois —</option>
+                {forecastMs.map((m,i)=><option key={m} value={m}>{forecast[i]?.month} {m.slice(0,4)}</option>)}
+              </select>
+              {dayMonth&&<span style={{fontSize:10,color:'var(--text-3)'}}>Distribution uniforme sur jours ouvrés (Lun–Ven)</span>}
+            </div>
+            {dayMonth && dayForecast.length > 0 && (
+              <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 480px)',borderRadius:'var(--radius-md)',border:'1px solid var(--border-0)'}}>
+                <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
+                  <thead>
+                    <tr>
+                      <th style={{...thSt,textAlign:'left',minWidth:140,paddingLeft:12}}>Date</th>
+                      <th style={{...thSt,color:'var(--green)',minWidth:100}}>Encaissement</th>
+                      <th style={{...thSt,color:'var(--red)',minWidth:100}}>Décaissement</th>
+                      <th style={{...thSt,color:'var(--blue)',minWidth:90}}>Flux net</th>
+                      <th style={{...thSt,color:'var(--purple)',minWidth:120}}>Trésorerie cumulée</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {dayForecast.map((d,i)=>(
+                      <tr key={i} style={{borderBottom:'1px solid var(--border-0)',background:i%2===0?'transparent':'rgba(255,255,255,0.01)'}}>
+                        <td style={{padding:'7px 12px',color:'var(--text-1)',fontWeight:500,textTransform:'capitalize'}}>{d.date}</td>
+                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.enc>0?'var(--green)':'var(--text-3)'}}>{d.enc>0?fmt(d.enc):'—'}</td>
+                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.dec>0?'var(--red)':'var(--text-3)'}}>{d.dec>0?fmt(d.dec):'—'}</td>
+                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.fl<0?'var(--red)':d.fl>0?'var(--blue)':'var(--text-3)'}}>{d.fl!==0?fmt(d.fl):'—'}</td>
+                        <td style={{padding:'7px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:600,color:d.cum<0?'var(--red)':'var(--purple)'}}>{fmt(d.cum)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {dayMonth && dayForecast.length === 0 && (
+              <div style={{fontSize:11,color:'var(--text-3)',textAlign:'center',padding:'16px 0'}}>Aucun jour ouvré trouvé pour ce mois.</div>
+            )}
+            {!dayMonth && (
+              <div style={{fontSize:11,color:'var(--text-3)',textAlign:'center',padding:'8px 0'}}>Sélectionnez un mois pour afficher le détail journalier.</div>
+            )}
+          </div>
         </div>
       )}
 
@@ -285,7 +378,7 @@ export function Tresorerie() {
           </div>
           <div style={{marginBottom:10,fontSize:11,color:'var(--text-3)'}}>💡 Cliquez <span style={{color:'var(--blue)'}}>▸</span> sur une catégorie pour voir les comptes, puis sur un compte pour voir les écritures.</div>
           {treso && (
-            <div style={{overflowX:'auto',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
+            <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 260px)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead>
                   <tr>
@@ -295,9 +388,9 @@ export function Tresorerie() {
                   </tr>
                 </thead>
                 <tbody>
-                  <Sec label="📥 Encaissements" color="var(--green)"/>
-                  {ENC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.eB[c.label]} color="#34d399" accMap={treso.eA[c.label]} k={`e_${c.label}`}/>)}
-                  {treso.eM.some((v:number)=>v>0)&&(
+                  <Sec label="📥 Encaissements" color="var(--green)" onToggle={()=>setSecOpen(s=>({...s,enc:!s.enc}))} isOpen={secOpen.enc}/>
+                  {secOpen.enc&&ENC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.eB[c.label]} color="#34d399" accMap={treso.eA[c.label]} k={`e_${c.label}`}/>)}
+                  {secOpen.enc&&treso.eM.some((v:number)=>v>0)&&(
                     <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
                       <td style={{padding:'8px 12px 8px 24px',color:'var(--purple)',fontSize:11,fontStyle:'italic',position:'sticky',left:0,background:'var(--bg-0)',zIndex:2}}>Saisies manuelles</td>
                       {treso.eM.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontSize:11,color:v===0?'var(--text-3)':'var(--purple)'}}>{v!==0?fmt(v):'—'}</td>)}
@@ -305,9 +398,9 @@ export function Tresorerie() {
                     </tr>
                   )}
                   <Tot label="TOTAL ENCAISSEMENTS" vals={treso.tE} color="var(--green)" top/>
-                  <Sec label="📤 Décaissements" color="var(--red)"/>
-                  {DEC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.dB[c.label]} color="#fca5a5" accMap={treso.dA[c.label]} k={`d_${c.label}`}/>)}
-                  {treso.dM.some((v:number)=>v>0)&&(
+                  <Sec label="📤 Décaissements" color="var(--red)" onToggle={()=>setSecOpen(s=>({...s,dec:!s.dec}))} isOpen={secOpen.dec}/>
+                  {secOpen.dec&&DEC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.dB[c.label]} color="#fca5a5" accMap={treso.dA[c.label]} k={`d_${c.label}`}/>)}
+                  {secOpen.dec&&treso.dM.some((v:number)=>v>0)&&(
                     <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
                       <td style={{padding:'8px 12px 8px 24px',color:'var(--purple)',fontSize:11,fontStyle:'italic',position:'sticky',left:0,background:'var(--bg-0)',zIndex:2}}>Saisies manuelles</td>
                       {treso.dM.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontSize:11,color:v===0?'var(--text-3)':'var(--purple)'}}>{v!==0?fmt(v):'—'}</td>)}

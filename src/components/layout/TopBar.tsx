@@ -22,9 +22,14 @@ const TAB_META: Record<string, { label: string; icon: string }> = {
 const PL_TABS       = ['cr','sig','equilibre']
 const ANALYSIS_TABS = ['dashboard','cr','sig','equilibre','objectifs','bilan','ratios','budget']
 
-interface TopBarProps { allMonths: string[]; onMenuClick?: () => void }
+interface TopBarProps {
+  allMonths: string[]
+  onMenuClick?: () => void
+  onSidebarToggle?: () => void
+  sidebarCollapsed?: boolean
+}
 
-export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
+export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollapsed }: TopBarProps) {
   const tab        = useAppStore(s => s.tab)
   const filters    = useAppStore(s => s.filters)
   const RAW        = useAppStore(s => s.RAW)
@@ -40,7 +45,7 @@ export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
     padding:'2px 0',
   }
 
-  const Toggle = ({ label, k }: { label: string; k: 'showMonths' | 'showN1Full' | 'excludeOD' }) => {
+  const Toggle = ({ label, k }: { label: string; k: 'showMonths' | 'showN1Full' | 'excludeOD' | 'showBudget' }) => {
     const on = filters[k] as boolean
     return (
       <button onClick={() => setFilters({ [k]: !on })} style={{
@@ -70,6 +75,16 @@ export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
         background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)',
         color:'var(--text-1)', cursor:'pointer', flexShrink:0, fontSize:16,
       }}>☰</button>
+      {/* Toggle sidebar desktop */}
+      <button onClick={onSidebarToggle} className="desktop-sidebar-btn" style={{
+        alignItems:'center', justifyContent:'center',
+        width:32, height:32, borderRadius:'var(--radius-sm)',
+        background:'rgba(255,255,255,0.04)', border:'1px solid var(--border-1)',
+        color:'var(--text-2)', cursor:'pointer', flexShrink:0, fontSize:13,
+        transition:'background 0.15s',
+      }} title={sidebarCollapsed ? 'Afficher le menu' : 'Masquer le menu'}>
+        {sidebarCollapsed ? '▶' : '◀'}
+      </button>
 
       {/* Titre */}
       <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
@@ -126,7 +141,13 @@ export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
             <Toggle label="Hors OD" k="excludeOD"  />
           </div>
         )}
+        {isAnalysis && (
+          <Toggle label="Budget" k="showBudget" />
+        )}
       </div>
     </header>
   )
 }
+
+
+

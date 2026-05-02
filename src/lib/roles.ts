@@ -7,16 +7,16 @@ const ROLE_TABS: Record<Role, TabId[]> = {
   admin: [
     'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
     'import', 'budget', 'saisie', 'tresorerie', 'verification', 'creances',
-    'complementaire', 'rapprochement', 'depot', 'aide',
+    'complementaire', 'rapprochement', 'depot', 'aide', 'ventes',
   ],
   comptable: [
     'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
     'budget', 'saisie', 'tresorerie', 'creances', 'complementaire',
-    'rapprochement', 'depot', 'aide',
+    'rapprochement', 'depot', 'aide', 'ventes',
   ],
   viewer: [
     'dashboard', 'cr', 'sig', 'equilibre', 'bilan', 'ratios',
-    'complementaire', 'aide',
+    'complementaire', 'aide', 'ventes',
   ],
 }
 

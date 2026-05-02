@@ -17,6 +17,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'sig',             label:'SIG',                icon:'📊', group:'analyse' },
   { id:'bilan',           label:'Bilan',              icon:'🏦', group:'analyse' },
   { id:'ratios',          label:'Ratios',             icon:'📐', group:'analyse' },
+  { id:'ventes',         label:'Ventes & Clients',  icon:'🛒', group:'analyse' },
   { id:'complementaire',  label:'Complémentaire',     icon:'📈', group:'analyse' },
   { id:'creances',        label:'Créances clients',   icon:'📋', group:'analyse' },
   { id:'rapprochement',   label:'Rapprochement',      icon:'🏦', group:'ops'     },
@@ -169,7 +170,8 @@ export function Sidebar({ onTabChange }: SidebarProps) {
           {RAW?.mn?.length && (
             <div style={{ fontSize:9, color:'#334155' }}>
               N: {RAW.mn[0]} → {RAW.mn[RAW.mn.length-1]}
-              {RAW.m1?.length ? `\nN-1: ${RAW.m1[0]} → ${RAW.m1[RAW.m1.length-1]}` : ''}
+              {RAW.m1?.length ? `
+N-1: ${RAW.m1[0]} → ${RAW.m1[RAW.m1.length-1]}` : ''}
             </div>
           )}
           <button

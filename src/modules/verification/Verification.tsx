@@ -51,8 +51,8 @@ export function Verification() {
       return {
         co,
         name:        RAW.companies[co]?.name || co,
-        dN:          Math.round(dN),  cN:  Math.round(cN),  diffN,  okN:  Math.abs(diffN)  < 1,
-        dN1:         Math.round(dN1), cN1: Math.round(cN1), diffN1, okN1: Math.abs(diffN1) < 1,
+        dN:          Math.round(dN),  cN:  Math.round(cN),  diffN,  okN:  Math.abs(diffN)  < 0.01,
+        dN1:         Math.round(dN1), cN1: Math.round(cN1), diffN1, okN1: Math.abs(diffN1) < 0.01,
         nbComptes, nbEcritures,
         msN:  RAW.mn.length,
         msN1: RAW.m1.length,
@@ -62,8 +62,12 @@ export function Verification() {
     return { checks, totalEcritures, totalComptes }
   }, [RAW, selCo.join(',')])
 
-  if (!RAW) return (
-    <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
+  if (!RAW || RAW.keys.length === 0) return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
+      <span style={{ fontSize:40 }}>📂</span>
+      <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée à contrôler</div>
+      <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Importez un fichier FEC depuis l'onglet <strong style={{ color:'#94a3b8' }}>Import</strong> pour lancer le contrôle de cohérence.</div>
+    </div>
   )
 
   if (!stats) return null
@@ -79,10 +83,10 @@ export function Verification() {
       {/* Compteurs globaux */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 28 }}>
         {[
-          { label: 'Sociétés',    value: RAW.keys.length,                      color: '#3b82f6' },
-          { label: 'Mois N',      value: RAW.mn.length,                         color: '#10b981' },
-          { label: 'Mois N-1',    value: RAW.m1.length,                         color: '#14b8a6' },
-          { label: 'Comptes',     value: totalComptes,                           color: '#8b5cf6' },
+          { label: 'Sociétés',    value: RAW.keys.length,  color: '#3b82f6' },
+          { label: 'Mois N',      value: RAW.mn.length,    color: '#10b981' },
+          { label: 'Mois N-1',    value: RAW.m1.length,    color: '#14b8a6' },
+          { label: 'Comptes',     value: totalComptes,      color: '#8b5cf6' },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ background: '#0f172a', borderRadius: 10, padding: 14, border: '1px solid rgba(255,255,255,0.06)' }}>
             <div style={{ fontSize: 10, color: '#475569', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>

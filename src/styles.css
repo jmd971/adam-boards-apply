@@ -347,3 +347,20 @@
     break-inside: avoid !important;
   }
 }
+
+/* ─── Desktop sidebar collapse ─────────────────────────────────────────── */
+.desktop-sidebar-btn {
+  display: flex;
+}
+@media (max-width: 768px) {
+  .desktop-sidebar-btn { display: none !important; }
+}
+@media (min-width: 1025px) {
+  .sidebar-wrapper.collapsed {
+    transform: translateX(calc(-1 * var(--sidebar-w)));
+  }
+  .main-content.sidebar-collapsed {
+    margin-left: 0;
+    transition: margin-left 0.25s ease;
+  }
+}

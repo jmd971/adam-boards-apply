@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User } from '@supabase/supabase-js'
-import type { RAWData, TabId, ManualEntry, FilterState } from '@/types'
+import type { RAWData, TabId, ManualEntry, FilterState, BudgetVersionItem } from '@/types'
 import { DEFAULT_THRESHOLDS, type AlertThreshold } from '@/lib/alertThresholds'
 
 // ─── Auth slice ────────────────────────────────────────────────────────────
@@ -23,11 +23,13 @@ interface DataState {
   manualEntries: ManualEntry[]
   budData: Record<string, Record<string, { b: number[]; t: string; l: string }>>
   budStatus: Record<string, string>
+  budVersions: BudgetVersionItem[]
   dataLoading: boolean
   setRAW: (raw: RAWData | null) => void
   setManualEntries: (entries: ManualEntry[]) => void
   setBudData: (data: DataState['budData']) => void
   setBudStatus: (status: Record<string, string>) => void
+  setBudVersions: (v: BudgetVersionItem[]) => void
   setDataLoading: (loading: boolean) => void
 }
 
@@ -63,15 +65,17 @@ export const useAppStore = create<AppStore>()(
       manualEntries: [],
       budData: {},
       budStatus: {},
+      budVersions: [],
       dataLoading: true,
       setRAW:          (RAW)           => set({ RAW }),
       setManualEntries:(manualEntries) => set({ manualEntries }),
       setBudData:      (budData)       => set({ budData }),
       setBudStatus:    (budStatus)     => set({ budStatus }),
+      setBudVersions:  (budVersions)   => set({ budVersions }),
       setDataLoading:  (dataLoading)   => set({ dataLoading }),
 
       // UI
-      tab: 'cr',
+      tab: 'dashboard',
       filters: {
         startM: '',
         endM: '',
@@ -80,6 +84,8 @@ export const useAppStore = create<AppStore>()(
         excludeOD: false,
         selCo: [],
         budCo: '',
+        showBudget: false,
+        budVersionKey: '',
       },
       alertThresholds: DEFAULT_THRESHOLDS,
       setTab: (tab) => set({ tab }),
@@ -91,11 +97,15 @@ export const useAppStore = create<AppStore>()(
       name: 'adamboards-store',
       partialize: (s) => ({
         filters: {
-          showMonths: s.filters.showMonths,
-          showN1Full: s.filters.showN1Full,
-          excludeOD:  s.filters.excludeOD,
-          selCo:      s.filters.selCo,
-          budCo:      s.filters.budCo,
+          startM:        s.filters.startM,
+          endM:          s.filters.endM,
+          showMonths:    s.filters.showMonths,
+          showN1Full:    s.filters.showN1Full,
+          excludeOD:     s.filters.excludeOD,
+          selCo:         [...s.filters.selCo],
+          budCo:         s.filters.budCo,
+          showBudget:    s.filters.showBudget,
+          budVersionKey: s.filters.budVersionKey,
         },
         alertThresholds: s.alertThresholds,
       }),

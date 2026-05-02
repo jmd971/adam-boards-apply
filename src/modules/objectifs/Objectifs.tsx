@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { ObjectifsChart } from '@/components/ui'
 import { useAppStore } from '@/store'
 import { fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
@@ -222,6 +223,24 @@ export function Objectifs() {
         })}
       </div>
 
+      {hasBudget && (
+        <div style={{ background:'var(--bg-1,#0f172a)', borderRadius:12, padding:'20px 20px 16px', border:'1px solid rgba(255,255,255,0.07)', marginTop:8 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.7px', marginBottom:12 }}>
+            🎯 Réalisation des objectifs
+          </div>
+          <ObjectifsChart
+            hasBudget={hasBudget}
+            height={300}
+            kpis={KPIS.map(k => ({
+              label: k.label,
+              icon:  k.icon,
+              color: k.color,
+              real:  kpiData[k.key as keyof typeof kpiData]?.n  ?? 0,
+              bud:   kpiData[k.key as keyof typeof kpiData]?.bud ?? 0,
+            }))}
+          />
+        </div>
+      )}
       {!hasBudget && (
         <div style={{ padding: 14, borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', fontSize: 12, color: '#f59e0b' }}>
           💡 Définissez un budget dans l'onglet <strong>Budget</strong> pour comparer vos résultats avec vos objectifs.

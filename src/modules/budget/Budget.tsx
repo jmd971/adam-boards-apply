@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, pct, fiscalIndex } from '@/lib/calc'
 import { sb } from '@/lib/supabase'
@@ -422,20 +422,47 @@ function WhatIfPanel({ coBud }: WhatIfProps) {
 }
 
 export function Budget() {
-  const RAW        = useAppStore(s => s.RAW)
-  const filters    = useAppStore(s => s.filters)
-  const budData    = useAppStore(s => s.budData)
-  const setBudData = useAppStore(s => s.setBudData)
-  const tenantId   = useAppStore(s => s.tenantId)
+  const RAW          = useAppStore(s => s.RAW)
+  const filters      = useAppStore(s => s.filters)
+  const budData      = useAppStore(s => s.budData)
+  const setBudData   = useAppStore(s => s.setBudData)
+  const budVersions  = useAppStore(s => s.budVersions)
+  const setBudVersions = useAppStore(s => s.setBudVersions)
+  const tenantId     = useAppStore(s => s.tenantId)
 
-  const [budCo,     setBudCo]     = useState(filters.selCo[0] ?? '')
-  const [saving,    setSaving]    = useState(false)
-  const [msg,       setMsg]       = useState<string | null>(null)
-  const [filter,    setFilter]    = useState<'all' | 'charge' | 'produit'>('all')
-  const [search,    setSearch]    = useState('')
-  const [showWhatIf, setShowWhatIf] = useState(false)
+  const [budCo,        setBudCo]        = useState(filters.selCo[0] ?? '')
+  const [selVersion,   setSelVersion]   = useState<string>('')
+  const [saving,       setSaving]       = useState(false)
+  const [msg,          setMsg]          = useState<string | null>(null)
+  const [filter,       setFilter]       = useState<'all' | 'charge' | 'produit'>('all')
+  const [search,       setSearch]       = useState('')
+  const [showWhatIf,   setShowWhatIf]   = useState(false)
+  const [newVersionName, setNewVersionName] = useState('')
+  const [creating,     setCreating]     = useState(false)
 
-  const coBud = useMemo(() => (budData[budCo] ?? {}) as Record<string, any>, [budData, budCo])
+  // Versions for the selected company
+  const coVersions = useMemo(
+    () => budVersions.filter(v => v.company_key === budCo),
+    [budVersions, budCo]
+  )
+
+  // Auto-select first version when company or versions change
+  useMemo(() => {
+    if (coVersions.length > 0 && (!selVersion || !coVersions.find(v => v.version_name === selVersion))) {
+      setSelVersion(coVersions[0].version_name)
+    } else if (coVersions.length === 0) {
+      setSelVersion('')
+    }
+  }, [budCo, coVersions.map(v => v.version_name).join(',')])
+
+  useEffect(() => {
+    if (!budCo && RAW?.keys?.length) setBudCo(RAW.keys[0])
+  }, [RAW?.keys?.join(',')])
+
+  const coBud = useMemo(
+    () => (budVersions.find(v => v.company_key === budCo && v.version_name === selVersion)?.data ?? {}) as Record<string, any>,
+    [budVersions, budCo, selVersion]
+  )
 
   // Générer le budget depuis FEC N-1
   const handleGenerate = () => {
@@ -449,7 +476,7 @@ export function Budget() {
     for (const src of sources) {
       for (const [acc, data] of Object.entries(src)) {
         if (!acc.startsWith('6') && !acc.startsWith('7')) continue
-        if (newBud[acc]) continue  // ne pas écraser l'existant
+        if (newBud[acc]) continue
         const isCharge = acc.startsWith('6')
         const b = Array(12).fill(0)
         const moMap = (data as any)?.mo ?? {}
@@ -465,6 +492,11 @@ export function Budget() {
       }
     }
 
+    // Update store: versions + legacy budData
+    const updated = budVersions.map(v =>
+      v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newBud } : v
+    )
+    setBudVersions(updated)
     setBudData({ ...budData, [co]: newBud } as any)
     setMsg('✅ Budget généré depuis N-1 — pensez à sauvegarder')
     setTimeout(() => setMsg(null), 4000)
@@ -475,17 +507,106 @@ export function Budget() {
     const cur = coBud[acc] ?? { b: Array(12).fill(0), t: 'c', l: acc }
     const newB = [...(cur.b ?? Array(12).fill(0))]
     newB[fi] = num
-    setBudData({ ...budData, [budCo]: { ...coBud, [acc]: { ...cur, b: newB } } } as any)
+    const newData = { ...coBud, [acc]: { ...cur, b: newB } }
+    const updated = budVersions.map(v =>
+      v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newData } : v
+    )
+    setBudVersions(updated)
+    setBudData({ ...budData, [budCo]: newData } as any)
   }
 
   const handleSave = async () => {
+    if (!selVersion) return
     setSaving(true)
     const { error } = await sb.from('budget').upsert(
-      { tenant_id: tenantId, company_key: budCo, data: coBud, status: 'draft' },
-      { onConflict: 'tenant_id,company_key' }
+      { tenant_id: tenantId, company_key: budCo, version_name: selVersion, data: coBud, status: 'draft' },
+      { onConflict: 'tenant_id,company_key,version_name' }
     )
     setSaving(false)
     setMsg(error ? '❌ ' + error.message : '✅ Budget sauvegardé')
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  const handleCreateVersion = async () => {
+    const vn = newVersionName.trim()
+    if (!vn || !budCo) return
+    if (coVersions.find(v => v.version_name === vn)) {
+      setMsg('❌ Une version avec ce nom existe déjà')
+      setTimeout(() => setMsg(null), 3000)
+      return
+    }
+    setCreating(true)
+    const { data: insertedRows, error } = await sb.from('budget').upsert(
+      { tenant_id: tenantId, company_key: budCo, version_name: vn, data: {}, status: 'draft' },
+      { onConflict: 'tenant_id,company_key,version_name' }
+    ).select()
+    setCreating(false)
+    if (error) {
+      setMsg('❌ ' + error.message)
+      setTimeout(() => setMsg(null), 6000)
+      return
+    }
+    const newVersion = {
+      id: (insertedRows as any)?.[0]?.id,
+      company_key: budCo,
+      version_name: vn,
+      data: {},
+      status: 'draft' as const,
+    }
+    setBudVersions([...budVersions, newVersion])
+    setSelVersion(vn)
+    setNewVersionName('')
+    setMsg('✅ Version créée')
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  const handleCreateAndGenerate = async () => {
+    const vn = 'Budget principal'
+    if (coVersions.find(v => v.version_name === vn)) {
+      setSelVersion(vn)
+      return
+    }
+    setCreating(true)
+    const { data: insertedRows, error } = await sb.from('budget').upsert(
+      { tenant_id: tenantId, company_key: budCo, version_name: vn, data: {}, status: 'draft' },
+      { onConflict: 'tenant_id,company_key,version_name' }
+    ).select()
+    setCreating(false)
+    if (error) {
+      setMsg('❌ ' + error.message)
+      setTimeout(() => setMsg(null), 6000)
+      return
+    }
+    const newVersion = {
+      id: (insertedRows as any)?.[0]?.id,
+      company_key: budCo,
+      version_name: vn,
+      data: {},
+      status: 'draft' as const,
+    }
+    setBudVersions([...budVersions, newVersion])
+    setSelVersion(vn)
+    setMsg('✅ Version créée — génération en cours...')
+    setTimeout(() => setMsg(null), 4000)
+  }
+
+  const handleDeleteVersion = async (vn: string) => {
+    if (!confirm(`Supprimer la version "${vn}" ?`)) return
+    const { error } = await sb.from('budget')
+      .delete()
+      .match({ tenant_id: tenantId, company_key: budCo, version_name: vn })
+    if (error) {
+      setMsg('❌ ' + error.message)
+      setTimeout(() => setMsg(null), 3000)
+      return
+    }
+    const updated = budVersions.filter(v => !(v.company_key === budCo && v.version_name === vn))
+    setBudVersions(updated)
+    if (selVersion === vn) {
+      const remaining = updated.filter(v => v.company_key === budCo)
+      setSelVersion(remaining[0]?.version_name ?? '')
+    }
+    setMsg('✅ Version supprimée')
     setTimeout(() => setMsg(null), 3000)
   }
 
@@ -498,7 +619,10 @@ export function Budget() {
         else produits[i] += val
       })
     }
-    return { charges, produits, result: produits.map((p, i) => p - charges[i]) }
+    const result = produits.map((p, i) => p - charges[i])
+    let cum = 0
+    const cumul = result.map(v => { cum += v; return cum })
+    return { charges, produits, result, cumul }
   }, [coBud])
 
   const accounts = useMemo(() => {
@@ -525,152 +649,251 @@ export function Budget() {
   return (
     <div style={{ padding: '16px 24px' }}>
 
-      {/* Toolbar */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap' }}>
-
+      {/* Company selector */}
+      <div style={{ marginBottom: 16 }}>
         <select value={budCo} onChange={e => setBudCo(e.target.value)} style={inputSt}>
           {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name || k}</option>)}
         </select>
-
-        <input
-          type="text" placeholder="Rechercher un compte..." value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ ...inputSt, width: 200 }}
-        />
-
-        <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)' }}>
-          {(['all','charge','produit'] as const).map(f => (
-            <button key={f} onClick={() => setFilter(f)}
-              style={{ padding:'6px 10px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
-                background: filter===f ? 'rgba(59,130,246,0.2)' : 'transparent',
-                color: filter===f ? '#93c5fd' : '#475569' }}>
-              {f==='all' ? 'Tous' : f==='charge' ? '📤 Charges' : '📥 Produits'}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ marginLeft:'auto', display:'flex', gap:8, alignItems:'center' }}>
-          {Object.keys(coBud).length === 0 && (
-            <button onClick={handleGenerate}
-              style={{ padding:'6px 14px', borderRadius:8, background:'rgba(245,158,11,0.2)', border:'1px solid rgba(245,158,11,0.3)', color:'#f59e0b', fontSize:12, cursor:'pointer', fontWeight:600 }}>
-              ⚡ Générer depuis FEC N-1
-            </button>
-          )}
-          {Object.keys(coBud).length > 0 && (
-            <button onClick={handleGenerate}
-              style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#475569', fontSize:12, cursor:'pointer' }}>
-              🔄 Régénérer
-            </button>
-          )}
-          <button onClick={handleSave} disabled={saving}
-            style={{ padding:'6px 14px', borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', fontSize:12, cursor:'pointer', fontWeight:600 }}>
-            {saving ? 'Sauvegarde...' : '💾 Sauvegarder'}
-          </button>
-          {Object.keys(coBud).length > 0 && (
-            <button onClick={() => setShowWhatIf(v => !v)}
-              style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
-                background: showWhatIf ? 'rgba(139,92,246,0.2)' : 'transparent',
-                border: `1px solid ${showWhatIf ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                color: showWhatIf ? '#a78bfa' : '#475569' }}>
-              Scénarios What-if
-            </button>
-          )}
-        </div>
-
-        {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444', width:'100%' }}>{msg}</span>}
       </div>
 
-      {/* What-if simulation */}
-      {showWhatIf && Object.keys(coBud).length > 0 && (
-        <WhatIfPanel coBud={coBud} />
-      )}
+      {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444', display:'block', marginBottom:8 }}>{msg}</span>}
 
-      {accounts.length === 0 && Object.keys(coBud).length === 0 ? (
-        <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
-          <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
-          <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucun budget défini</div>
-          <div style={{ fontSize:12, color:'#475569', marginBottom:20 }}>
-            Cliquez sur <strong style={{ color:'#f59e0b' }}>⚡ Générer depuis FEC N-1</strong> pour pré-remplir automatiquement<br/>
-            le budget à partir des données de l'exercice précédent.
+      {/* Main layout: version list left, editor right */}
+      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+
+        {/* Left panel: version list */}
+        <div style={{
+          width: 220, flexShrink: 0,
+          background: '#0a0f1a', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
+          padding: '12px 10px',
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+            Versions
           </div>
-          <button onClick={handleGenerate}
-            style={{ padding:'10px 24px', borderRadius:10, background:'linear-gradient(135deg,#f59e0b,#f97316)', border:'none', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
-            ⚡ Générer le budget depuis N-1
-          </button>
+
+          {coVersions.length === 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: '#334155', marginBottom: 10 }}>Aucune version</div>
+              <button
+                onClick={handleCreateAndGenerate}
+                disabled={creating}
+                style={{
+                  width: '100%', padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  cursor: creating ? 'not-allowed' : 'pointer',
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
+                  border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
+                  lineHeight: 1.4, opacity: creating ? 0.6 : 1,
+                }}
+              >
+                {creating ? 'Création...' : '⚡ Créer + Générer\ndepuis FEC N-1'}
+              </button>
+            </div>
+          )}
+
+          {coVersions.map(v => (
+            <div key={v.version_name} style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '6px 8px', borderRadius: 7, marginBottom: 4,
+              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'transparent',
+              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'transparent'}`,
+              cursor: 'pointer',
+            }}
+              onClick={() => setSelVersion(v.version_name)}
+            >
+              <span style={{ flex: 1, fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {v.version_name}
+              </span>
+              <button
+                onClick={e => { e.stopPropagation(); handleDeleteVersion(v.version_name) }}
+                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}
+                title="Supprimer"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+
+          {/* New version input */}
+          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+            <input
+              type="text" placeholder="Nom de la version..." value={newVersionName}
+              onChange={e => setNewVersionName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateVersion()}
+              style={{ ...inputSt, width: '100%', boxSizing: 'border-box', marginBottom: 6, fontSize: 11 }}
+            />
+            <button
+              onClick={handleCreateVersion}
+              disabled={creating || !newVersionName.trim()}
+              style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#93c5fd',
+                opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
+            >
+              {creating ? 'Création...' : '+ Nouvelle version'}
+            </button>
+          </div>
         </div>
-      ) : (
-        <div style={{ overflowX:'auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-            <thead>
-              <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
-                <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
-                <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
-                {MONTHS_SHORT.map(m => (
-                  <th key={m} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{m}</th>
-                ))}
-                <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {accounts.map(([acc, v]) => {
-                const bv = v as any
-                const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
-                const isCharge = bv.t === 'c'
-                return (
-                  <tr key={acc} style={{ borderBottom:'1px solid rgba(255,255,255,0.025)' }}>
-                    <td style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
-                      <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
-                      <span>{bv.l}</span>
-                    </td>
-                    <td style={{ padding:'3px 8px', textAlign:'center' }}>
-                      <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10,
-                        background: isCharge ? 'rgba(239,68,68,0.1)':'rgba(16,185,129,0.1)',
-                        color: isCharge ? '#ef4444':'#10b981' }}>
-                        {isCharge ? 'charge':'produit'}
-                      </span>
-                    </td>
-                    {Array(12).fill(0).map((_, fi) => (
-                      <td key={fi} style={{ padding:'2px 2px' }}>
-                        <input
-                          type="number" value={bv.b?.[fi] ?? 0}
-                          onChange={e => handleCell(acc, fi, e.target.value)}
-                          style={{ width:66, padding:'3px 4px', textAlign:'right',
-                            background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)',
-                            borderRadius:4, color: isCharge ? '#fca5a5':'#6ee7b7',
-                            fontSize:11, fontFamily:'monospace', outline:'none' }}
-                        />
-                      </td>
-                    ))}
-                    <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600 }}>
-                      {fmt(total)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-            <tfoot>
-              {[
-                { label:'📥 Total produits', row:totals.produits, color:'#10b981' },
-                { label:'📤 Total charges',  row:totals.charges,  color:'#ef4444' },
-                { label:'💰 Résultat',       row:totals.result,   color:'#3b82f6' },
-              ].map(({ label, row, color }) => (
-                <tr key={label} style={{ background:'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
-                  <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
-                  <td />
-                  {row.map((v, i) => (
-                    <td key={i} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
-                      color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
+
+        {/* Right panel: budget editor */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+
+          {selVersion ? (
+            <>
+              {/* Toolbar */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+
+                <input
+                  type="text" placeholder="Rechercher un compte..." value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  style={{ ...inputSt, width: 200 }}
+                />
+
+                <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)' }}>
+                  {(['all','charge','produit'] as const).map(f => (
+                    <button key={f} onClick={() => setFilter(f)}
+                      style={{ padding:'6px 10px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
+                        background: filter===f ? 'rgba(59,130,246,0.2)' : 'transparent',
+                        color: filter===f ? '#93c5fd' : '#475569' }}>
+                      {f==='all' ? 'Tous' : f==='charge' ? '📤 Charges' : '📥 Produits'}
+                    </button>
                   ))}
-                  <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
-                    color: row.reduce((s,x)=>s+x,0)<0 ? '#ef4444':color }}>
-                    {fmt(row.reduce((s,x)=>s+x,0))}
-                  </td>
-                </tr>
-              ))}
-            </tfoot>
-          </table>
+                </div>
+
+                <div style={{ marginLeft:'auto', display:'flex', gap:8, alignItems:'center' }}>
+                  {Object.keys(coBud).length === 0 && (
+                    <button onClick={handleGenerate}
+                      style={{ padding:'6px 14px', borderRadius:8, background:'rgba(245,158,11,0.2)', border:'1px solid rgba(245,158,11,0.3)', color:'#f59e0b', fontSize:12, cursor:'pointer', fontWeight:600 }}>
+                      ⚡ Générer depuis FEC N-1
+                    </button>
+                  )}
+                  {Object.keys(coBud).length > 0 && (
+                    <button onClick={handleGenerate}
+                      style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#475569', fontSize:12, cursor:'pointer' }}>
+                      🔄 Régénérer
+                    </button>
+                  )}
+                  <button onClick={handleSave} disabled={saving}
+                    style={{ padding:'6px 14px', borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', fontSize:12, cursor:'pointer', fontWeight:600 }}>
+                    {saving ? 'Sauvegarde...' : '💾 Sauvegarder'}
+                  </button>
+                  {Object.keys(coBud).length > 0 && (
+                    <button onClick={() => setShowWhatIf(v => !v)}
+                      style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                        background: showWhatIf ? 'rgba(139,92,246,0.2)' : 'transparent',
+                        border: `1px solid ${showWhatIf ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                        color: showWhatIf ? '#a78bfa' : '#475569' }}>
+                      Scénarios What-if
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* What-if simulation */}
+              {showWhatIf && Object.keys(coBud).length > 0 && (
+                <WhatIfPanel coBud={coBud} />
+              )}
+
+              {accounts.length === 0 && Object.keys(coBud).length === 0 ? (
+                <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
+                  <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
+                  <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucun budget défini</div>
+                  <div style={{ fontSize:12, color:'#475569', marginBottom:20 }}>
+                    Cliquez sur <strong style={{ color:'#f59e0b' }}>⚡ Générer depuis FEC N-1</strong> pour pré-remplir automatiquement<br/>
+                    le budget à partir des données de l'exercice précédent.
+                  </div>
+                  <button onClick={handleGenerate}
+                    style={{ padding:'10px 24px', borderRadius:10, background:'linear-gradient(135deg,#f59e0b,#f97316)', border:'none', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                    ⚡ Générer le budget depuis N-1
+                  </button>
+                </div>
+              ) : (
+                <div style={{ overflowX:'auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                    <thead>
+                      <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
+                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
+                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
+                        {MONTHS_SHORT.map(m => (
+                          <th key={m} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{m}</th>
+                        ))}
+                        <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {accounts.map(([acc, v]) => {
+                        const bv = v as any
+                        const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
+                        const isCharge = bv.t === 'c'
+                        return (
+                          <tr key={acc} style={{ borderBottom:'1px solid rgba(255,255,255,0.025)' }}>
+                            <td style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                              <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
+                              <span>{bv.l}</span>
+                            </td>
+                            <td style={{ padding:'3px 8px', textAlign:'center' }}>
+                              <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10,
+                                background: isCharge ? 'rgba(239,68,68,0.1)':'rgba(16,185,129,0.1)',
+                                color: isCharge ? '#ef4444':'#10b981' }}>
+                                {isCharge ? 'charge':'produit'}
+                              </span>
+                            </td>
+                            {Array(12).fill(0).map((_, fi) => (
+                              <td key={fi} style={{ padding:'2px 2px' }}>
+                                <input
+                                  type="number" value={bv.b?.[fi] ?? 0}
+                                  onChange={e => handleCell(acc, fi, e.target.value)}
+                                  style={{ width:66, padding:'3px 4px', textAlign:'right',
+                                    background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)',
+                                    borderRadius:4, color: isCharge ? '#fca5a5':'#6ee7b7',
+                                    fontSize:11, fontFamily:'monospace', outline:'none' }}
+                                />
+                              </td>
+                            ))}
+                            <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600 }}>
+                              {fmt(total)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      {[
+                        { label:'📥 Total produits',  row:totals.produits, color:'#10b981', isCumul:false },
+                        { label:'📤 Total charges',   row:totals.charges,  color:'#ef4444', isCumul:false },
+                        { label:'💰 Résultat',        row:totals.result,   color:'#3b82f6', isCumul:false },
+                        { label:'📊 Résultat cumulé', row:totals.cumul,    color:'#8b5cf6', isCumul:true  },
+                      ].map(({ label, row, color, isCumul }) => {
+                        const grandTotal = isCumul ? (row[row.length-1] ?? 0) : row.reduce((s,x)=>s+x,0)
+                        return (
+                        <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
+                          <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
+                          <td />
+                          {row.map((v, i) => (
+                            <td key={i} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
+                              color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
+                          ))}
+                          <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
+                            color: grandTotal<0 ? '#ef4444':color }}>
+                            {fmt(grandTotal)}
+                          </td>
+                        </tr>
+                        )
+                      })}
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
+              <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
+              <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucune version sélectionnée</div>
+              <div style={{ fontSize:12, color:'#475569' }}>
+                Créez une nouvelle version dans le panneau de gauche.
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
