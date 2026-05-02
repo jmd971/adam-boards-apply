@@ -44,6 +44,7 @@ function AppInner() {
   const setTab      = useAppStore(s => s.setTab)
 
   const [navOpen, setNavOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   useEffect(() => {
     // Gérer le callback OAuth/magic link (hash dans l'URL après redirect Supabase)
@@ -150,7 +151,7 @@ function AppInner() {
       )}
 
       {/* Sidebar */}
-      <div className={`sidebar-wrapper${navOpen ? ' open' : ''}`} style={{
+      <div className={`sidebar-wrapper${navOpen ? ' open' : ''}${sidebarCollapsed ? ' collapsed' : ''}`} style={{
         position: 'fixed' as const,
         top: 0, left: 0, bottom: 0,
         zIndex: 50,
@@ -159,8 +160,8 @@ function AppInner() {
       </div>
 
       {/* Main */}
-      <div className="main-content" style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
-        <TopBar allMonths={allMonths} onMenuClick={() => setNavOpen(o => !o)} />
+      <div className={`main-content${sidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
+        <TopBar allMonths={allMonths} onMenuClick={() => setNavOpen(o => !o)} onSidebarToggle={() => setSidebarCollapsed(v => !v)} sidebarCollapsed={sidebarCollapsed} />
         <main style={{ flex:1, overflowY:'auto' }}><TabContent /></main>
       </div>
     </div>
@@ -174,3 +175,4 @@ export default function App() {
     </ErrorBoundary>
   )
 }
+
