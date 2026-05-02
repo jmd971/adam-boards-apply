@@ -46,6 +46,7 @@ export function Tresorerie() {
   const [expanded, setExpanded] = useState<Record<string,boolean>>({})
   const [modal,    setModal]    = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
   const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number}>>({})
+  const [secOpen,  setSecOpen]  = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
   const months = RAW?.mn ?? []
@@ -203,9 +204,12 @@ export function Tresorerie() {
     )
   }
 
-  const Sec = ({label,color}:{label:string;color:string}) => (
-    <tr style={{background:`${color}10`}}>
-      <td colSpan={months.length+2} style={{padding:'10px 12px',fontWeight:800,fontSize:11,color,letterSpacing:'1px',textTransform:'uppercase',borderTop:`2px solid ${color}40`,borderBottom:`1px solid ${color}20`,position:'sticky',left:0}}>{label}</td>
+  const Sec = ({label,color,onToggle,isOpen}:{label:string;color:string;onToggle?:()=>void;isOpen?:boolean}) => (
+    <tr style={{background:`${color}10`,cursor:onToggle?'pointer':'default'}} onClick={onToggle}>
+      <td colSpan={months.length+2} style={{padding:'10px 12px',fontWeight:800,fontSize:11,color,letterSpacing:'1px',textTransform:'uppercase',borderTop:`2px solid ${color}40`,borderBottom:`1px solid ${color}20`,position:'sticky',left:0,userSelect:'none'}}>
+        {onToggle&&<span style={{display:'inline-block',width:14,marginRight:4,fontSize:10}}>{isOpen?'▾':'▸'}</span>}
+        {label}
+      </td>
     </tr>
   )
 
@@ -285,7 +289,7 @@ export function Tresorerie() {
           </div>
           <div style={{marginBottom:10,fontSize:11,color:'var(--text-3)'}}>💡 Cliquez <span style={{color:'var(--blue)'}}>▸</span> sur une catégorie pour voir les comptes, puis sur un compte pour voir les écritures.</div>
           {treso && (
-            <div style={{overflowX:'auto',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
+            <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 260px)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead>
                   <tr>
@@ -295,9 +299,9 @@ export function Tresorerie() {
                   </tr>
                 </thead>
                 <tbody>
-                  <Sec label="📥 Encaissements" color="var(--green)"/>
-                  {ENC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.eB[c.label]} color="#34d399" accMap={treso.eA[c.label]} k={`e_${c.label}`}/>)}
-                  {treso.eM.some((v:number)=>v>0)&&(
+                  <Sec label="📥 Encaissements" color="var(--green)" onToggle={()=>setSecOpen(s=>({...s,enc:!s.enc}))} isOpen={secOpen.enc}/>
+                  {secOpen.enc&&ENC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.eB[c.label]} color="#34d399" accMap={treso.eA[c.label]} k={`e_${c.label}`}/>)}
+                  {secOpen.enc&&treso.eM.some((v:number)=>v>0)&&(
                     <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
                       <td style={{padding:'8px 12px 8px 24px',color:'var(--purple)',fontSize:11,fontStyle:'italic',position:'sticky',left:0,background:'var(--bg-0)',zIndex:2}}>Saisies manuelles</td>
                       {treso.eM.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontSize:11,color:v===0?'var(--text-3)':'var(--purple)'}}>{v!==0?fmt(v):'—'}</td>)}
@@ -305,9 +309,9 @@ export function Tresorerie() {
                     </tr>
                   )}
                   <Tot label="TOTAL ENCAISSEMENTS" vals={treso.tE} color="var(--green)" top/>
-                  <Sec label="📤 Décaissements" color="var(--red)"/>
-                  {DEC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.dB[c.label]} color="#fca5a5" accMap={treso.dA[c.label]} k={`d_${c.label}`}/>)}
-                  {treso.dM.some((v:number)=>v>0)&&(
+                  <Sec label="📤 Décaissements" color="var(--red)" onToggle={()=>setSecOpen(s=>({...s,dec:!s.dec}))} isOpen={secOpen.dec}/>
+                  {secOpen.dec&&DEC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.dB[c.label]} color="#fca5a5" accMap={treso.dA[c.label]} k={`d_${c.label}`}/>)}
+                  {secOpen.dec&&treso.dM.some((v:number)=>v>0)&&(
                     <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
                       <td style={{padding:'8px 12px 8px 24px',color:'var(--purple)',fontSize:11,fontStyle:'italic',position:'sticky',left:0,background:'var(--bg-0)',zIndex:2}}>Saisies manuelles</td>
                       {treso.dM.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontSize:11,color:v===0?'var(--text-3)':'var(--purple)'}}>{v!==0?fmt(v):'—'}</td>)}
