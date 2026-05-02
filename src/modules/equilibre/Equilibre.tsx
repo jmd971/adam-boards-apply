@@ -6,29 +6,29 @@ import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { exportPlCalcXlsx, printModule } from '@/lib/export'
 import {
-  BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
+  BarChart, Bar, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer
 } from 'recharts'
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const WaterfallTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
+  const d = payload[0]?.payload
+  if (!d) return null
+  const displayVal = d.rawValue
+  const color = d.isTotal ? '#3b82f6' : (d.isPositive ? '#10b981' : '#ef4444')
   return (
     <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
-      <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:6 }}>{label}</div>
-      {payload.map((p: any) => (
-        <div key={p.name} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:3 }}>
-          <span style={{ width:8, height:8, borderRadius:'50%', background:p.color, flexShrink:0 }} />
-          <span style={{ color:'var(--text-2)', flex:1 }}>{p.name}</span>
-          <span style={{ fontFamily:'monospace', fontWeight:600, color:p.color }}>{fmt(p.value)} €</span>
-        </div>
-      ))}
+      <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:4 }}>{label}</div>
+      <div style={{ fontFamily:'monospace', fontWeight:600, color }}>
+        {displayVal > 0 && !d.isTotal ? '+' : ''}{fmt(displayVal)} €
+      </div>
+      {d.isTotal && <div style={{ fontSize:10, color:'var(--text-3)', marginTop:2 }}>Cumul</div>}
     </div>
   )
 }
 
 function BfrGauge({ bfr, ca }: { bfr: number; ca: number }) {
   const ratio = ca > 0 ? bfr / ca : 0
-  // Gauge from -30% to +30% of CA
   const clamp = Math.max(-0.3, Math.min(0.3, ratio))
   const pctPos = ((clamp + 0.3) / 0.6) * 100
   const color = bfr <= 0 ? '#10b981' : bfr / Math.max(ca, 1) < 0.1 ? '#f59e0b' : '#ef4444'
@@ -37,17 +37,13 @@ function BfrGauge({ bfr, ca }: { bfr: number; ca: number }) {
     <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
       <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-2)' }}>Jauge BFR / CA</h3>
       <div className="flex flex-col items-center gap-3 py-2">
-        {/* Gauge bar */}
         <div className="w-full relative" style={{ height: 28, background: 'rgba(255,255,255,0.06)', borderRadius: 14 }}>
-          {/* Gradient background */}
           <div style={{
             position: 'absolute', inset: 0, borderRadius: 14, overflow: 'hidden',
             background: 'linear-gradient(to right, #10b981 0%, #10b981 40%, #f59e0b 50%, #ef4444 100%)',
             opacity: 0.15,
           }} />
-          {/* Center line (BFR=0) */}
           <div style={{ position: 'absolute', left: '50%', top: 2, bottom: 2, width: 1, background: 'rgba(255,255,255,0.3)' }} />
-          {/* Needle */}
           <div style={{
             position: 'absolute',
             left: `${pctPos}%`,
@@ -61,13 +57,11 @@ function BfrGauge({ bfr, ca }: { bfr: number; ca: number }) {
             transition: 'left 0.5s ease',
           }} />
         </div>
-        {/* Labels */}
         <div className="w-full flex justify-between text-[10px]" style={{ color: 'var(--text-2)' }}>
           <span>BFR négatif (favorable)</span>
           <span>0</span>
           <span>BFR élevé (risque)</span>
         </div>
-        {/* Value */}
         <div className="text-center">
           <div className="text-lg font-bold" style={{ color }}>{fmt(bfr)} €</div>
           <div className="text-xs" style={{ color: 'var(--text-2)' }}>{pct(ratio)} du CA</div>
@@ -88,42 +82,61 @@ export function Equilibre() {
     return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
   }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
-  const actif = plCalc['eq_a']?.cumulN ?? 0
-  const passif = plCalc['eq_p']?.cumulN ?? 0
-  const immo = plCalc['immo']?.cumulN ?? 0
-  const stocks = plCalc['stocks']?.cumulN ?? 0
-  const clients = plCalc['clients_eq']?.cumulN ?? 0
-  const autresAct = plCalc['autr_act']?.cumulN ?? 0
-  const capProp = plCalc['cap_prop']?.cumulN ?? 0
-  const detFin = plCalc['det_fin']?.cumulN ?? 0
+  const actif       = plCalc['eq_a']?.cumulN ?? 0
+  const passif      = plCalc['eq_p']?.cumulN ?? 0
+  const immo        = plCalc['immo']?.cumulN ?? 0
+  const stocks      = plCalc['stocks']?.cumulN ?? 0
+  const clients     = plCalc['clients_eq']?.cumulN ?? 0
+  const autresAct   = plCalc['autr_act']?.cumulN ?? 0
+  const capProp     = plCalc['cap_prop']?.cumulN ?? 0
+  const detFin      = plCalc['det_fin']?.cumulN ?? 0
   const fournisseurs = plCalc['fournisseurs_eq']?.cumulN ?? 0
-  const autresPass = plCalc['autr_pass']?.cumulN ?? 0
-  const bfr = clients + stocks - fournisseurs
+  const autresPass  = plCalc['autr_pass']?.cumulN ?? 0
+  const bfr         = clients + stocks - fournisseurs
 
-  // Stacked bar data: actif vs passif breakdown
-  const stackedData = useMemo(() => [
-    {
-      name: 'Actif',
-      'Immobilisations': Math.round(immo),
-      'Stocks': Math.round(stocks),
-      'Créances clients': Math.round(clients),
-      'Autres actifs': Math.round(autresAct),
-    },
-    {
-      name: 'Passif',
-      'Capitaux propres': Math.round(capProp),
-      'Dettes financières': Math.round(detFin),
-      'Fournisseurs': Math.round(fournisseurs),
-      'Autres passifs': Math.round(autresPass),
-    },
-  ], [immo, stocks, clients, autresAct, capProp, detFin, fournisseurs, autresPass])
+  // Derived equilibrium values
+  const resourcesStables = Math.round(capProp + detFin)
+  const fdr              = Math.round(resourcesStables - immo)
+  const trNette          = Math.round(fdr - bfr)
 
-  const ACTIF_COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#6366f1']
-  const PASSIF_COLORS = ['#8b5cf6', '#f59e0b', '#ef4444', '#f97316']
-  const actifKeys = ['Immobilisations', 'Stocks', 'Créances clients', 'Autres actifs']
-  const passifKeys = ['Capitaux propres', 'Dettes financières', 'Fournisseurs', 'Autres passifs']
-  const allKeys = [...actifKeys, ...passifKeys]
-  const allColors = [...ACTIF_COLORS, ...PASSIF_COLORS]
+  // Build waterfall (cascade) data
+  const wfData = useMemo(() => {
+    let run = 0
+    type Step = { name: string; delta?: number; total?: number; isTotal?: boolean }
+    const steps: Step[] = [
+      { name: 'Cap. propres',   delta: Math.round(capProp) },
+      { name: 'Dettes fin.',    delta: Math.round(detFin) },
+      { name: 'Res. stables',   total: resourcesStables, isTotal: true },
+      { name: '— Immobi.',      delta: -Math.round(immo) },
+      { name: 'FDR',            total: fdr, isTotal: true },
+      { name: bfr >= 0 ? '— BFR' : '+ BFR (fav.)', delta: -Math.round(bfr) },
+      { name: 'Tréso. nette',   total: trNette, isTotal: true },
+    ]
+
+    return steps.map(step => {
+      if (step.isTotal) {
+        const t = step.total ?? 0
+        return {
+          name: step.name,
+          invisible: t >= 0 ? 0 : t,
+          bar: Math.abs(t),
+          rawValue: t,
+          isTotal: true,
+          isPositive: t >= 0,
+        }
+      }
+      const d = step.delta ?? 0
+      if (d >= 0) {
+        const entry = { name: step.name, invisible: run, bar: d, rawValue: d, isTotal: false, isPositive: true }
+        run += d
+        return entry
+      } else {
+        const entry = { name: step.name, invisible: run + d, bar: Math.abs(d), rawValue: d, isTotal: false, isPositive: false }
+        run += d
+        return entry
+      }
+    })
+  }, [capProp, detFin, immo, bfr, resourcesStables, fdr, trNette])
 
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée. Importez un fichier FEC.</div>
 
@@ -135,27 +148,51 @@ export function Equilibre() {
       />
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 pt-4">
-        <KpiCard label="Actif économique" value={`${fmt(actif)} €`} color="#3b82f6" />
-        <KpiCard label="Financement" value={`${fmt(passif)} €`} color="#8b5cf6" />
-        <KpiCard label="BFR" value={`${fmt(bfr)} €`} color={bfr < 0 ? '#10b981' : '#f97316'} sub={bfr < 0 ? 'Favorable' : 'À financer'} />
+        <KpiCard label="Actif économique"  value={`${fmt(actif)} €`}         color="#3b82f6" />
+        <KpiCard label="Financement"       value={`${fmt(passif)} €`}        color="#8b5cf6" />
+        <KpiCard label="BFR"               value={`${fmt(bfr)} €`}           color={bfr < 0 ? '#10b981' : '#f97316'} sub={bfr < 0 ? 'Favorable' : 'À financer'} />
         <KpiCard label="Écart actif/passif" value={`${fmt(actif - passif)} €`} color={Math.abs(actif - passif) < 1000 ? '#10b981' : '#ef4444'} />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6">
-        {/* Stacked bar: Actif vs Passif */}
+        {/* Waterfall cascade: Ressources → FDR → Trésorerie */}
         <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-2)' }}>Structure Actif / Passif</h3>
+          <h3 className="text-xs font-semibold mb-1" style={{ color: 'var(--text-2)' }}>Équilibre financier — cascade</h3>
+          <div style={{ display:'flex', gap:16, marginBottom:10, fontSize:10, color:'var(--text-3)' }}>
+            <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:2, background:'#10b981', marginRight:4 }}/>Flux positif</span>
+            <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:2, background:'#ef4444', marginRight:4 }}/>Flux négatif</span>
+            <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:2, background:'#3b82f6', marginRight:4 }}/>Cumul</span>
+          </div>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={stackedData} barSize={60}>
+            <BarChart data={wfData} barSize={44} margin={{ top:4, right:8, left:0, bottom:0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="name" tick={{ fill: 'var(--text-2)', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend wrapperStyle={{ fontSize: 10 }} />
-              {allKeys.map((key, i) => (
-                <Bar key={key} dataKey={key} stackId="a" fill={allColors[i]} radius={i === allKeys.length - 1 ? [4, 4, 0, 0] : undefined} />
-              ))}
+              <XAxis
+                dataKey="name"
+                tick={{ fill: 'var(--text-2)', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fill: 'var(--text-2)', fontSize: 10 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
+              />
+              <Tooltip content={<WaterfallTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
+              {/* Invisible offset bar — positions each value bar at the right Y level */}
+              <Bar dataKey="invisible" stackId="wf" fill="transparent" isAnimationActive={false} />
+              {/* Actual value bar — colored by type */}
+              <Bar dataKey="bar" stackId="wf" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                {wfData.map((entry, i) => (
+                  <Cell
+                    key={i}
+                    fill={entry.isTotal ? '#3b82f6' : (entry.isPositive ? '#10b981' : '#ef4444')}
+                    fillOpacity={entry.isTotal ? 0.9 : 0.72}
+                  />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
