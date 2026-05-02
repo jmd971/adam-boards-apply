@@ -4,7 +4,7 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts'
-import { fmt, pct, monthIdx } from '@/lib/calc'
+import { fmt, pct, monthIdx, fiscalIndex } from '@/lib/calc'
 import { computeBilan } from '@/lib/bilan'
 import { KpiCard } from '@/components/ui'
 import { evalThreshold, formatThresholdValue } from '@/lib/alertThresholds'
@@ -169,6 +169,7 @@ export function Dashboard() {
   const RAW         = useAppStore(s => s.RAW)
   const filters     = useAppStore(s => s.filters)
   const budVersions = useAppStore(s => s.budVersions)
+  const budData       = useAppStore(s => s.budData)
   const setFilters  = useAppStore(s => s.setFilters)
   const printRef    = useRef<HTMLDivElement>(null)
   const [showThresholdConfig, setShowThresholdConfig] = useState(false)
@@ -334,6 +335,38 @@ export function Dashboard() {
     window.print()
     setTimeout(() => printRef.current?.classList.remove('dashboard-print'), 500)
   }
+
+  const forecastData = useMemo(() => {
+    if (!RAW || !budData) return []
+    const now = new Date()
+    const forecastMs: string[] = []
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1)
+      forecastMs.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+    const MS_PREV = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+    const cos = filters.selCo.length ? filters.selCo : RAW.keys
+    let cum = 0
+    return forecastMs.map((m, mi) => {
+      let enc = 0, dec = 0
+      for (const co of cos) {
+        const bd = (budData as any)[co] ?? {}
+        const dC = Math.round(45 / 30)
+        const dF = Math.round(30 / 30)
+        const fiC = fiscalIndex(forecastMs[Math.max(0, mi - dC)])
+        const fiF = fiscalIndex(forecastMs[Math.max(0, mi - dF)])
+        for (const bv of Object.values(bd)) {
+          const b = (bv as any).b ?? []
+          const t = (bv as any).t
+          if (t === 'p') enc += b[fiC] || 0
+          if (t === 'c') dec += b[fiF] || 0
+        }
+      }
+      enc = Math.round(enc); dec = Math.round(dec)
+      const fl = enc - dec; cum += fl
+      return { month: MS_PREV[parseInt(m.slice(5)) - 1], enc, dec, fl, cum }
+    })
+  }, [filters.selCo.join(','), budData, RAW])
 
   if (!RAW) return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:400, gap:16, color:'var(--text-2)' }}>
@@ -593,6 +626,42 @@ export function Dashboard() {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {forecastData.some(d => d.enc > 0 || d.dec > 0) && (
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+            💧 Trésorerie prévisionnelle — 12 mois
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={forecastData} margin={{ top:4, right:16, bottom:0, left:0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="month" tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} width={72}
+                tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} />
+              <Tooltip
+                contentStyle={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, fontSize:11 }}
+                formatter={(v: any, name: string) => [
+                  new Intl.NumberFormat('fr-FR').format(v) + ' €',
+                  name === 'enc' ? 'Encaissements' : name === 'dec' ? 'Décaissements' : name === 'fl' ? 'Flux net' : 'Trésorerie cumulée'
+                ]}
+              />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
+              <Line type="monotone" dataKey="enc" stroke="#10b981" strokeWidth={2} dot={false} name="enc" />
+              <Line type="monotone" dataKey="dec" stroke="#ef4444" strokeWidth={2} dot={false} name="dec" />
+              <Line type="monotone" dataKey="fl" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="fl" />
+              <Line type="monotone" dataKey="cum" stroke="#a78bfa" strokeWidth={2.5} dot={{ r:3, fill:'#a78bfa' }} name="cum" />
+            </LineChart>
+          </ResponsiveContainer>
+          <div style={{ display:'flex', gap:16, justifyContent:'center', marginTop:10, flexWrap:'wrap' }}>
+            {([['#10b981','Encaissements'],['#ef4444','Décaissements'],['#3b82f6','Flux net (pointillé)'],['#a78bfa','Trésorerie cumulée']] as const).map(([color,label]) => (
+              <div key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:'var(--text-3)' }}>
+                <div style={{ width:16, height:2, background:color as string, borderRadius:2 }} />
+                {label}
+              </div>
+            ))}
           </div>
         </div>
       )}
