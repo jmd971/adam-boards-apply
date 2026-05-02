@@ -75,8 +75,8 @@ export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onI
       )}
 
       {/* Label + trend */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-        <div style={{ fontSize:11, fontWeight:600, color:'var(--text-1)', textTransform:'uppercase', letterSpacing:'0.6px' }}>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingRight: onInfo ? 28 : 0 }}>
+        <div style={{ fontSize:12, fontWeight:700, color:'var(--text-0)', textTransform:'uppercase', letterSpacing:'0.5px' }}>
           {icon && <span style={{ marginRight: 5 }}>{icon}</span>}
           {label}
         </div>
