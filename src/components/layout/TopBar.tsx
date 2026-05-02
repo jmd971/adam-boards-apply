@@ -40,7 +40,7 @@ export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
     padding:'2px 0',
   }
 
-  const Toggle = ({ label, k }: { label: string; k: 'showMonths' | 'showN1Full' | 'excludeOD' }) => {
+  const Toggle = ({ label, k }: { label: string; k: 'showMonths' | 'showN1Full' | 'excludeOD' | 'showBudget' }) => {
     const on = filters[k] as boolean
     return (
       <button onClick={() => setFilters({ [k]: !on })} style={{
@@ -124,9 +124,11 @@ export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
             <Toggle label="Mois"    k="showMonths" />
             <Toggle label="N-1"     k="showN1Full" />
             <Toggle label="Hors OD" k="excludeOD"  />
+            <Toggle label="Budget"  k="showBudget" />
           </div>
         )}
       </div>
     </header>
   )
 }
+
