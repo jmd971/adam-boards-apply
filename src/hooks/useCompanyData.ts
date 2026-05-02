@@ -12,6 +12,7 @@ export function useCompanyData() {
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const setBudData      = useAppStore(s => s.setBudData)
   const setBudStatus    = useAppStore(s => s.setBudStatus)
+  const setBudVersions  = useAppStore(s => s.setBudVersions)
   const setDataLoading  = useAppStore(s => s.setDataLoading)
   const setFilters      = useAppStore(s => s.setFilters)
 
@@ -32,7 +33,7 @@ export function useCompanyData() {
 
       return {
         companyData:   (cdRes.data ?? []) as CompanyDataRow[],
-        budgets:       (bdRes.data ?? []) as Array<{ company_key: string; data: Record<string, any>; status: string }>,
+        budgets:       (bdRes.data ?? []) as Array<{ id: string; company_key: string; version_name: string; data: Record<string, any>; status: string }>,
         manualEntries: (meRes.data ?? []) as ManualEntry[],
       }
     },
@@ -57,12 +58,20 @@ export function useCompanyData() {
     const bd: Record<string, any> = {}
     const bs: Record<string, string> = {}
     for (const co of raw.keys) {
-      const b = budgets.find(r => r.company_key === co)
+      const versions = budgets.filter(r => r.company_key === co)
+      const b = versions[0]
       bd[co] = b?.data ?? {}
       bs[co] = b?.status ?? 'draft'
     }
     setBudData(bd)
     setBudStatus(bs)
+    setBudVersions(budgets.map(b => ({
+      id: b.id,
+      company_key: b.company_key,
+      version_name: b.version_name ?? 'Budget principal',
+      data: b.data ?? {},
+      status: (b.status ?? 'draft') as 'draft' | 'validated',
+    })))
 
     if (raw.keys.length > 0) {
       setFilters({ selCo: raw.keys, budCo: raw.keys[0] ?? '' })
