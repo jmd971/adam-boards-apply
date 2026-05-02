@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, pct, fiscalIndex } from '@/lib/calc'
 import { sb } from '@/lib/supabase'
@@ -455,6 +455,10 @@ export function Budget() {
     }
   }, [budCo, coVersions.map(v => v.version_name).join(',')])
 
+  useEffect(() => {
+    if (!budCo && RAW?.keys?.length) setBudCo(RAW.keys[0])
+  }, [RAW?.keys?.join(',')])
+
   const coBud = useMemo(
     () => (budVersions.find(v => v.company_key === budCo && v.version_name === selVersion)?.data ?? {}) as Record<string, any>,
     [budVersions, budCo, selVersion]
@@ -532,18 +536,18 @@ export function Budget() {
       return
     }
     setCreating(true)
-    const { data: inserted, error } = await sb.from('budget').upsert(
+    const { data: insertedRows, error } = await sb.from('budget').upsert(
       { tenant_id: tenantId, company_key: budCo, version_name: vn, data: {}, status: 'draft' },
       { onConflict: 'tenant_id,company_key,version_name' }
-    ).select().single()
+    ).select()
     setCreating(false)
     if (error) {
       setMsg('❌ ' + error.message)
-      setTimeout(() => setMsg(null), 3000)
+      setTimeout(() => setMsg(null), 6000)
       return
     }
     const newVersion = {
-      id: (inserted as any)?.id,
+      id: (insertedRows as any)?.[0]?.id,
       company_key: budCo,
       version_name: vn,
       data: {},
@@ -554,6 +558,36 @@ export function Budget() {
     setNewVersionName('')
     setMsg('✅ Version créée')
     setTimeout(() => setMsg(null), 3000)
+  }
+
+  const handleCreateAndGenerate = async () => {
+    const vn = 'Budget principal'
+    if (coVersions.find(v => v.version_name === vn)) {
+      setSelVersion(vn)
+      return
+    }
+    setCreating(true)
+    const { data: insertedRows, error } = await sb.from('budget').upsert(
+      { tenant_id: tenantId, company_key: budCo, version_name: vn, data: {}, status: 'draft' },
+      { onConflict: 'tenant_id,company_key,version_name' }
+    ).select()
+    setCreating(false)
+    if (error) {
+      setMsg('❌ ' + error.message)
+      setTimeout(() => setMsg(null), 6000)
+      return
+    }
+    const newVersion = {
+      id: (insertedRows as any)?.[0]?.id,
+      company_key: budCo,
+      version_name: vn,
+      data: {},
+      status: 'draft' as const,
+    }
+    setBudVersions([...budVersions, newVersion])
+    setSelVersion(vn)
+    setMsg('✅ Version créée — génération en cours...')
+    setTimeout(() => setMsg(null), 4000)
   }
 
   const handleDeleteVersion = async (vn: string) => {
@@ -635,7 +669,22 @@ export function Budget() {
           </div>
 
           {coVersions.length === 0 && (
-            <div style={{ fontSize: 11, color: '#334155', marginBottom: 8 }}>Aucune version</div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: '#334155', marginBottom: 10 }}>Aucune version</div>
+              <button
+                onClick={handleCreateAndGenerate}
+                disabled={creating}
+                style={{
+                  width: '100%', padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  cursor: creating ? 'not-allowed' : 'pointer',
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
+                  border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
+                  lineHeight: 1.4, opacity: creating ? 0.6 : 1,
+                }}
+              >
+                {creating ? 'Création...' : '⚡ Créer + Générer\ndepuis FEC N-1'}
+              </button>
+            </div>
           )}
 
           {coVersions.map(v => (
