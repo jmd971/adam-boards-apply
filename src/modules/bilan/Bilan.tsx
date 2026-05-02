@@ -228,16 +228,16 @@ function BilanSection({
             {expanded[cat.id] && cat.accounts.map(acc => (
               <div
                 key={acc.acc}
-                onClick={() => acc.entries.length > 0 && onOpenModal({ title:`${acc.acc} — ${acc.label}`, entries:acc.entries, cumN:acc.valueN, cumN1:acc.valueN1 })}
+                onClick={() => onOpenModal({ title:`${acc.acc} — ${acc.label}`, entries:acc.entries, cumN:acc.valueN, cumN1:acc.valueN1 })}
                 style={{ display:'flex', alignItems:'center', padding:'5px 14px 5px 32px',
-                  cursor: acc.entries.length > 0 ? 'pointer' : 'default',
+                  cursor:'pointer',
                   background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)' }}
               >
                 <span style={{ fontSize:9, color:'var(--blue)', marginRight:4, flexShrink:0 }}>▸</span>
                 <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--text-3)', marginRight:6, flexShrink:0 }}>{acc.acc}</span>
                 <span style={{ fontSize:11, color:'var(--text-1)', flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }}>{acc.label}</span>
                 {acc.entries.length > 0 && (
-                  <span style={{ fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10, marginLeft:6, marginRight:6, flexShrink:0 }}>
+                  <span style={{ fontSize:9, color:'var(--blue)', background:'rgba(59,130,246,0.08)', padding:'1px 5px', borderRadius:10, marginLeft:6, marginRight:6, flexShrink:0 }}>
                     {acc.entries.length} éc.
                   </span>
                 )}
