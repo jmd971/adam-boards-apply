@@ -1,6 +1,6 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
-import { PlTable, KpiCard, ExportBar } from '@/components/ui'
+import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
 import { EQ } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
@@ -23,6 +23,7 @@ const WaterfallTooltip = ({ active, payload, label }: any) => {
         {displayVal > 0 && !d.isTotal ? '+' : ''}{fmt(displayVal)} €
       </div>
       {d.isTotal && <div style={{ fontSize:10, color:'var(--text-3)', marginTop:2 }}>Cumul</div>}
+      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)}/>}
     </div>
   )
 }
@@ -78,7 +79,9 @@ export function Equilibre() {
   const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
   const plCalc = useMemo(() => {
-    if (!RAW) return {}
+    const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
+
+  if (!RAW) return {}
     return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
   }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
@@ -135,6 +138,8 @@ export function Equilibre() {
       }
     })
   }, [capProp, detFin, immo, bfr, resourcesStables, fdr, trNette])
+
+  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
 
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée. Importez un fichier FEC.</div>
 
@@ -202,7 +207,7 @@ export function Equilibre() {
       {/* Table */}
       <div className="px-2">
         <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs}
-          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={actif} />
+          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={actif} onOpenModal={(title, entries, _d, cumN, cumN1) => setModal({title, entries, cumN, cumN1})} />
       </div>
     </div>
   )
