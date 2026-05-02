@@ -23,7 +23,6 @@ const WaterfallTooltip = ({ active, payload, label }: any) => {
         {displayVal > 0 && !d.isTotal ? '+' : ''}{fmt(displayVal)} €
       </div>
       {d.isTotal && <div style={{ fontSize:10, color:'var(--text-3)', marginTop:2 }}>Cumul</div>}
-      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)}/>}
     </div>
   )
 }
@@ -79,52 +78,42 @@ export function Equilibre() {
   const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
   const plCalc = useMemo(() => {
-    const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
-
-  if (!RAW) return {}
+    if (!RAW) return {}
     return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
   }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
-  const actif       = plCalc['eq_a']?.cumulN ?? 0
-  const passif      = plCalc['eq_p']?.cumulN ?? 0
-  const immo        = plCalc['immo']?.cumulN ?? 0
-  const stocks      = plCalc['stocks']?.cumulN ?? 0
-  const clients     = plCalc['clients_eq']?.cumulN ?? 0
-  const capProp     = plCalc['cap_prop']?.cumulN ?? 0
-  const detFin      = plCalc['det_fin']?.cumulN ?? 0
-  const fournisseurs = plCalc['fournisseurs_eq']?.cumulN ?? 0
-  const bfr         = clients + stocks - fournisseurs
+  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
 
-  // Derived equilibrium values
+  const actif        = plCalc['eq_a']?.cumulN ?? 0
+  const passif       = plCalc['eq_p']?.cumulN ?? 0
+  const immo         = plCalc['immo']?.cumulN ?? 0
+  const stocks       = plCalc['stocks']?.cumulN ?? 0
+  const clients      = plCalc['clients_eq']?.cumulN ?? 0
+  const capProp      = plCalc['cap_prop']?.cumulN ?? 0
+  const detFin       = plCalc['det_fin']?.cumulN ?? 0
+  const fournisseurs = plCalc['fournisseurs_eq']?.cumulN ?? 0
+  const bfr          = clients + stocks - fournisseurs
+
   const resourcesStables = Math.round(capProp + detFin)
   const fdr              = Math.round(resourcesStables - immo)
   const trNette          = Math.round(fdr - bfr)
 
-  // Build waterfall (cascade) data
   const wfData = useMemo(() => {
     let run = 0
     type Step = { name: string; delta?: number; total?: number; isTotal?: boolean }
     const steps: Step[] = [
-      { name: 'Cap. propres',   delta: Math.round(capProp) },
-      { name: 'Dettes fin.',    delta: Math.round(detFin) },
-      { name: 'Res. stables',   total: resourcesStables, isTotal: true },
-      { name: '— Immobi.',      delta: -Math.round(immo) },
-      { name: 'FDR',            total: fdr, isTotal: true },
+      { name: 'Cap. propres',  delta: Math.round(capProp) },
+      { name: 'Dettes fin.',   delta: Math.round(detFin) },
+      { name: 'Res. stables',  total: resourcesStables, isTotal: true },
+      { name: '— Immobi.',     delta: -Math.round(immo) },
+      { name: 'FDR',           total: fdr, isTotal: true },
       { name: bfr >= 0 ? '— BFR' : '+ BFR (fav.)', delta: -Math.round(bfr) },
-      { name: 'Tréso. nette',   total: trNette, isTotal: true },
+      { name: 'Tréso. nette',  total: trNette, isTotal: true },
     ]
-
     return steps.map(step => {
       if (step.isTotal) {
         const t = step.total ?? 0
-        return {
-          name: step.name,
-          invisible: t >= 0 ? 0 : t,
-          bar: Math.abs(t),
-          rawValue: t,
-          isTotal: true,
-          isPositive: t >= 0,
-        }
+        return { name: step.name, invisible: t >= 0 ? 0 : t, bar: Math.abs(t), rawValue: t, isTotal: true, isPositive: t >= 0 }
       }
       const d = step.delta ?? 0
       if (d >= 0) {
@@ -139,8 +128,6 @@ export function Equilibre() {
     })
   }, [capProp, detFin, immo, bfr, resourcesStables, fdr, trNette])
 
-  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
-
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée. Importez un fichier FEC.</div>
 
   return (
@@ -149,17 +136,14 @@ export function Equilibre() {
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportPlCalcXlsx('Equilibre', 'Équilibre', EQ, plCalc, actif)}
       />
-      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 pt-4">
-        <KpiCard label="Actif économique"  value={`${fmt(actif)} €`}         color="#3b82f6" />
-        <KpiCard label="Financement"       value={`${fmt(passif)} €`}        color="#8b5cf6" />
-        <KpiCard label="BFR"               value={`${fmt(bfr)} €`}           color={bfr < 0 ? '#10b981' : '#f97316'} sub={bfr < 0 ? 'Favorable' : 'À financer'} />
+        <KpiCard label="Actif économique"   value={`${fmt(actif)} €`}          color="#3b82f6" />
+        <KpiCard label="Financement"        value={`${fmt(passif)} €`}         color="#8b5cf6" />
+        <KpiCard label="BFR"                value={`${fmt(bfr)} €`}            color={bfr < 0 ? '#10b981' : '#f97316'} sub={bfr < 0 ? 'Favorable' : 'À financer'} />
         <KpiCard label="Écart actif/passif" value={`${fmt(actif - passif)} €`} color={Math.abs(actif - passif) < 1000 ? '#10b981' : '#ef4444'} />
       </div>
 
-      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6">
-        {/* Waterfall cascade: Ressources → FDR → Trésorerie */}
         <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <h3 className="text-xs font-semibold mb-1" style={{ color: 'var(--text-2)' }}>Équilibre financier — cascade</h3>
           <div style={{ display:'flex', gap:16, marginBottom:10, fontSize:10, color:'var(--text-3)' }}>
@@ -170,45 +154,32 @@ export function Equilibre() {
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={wfData} barSize={44} margin={{ top:4, right:8, left:0, bottom:0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis
-                dataKey="name"
-                tick={{ fill: 'var(--text-2)', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fill: 'var(--text-2)', fontSize: 10 }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
-              />
+              <XAxis dataKey="name" tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
               <Tooltip content={<WaterfallTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
               <ReferenceLine y={0} stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
-              {/* Invisible offset bar — positions each value bar at the right Y level */}
               <Bar dataKey="invisible" stackId="wf" fill="transparent" isAnimationActive={false} />
-              {/* Actual value bar — colored by type */}
               <Bar dataKey="bar" stackId="wf" radius={[3, 3, 0, 0]} isAnimationActive={false}>
                 {wfData.map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={entry.isTotal ? '#3b82f6' : (entry.isPositive ? '#10b981' : '#ef4444')}
-                    fillOpacity={entry.isTotal ? 0.9 : 0.72}
-                  />
+                  <Cell key={i} fill={entry.isTotal ? '#3b82f6' : (entry.isPositive ? '#10b981' : '#ef4444')} fillOpacity={entry.isTotal ? 0.9 : 0.72} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
 
-        {/* BFR Gauge */}
         <BfrGauge bfr={bfr} ca={actif} />
       </div>
 
-      {/* Table */}
       <div className="px-2">
-        <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs}
-          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={actif} onOpenModal={(title, entries, _d, cumN, cumN1) => setModal({title, entries, cumN, cumN1})} />
+        <PlTable
+          struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs}
+          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={actif}
+          onOpenModal={(title, entries, _d, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
+        />
       </div>
+
+      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
     </div>
   )
 }
