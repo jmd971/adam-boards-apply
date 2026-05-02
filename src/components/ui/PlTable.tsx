@@ -13,6 +13,7 @@ interface PlTableProps {
   showBudget: boolean
   caTotal: number
   onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
+  maxHeight?: string
 }
 
 const PLAN: Record<string, string> = {
@@ -61,7 +62,7 @@ function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], 
   return Math.round(total)
 }
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, onOpenModal }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, onOpenModal, maxHeight }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
@@ -207,7 +208,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
   }
 
   return (
-    <div style={{ overflowX:'auto' }}>
+    <div style={{ overflowX:'auto', ...(maxHeight ? { overflowY:'auto', maxHeight } : {}) }}>
       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
         <thead>
           <tr style={{ position:'sticky', top:0, zIndex:10, background:'var(--bg-1)' }}>
