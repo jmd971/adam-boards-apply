@@ -1,18 +1,16 @@
 import type { ManualEntry } from '@/types'
 
-// ─── Types ───────────────────────────────────��────────────────────────��───
-
 export type RFMSegment = 'champion' | 'fidele' | 'potentiel' | 'one_shot' | 'a_risque' | 'perdu'
 
 export interface SaleTransaction {
-  client_key:    string   // clé normalisée (email lowercase ou nom lowercase)
+  client_key:    string
   client_nom:    string
   client_email?: string
   client_phone?: string
-  date_achat:    string   // ISO YYYY-MM-DD
+  date_achat:    string
   montant:       number
   produit?:      string
-  commande_ref?: string   // N° facture / commande pour dédupliquer les visites
+  commande_ref?: string
 }
 
 export interface ClientRFM {
@@ -30,8 +28,6 @@ export interface ClientRFM {
   segment:       RFMSegment
   transactions:  SaleTransaction[]
 }
-
-// ─── Labels / couleurs / actions ──────────────────────────────────────────
 
 export const SEGMENT_LABELS: Record<RFMSegment, string> = {
   champion:  'Champion',
@@ -83,8 +79,6 @@ export const SEGMENT_ACTIONS: Record<RFMSegment, { title: string; desc: string }
   ],
 }
 
-// ─── Scoring ──────────────────────────────────────────────────────────────
-
 function scoreR(days: number): 1 | 2 | 3 | 4 {
   if (days <= 30)  return 4
   if (days <= 90)  return 3
@@ -118,8 +112,6 @@ function classify(r: number, f: number, m: number): RFMSegment {
   return 'perdu'
 }
 
-// ─── Calcul principal ─────────────────────────────────────────────────────
-
 export function computeRFM(txs: SaleTransaction[], refDate?: Date): ClientRFM[] {
   if (!txs.length) return []
   const ref = refDate ?? new Date()
@@ -152,8 +144,6 @@ export function computeRFM(txs: SaleTransaction[], refDate?: Date): ClientRFM[] 
   })).sort((a, b) => b.ca - a.ca)
 }
 
-// ─── Adaptateur Option 1 (Factures → Transactions) ────────────────────────
-
 export function manualEntriesToTransactions(
   entries: ManualEntry[],
   selCo: string[]
@@ -174,8 +164,6 @@ export function manualEntriesToTransactions(
       commande_ref: e.id,
     }))
 }
-
-// ─── Export GHL ───────────────────────────────────────────────────────────
 
 export function exportToGHL(clients: ClientRFM[], segment?: RFMSegment): void {
   const list = segment ? clients.filter(c => c.segment === segment) : clients
