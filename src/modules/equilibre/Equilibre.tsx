@@ -176,6 +176,7 @@ export function Equilibre() {
           struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs}
           showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={actif}
           onOpenModal={(title, entries, _d, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
+          maxHeight="calc(100vh - 200px)"
         />
       </div>
 
