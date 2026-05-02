@@ -124,11 +124,14 @@ export function TopBar({ allMonths, onMenuClick }: TopBarProps) {
             <Toggle label="Mois"    k="showMonths" />
             <Toggle label="N-1"     k="showN1Full" />
             <Toggle label="Hors OD" k="excludeOD"  />
-            <Toggle label="Budget"  k="showBudget" />
           </div>
+        )}
+        {isAnalysis && (
+          <Toggle label="Budget" k="showBudget" />
         )}
       </div>
     </header>
   )
 }
+
 
