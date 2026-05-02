@@ -46,9 +46,10 @@ interface KpiCardProps {
   sub?: string
   trend?: number   // % de variation N vs N-1
   icon?: string
+  onInfo?: () => void
 }
 
-export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon }: KpiCardProps) {
+export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onInfo }: KpiCardProps) {
   return (
     <div style={{
       background: 'var(--bg-1)',
@@ -60,6 +61,18 @@ export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon }: K
     }}>
       {/* Accent bar top */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background: color, opacity: 0.6, borderRadius:'var(--radius-lg) var(--radius-lg) 0 0' }} />
+
+      {/* Info button */}
+      {onInfo && (
+        <button
+          onClick={onInfo}
+          title="Voir l'explication"
+          className="print-hide"
+          style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, width:22, height:22, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'#475569', lineHeight:1, transition:'all .15s' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(59,130,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#93c5fd' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#475569' }}
+        >ℹ</button>
+      )}
 
       {/* Label + trend */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>

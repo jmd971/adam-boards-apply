@@ -6,8 +6,58 @@ import {
 } from 'recharts'
 import { fmt, pct, monthIdx, fiscalIndex } from '@/lib/calc'
 import { computeBilan } from '@/lib/bilan'
-import { KpiCard, ObjectifsChart } from '@/components/ui'
+import { KpiCard, ObjectifsChart, ExplainModal } from '@/components/ui'
+import type { Explanation } from '@/components/ui'
 import { evalThreshold, formatThresholdValue } from '@/lib/alertThresholds'
+
+// ── Dashboard KPI explanations ───────────────────────────────────────────────
+
+const DASH_EXPLANATIONS: Record<string, Explanation> = {
+  ca: {
+    title: "Chiffre d'affaires (CA)",
+    definition: "Montant total des ventes de biens et services réalisées sur la période sélectionnée. C'est l'indicateur de taille et d'activité commerciale de l'entreprise.",
+    formula: "Comptes 70x (ventes de produits, marchandises et prestations)",
+    reading: [
+      { label: "En croissance vs N-1 : dynamique commerciale positive", color: "#10b981" },
+      { label: "Stable : activité maintenue, surveiller la marge", color: "#f59e0b" },
+      { label: "En baisse : analyser la cause (marché, clients, gamme)", color: "#ef4444" },
+    ],
+    tip: "Comparez toujours le CA à la même période N-1 pour éliminer la saisonnalité.",
+  },
+  marge: {
+    title: "Marge brute",
+    definition: "Part du chiffre d'affaires restant après déduction du coût d'achat des marchandises et matières premières. Mesure la rentabilité brute de l'activité commerciale ou de production.",
+    formula: "Marge brute = CA − Achats consommés (60x)\nTaux de marge = Marge brute / CA × 100",
+    reading: [
+      { label: "> 40 % : excellent — forte compétitivité sur les coûts d'achat", color: "#10b981" },
+      { label: "25–40 % : correct — surveillance des achats recommandée", color: "#f59e0b" },
+      { label: "< 25 % : faible — pression sur les coûts ou problème de mix produit", color: "#ef4444" },
+    ],
+    tip: "Repères sectoriels : Commerce ~20–30 % · Industrie ~35–50 % · Services ~60–80 %",
+  },
+  ebe: {
+    title: "Excédent Brut d'Exploitation (EBE)",
+    definition: "Résultat de l'activité opérationnelle avant amortissements, intérêts et impôts. C'est le cash généré par l'exploitation courante. Indicateur clé de la capacité à rembourser les dettes et investir.",
+    formula: "EBE = Marge brute − Services extérieurs (61x-62x) − Charges de personnel (641x-646x)\nTaux d'EBE = EBE / CA × 100",
+    reading: [
+      { label: "> 15 % du CA : excellent — très bonne rentabilité opérationnelle", color: "#10b981" },
+      { label: "8–15 % du CA : correct — entreprise saine et profitable", color: "#f59e0b" },
+      { label: "< 8 % ou négatif : à surveiller — marges tendues", color: "#ef4444" },
+    ],
+    tip: "L'EBE est souvent utilisé pour calculer la capacité de remboursement : Dettes / EBE idéalement < 3 ans.",
+  },
+  re: {
+    title: "Résultat d'Exploitation (REX)",
+    definition: "Bénéfice ou perte généré par l'activité principale de l'entreprise, après déduction des amortissements et provisions, mais avant les charges financières et l'impôt sur les sociétés.",
+    formula: "REX = EBE − Dotations aux amortissements (681x)\n+ Autres produits d'exploitation − Autres charges d'exploitation",
+    reading: [
+      { label: "Positif : l'activité couvre ses coûts et génère un profit", color: "#10b981" },
+      { label: "Proche de zéro : équilibre fragile, surveiller de près", color: "#f59e0b" },
+      { label: "Négatif : perte opérationnelle — plan d'action nécessaire", color: "#ef4444" },
+    ],
+    tip: "Un REX positif mais un résultat net négatif signale des charges financières ou exceptionnelles importantes.",
+  },
+}
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 const CHARGE_COLORS = ['#ef4444','#f97316','#f59e0b','#8b5cf6','#6366f1','#3b82f6','#14b8a6']
@@ -173,6 +223,7 @@ export function Dashboard() {
   const setFilters  = useAppStore(s => s.setFilters)
   const printRef    = useRef<HTMLDivElement>(null)
   const [showThresholdConfig, setShowThresholdConfig] = useState(false)
+  const [activeExpl, setActiveExpl] = useState<string | null>(null)
 
   const { showBudget, budVersionKey } = filters
 
@@ -438,24 +489,28 @@ export function Dashboard() {
           trend={kpis?.evoCa != null ? kpis.evoCa * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.ca)} € · Éc. ${kpis && kpis.ca >= budKpis.ca ? '+' : ''}${fmt((kpis?.ca ?? 0) - budKpis.ca)} €`
-            : kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined} />
+            : kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined}
+          onInfo={() => setActiveExpl('ca')} />
         <KpiCard label="Marge brute" value={`${fmt(kpis?.marge ?? 0)} €`} color="var(--blue)"
           trend={kpis?.evoMarge != null ? kpis.evoMarge * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.marge)} € · Éc. ${kpis && kpis.marge >= budKpis.marge ? '+' : ''}${fmt((kpis?.marge ?? 0) - budKpis.marge)} €`
-            : kpis ? `${pct(kpis.txMarge)} du CA` : undefined} />
+            : kpis ? `${pct(kpis.txMarge)} du CA` : undefined}
+          onInfo={() => setActiveExpl('marge')} />
         <KpiCard label="EBE" value={`${fmt(kpis?.ebe ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.txEbe > 0.10 ? 'var(--green)' : kpis.txEbe > 0.05 ? 'var(--amber)' : 'var(--red)'}
           trend={kpis?.evoEbe != null ? kpis.evoEbe * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.ebe)} € · Éc. ${kpis && kpis.ebe >= budKpis.ebe ? '+' : ''}${fmt((kpis?.ebe ?? 0) - budKpis.ebe)} €`
-            : kpis ? `${pct(kpis.txEbe)} du CA` : undefined} />
+            : kpis ? `${pct(kpis.txEbe)} du CA` : undefined}
+          onInfo={() => setActiveExpl('ebe')} />
         <KpiCard label="Résultat exploit." value={`${fmt(kpis?.re ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.re >= 0 ? 'var(--blue)' : 'var(--red)'}
           trend={kpis?.evoRe != null ? kpis.evoRe * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.re)} € · Éc. ${kpis && kpis.re >= budKpis.re ? '+' : ''}${fmt((kpis?.re ?? 0) - budKpis.re)} €`
-            : kpis ? `${pct(kpis.txRe)} du CA` : undefined} />
+            : kpis ? `${pct(kpis.txRe)} du CA` : undefined}
+          onInfo={() => setActiveExpl('re')} />
       </div>
 
       {/* Alertes */}
@@ -685,6 +740,11 @@ export function Dashboard() {
       )}
 
       </div>
+
+      {/* Explanation modal */}
+      {activeExpl && DASH_EXPLANATIONS[activeExpl] && (
+        <ExplainModal expl={DASH_EXPLANATIONS[activeExpl]} onClose={() => setActiveExpl(null)} />
+      )}
     </div>
   )
 }
