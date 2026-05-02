@@ -619,7 +619,10 @@ export function Budget() {
         else produits[i] += val
       })
     }
-    return { charges, produits, result: produits.map((p, i) => p - charges[i]) }
+    const result = produits.map((p, i) => p - charges[i])
+    let cum = 0
+    const cumul = result.map(v => { cum += v; return cum })
+    return { charges, produits, result, cumul }
   }, [coBud])
 
   const accounts = useMemo(() => {
@@ -854,11 +857,14 @@ export function Budget() {
                     </tbody>
                     <tfoot>
                       {[
-                        { label:'📥 Total produits', row:totals.produits, color:'#10b981' },
-                        { label:'📤 Total charges',  row:totals.charges,  color:'#ef4444' },
-                        { label:'💰 Résultat',       row:totals.result,   color:'#3b82f6' },
-                      ].map(({ label, row, color }) => (
-                        <tr key={label} style={{ background:'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
+                        { label:'📥 Total produits',  row:totals.produits, color:'#10b981', isCumul:false },
+                        { label:'📤 Total charges',   row:totals.charges,  color:'#ef4444', isCumul:false },
+                        { label:'💰 Résultat',        row:totals.result,   color:'#3b82f6', isCumul:false },
+                        { label:'📊 Résultat cumulé', row:totals.cumul,    color:'#8b5cf6', isCumul:true  },
+                      ].map(({ label, row, color, isCumul }) => {
+                        const grandTotal = isCumul ? (row[row.length-1] ?? 0) : row.reduce((s,x)=>s+x,0)
+                        return (
+                        <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
                           <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
                           <td />
                           {row.map((v, i) => (
@@ -866,11 +872,12 @@ export function Budget() {
                               color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
                           ))}
                           <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
-                            color: row.reduce((s,x)=>s+x,0)<0 ? '#ef4444':color }}>
-                            {fmt(row.reduce((s,x)=>s+x,0))}
+                            color: grandTotal<0 ? '#ef4444':color }}>
+                            {fmt(grandTotal)}
                           </td>
                         </tr>
-                      ))}
+                        )
+                      })}
                     </tfoot>
                   </table>
                 </div>
