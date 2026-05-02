@@ -166,10 +166,14 @@ function ThresholdConfigPanel({ onClose }: { onClose: () => void }) {
 }
 
 export function Dashboard() {
-  const RAW      = useAppStore(s => s.RAW)
-  const filters  = useAppStore(s => s.filters)
-  const printRef = useRef<HTMLDivElement>(null)
+  const RAW         = useAppStore(s => s.RAW)
+  const filters     = useAppStore(s => s.filters)
+  const budVersions = useAppStore(s => s.budVersions)
+  const setFilters  = useAppStore(s => s.setFilters)
+  const printRef    = useRef<HTMLDivElement>(null)
   const [showThresholdConfig, setShowThresholdConfig] = useState(false)
+
+  const { showBudget, budVersionKey } = filters
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
 
@@ -180,6 +184,40 @@ export function Dashboard() {
       monthIdx(m) >= monthIdx(filters.startM) && monthIdx(m) <= monthIdx(filters.endM)
     )
   }, [RAW?.mn?.join(','), filters.startM, filters.endM])
+
+  const kpis = useMemo(() => {
+    if (!selectedMs.length) return null
+    return computeKpis(RAW, selCo, selectedMs)
+  }, [RAW, selCo.join(','), selectedMs.join(',')])
+
+  const budKpis = useMemo(() => {
+    if (!showBudget || !budVersionKey || !selectedMs.length) return null
+    const [co, vn] = budVersionKey.split('|||')
+    const version = budVersions.find(v => v.company_key === co && v.version_name === vn)
+    if (!version) return null
+    const data = version.data
+
+    let ca = 0, ach = 0, serv = 0, pers = 0, amrt = 0
+    for (const [acc, v] of Object.entries(data)) {
+      const bv = v as { b: number[]; t: string }
+      if (!bv.b) continue
+      const isCa   = CA_ACCS.some(p => acc.startsWith(p))
+      const isAch  = ACHAT_ACCS.some(p => acc.startsWith(p))
+      const isServ = SERV_ACCS.some(p => acc.startsWith(p))
+      const pers_check  = PERS_ACCS.some(p => acc.startsWith(p))
+      const isAmrt = AMORT_ACCS.some(p => acc.startsWith(p))
+      const total = bv.b.reduce((s: number, x: number) => s + x, 0)
+      if (isCa)        ca   += total
+      if (isAch)       ach  += total
+      if (isServ)      serv += total
+      if (pers_check)  pers += total
+      if (isAmrt)      amrt += total
+    }
+    const marge = ca - ach
+    const ebe   = marge - serv - pers
+    const re    = ebe - amrt
+    return { ca, marge, ebe, re }
+  }, [showBudget, budVersionKey, budVersions, selectedMs])
 
   const monthlyData = useMemo(() => {
     if (!selectedMs.length) return []
@@ -195,14 +233,11 @@ export function Dashboard() {
       const ebe   = marge - serv - pers
       const re    = ebe - amrt
       return { month: MONTHS_SHORT[parseInt(m.slice(5))-1], m,
-        'CA N': caN, 'CA N-1': caN1, Marge: marge, EBE: ebe, Résultat: re }
+        'CA N': caN, 'CA N-1': caN1, Marge: marge, EBE: ebe, Résultat: re,
+        'Budget CA': budKpis ? Math.round(budKpis.ca / selectedMs.length) : undefined,
+      }
     })
-  }, [RAW, selCo.join(','), selectedMs.join(',')])
-
-  const kpis = useMemo(() => {
-    if (!selectedMs.length) return null
-    return computeKpis(RAW, selCo, selectedMs)
-  }, [RAW, selCo.join(','), selectedMs.join(',')])
+  }, [RAW, selCo.join(','), selectedMs.join(','), budKpis])
 
   const chargesData = useMemo(() => {
     if (!selectedMs.length) return []
@@ -321,13 +356,44 @@ export function Dashboard() {
           {selCo.map(co => RAW.companies[co]?.name || co).join(' · ')}
           {selectedMs.length > 0 && ` · ${selectedMs.length} mois analysés`}
         </div>
-        <div className="print-hide" style={{ display:'flex', gap:8 }}>
+        <div className="print-hide" style={{ display:'flex', gap:8, alignItems:'center' }}>
           <button onClick={() => setShowThresholdConfig(v => !v)} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background: showThresholdConfig ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color: showThresholdConfig ? '#93c5fd' : 'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
             Seuils
           </button>
           <button onClick={handlePrint} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color:'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
             PDF
           </button>
+          {/* Budget toggle */}
+          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+            <select
+              value={budVersionKey}
+              onChange={e => setFilters({ budVersionKey: e.target.value })}
+              style={{
+                display: showBudget ? 'block' : 'none',
+                padding:'5px 8px', borderRadius:6, border:'1px solid var(--border-1)',
+                background:'var(--bg-0)', color:'var(--text-1)', fontSize:11, cursor:'pointer'
+              }}
+            >
+              <option value="">— Choisir une version —</option>
+              {budVersions.map(v => (
+                <option key={`${v.company_key}|||${v.version_name}`} value={`${v.company_key}|||${v.version_name}`}>
+                  {v.company_key} — {v.version_name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setFilters({ showBudget: !showBudget })}
+              style={{
+                padding:'7px 14px', borderRadius:'var(--radius-md)',
+                background: showBudget ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
+                border: `1px solid ${showBudget ? 'rgba(139,92,246,0.4)' : 'var(--border-1)'}`,
+                color: showBudget ? '#c4b5fd' : 'var(--text-1)',
+                fontSize:12, fontWeight:600, cursor:'pointer'
+              }}
+            >
+              Budget
+            </button>
+          </div>
         </div>
       </div>
 
@@ -337,18 +403,26 @@ export function Dashboard() {
       <div className="print-kpis" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:12 }}>
         <KpiCard label="Chiffre d'affaires" value={`${fmt(kpis?.ca ?? 0)} €`} color="var(--green)"
           trend={kpis?.evoCa != null ? kpis.evoCa * 100 : undefined}
-          sub={kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined} />
+          sub={budKpis
+            ? `Budget ${fmt(budKpis.ca)} € · Éc. ${kpis && kpis.ca >= budKpis.ca ? '+' : ''}${fmt((kpis?.ca ?? 0) - budKpis.ca)} €`
+            : kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined} />
         <KpiCard label="Marge brute" value={`${fmt(kpis?.marge ?? 0)} €`} color="var(--blue)"
           trend={kpis?.evoMarge != null ? kpis.evoMarge * 100 : undefined}
-          sub={kpis ? `${pct(kpis.txMarge)} du CA` : undefined} />
+          sub={budKpis
+            ? `Budget ${fmt(budKpis.marge)} € · Éc. ${kpis && kpis.marge >= budKpis.marge ? '+' : ''}${fmt((kpis?.marge ?? 0) - budKpis.marge)} €`
+            : kpis ? `${pct(kpis.txMarge)} du CA` : undefined} />
         <KpiCard label="EBE" value={`${fmt(kpis?.ebe ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.txEbe > 0.10 ? 'var(--green)' : kpis.txEbe > 0.05 ? 'var(--amber)' : 'var(--red)'}
           trend={kpis?.evoEbe != null ? kpis.evoEbe * 100 : undefined}
-          sub={kpis ? `${pct(kpis.txEbe)} du CA` : undefined} />
+          sub={budKpis
+            ? `Budget ${fmt(budKpis.ebe)} € · Éc. ${kpis && kpis.ebe >= budKpis.ebe ? '+' : ''}${fmt((kpis?.ebe ?? 0) - budKpis.ebe)} €`
+            : kpis ? `${pct(kpis.txEbe)} du CA` : undefined} />
         <KpiCard label="Résultat exploit." value={`${fmt(kpis?.re ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.re >= 0 ? 'var(--blue)' : 'var(--red)'}
           trend={kpis?.evoRe != null ? kpis.evoRe * 100 : undefined}
-          sub={kpis ? `${pct(kpis.txRe)} du CA` : undefined} />
+          sub={budKpis
+            ? `Budget ${fmt(budKpis.re)} € · Éc. ${kpis && kpis.re >= budKpis.re ? '+' : ''}${fmt((kpis?.re ?? 0) - budKpis.re)} €`
+            : kpis ? `${pct(kpis.txRe)} du CA` : undefined} />
       </div>
 
       {/* Alertes */}
@@ -386,6 +460,9 @@ export function Dashboard() {
             <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
             <Line type="monotone" dataKey="CA N"   stroke="#3b82f6" strokeWidth={2.5} dot={false} activeDot={{ r:4 }} />
             <Line type="monotone" dataKey="CA N-1" stroke="#64748b" strokeWidth={1.5} dot={false} strokeDasharray="5 5" />
+            {showBudget && budKpis && (
+              <Line type="monotone" dataKey="Budget CA" stroke="#c4b5fd" strokeWidth={1.5} dot={false} strokeDasharray="4 3" />
+            )}
           </LineChart>
         </ResponsiveContainer>
       </div>
