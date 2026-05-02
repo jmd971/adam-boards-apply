@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import { fmt, pct, monthIdx, fiscalIndex } from '@/lib/calc'
 import { computeBilan } from '@/lib/bilan'
-import { KpiCard } from '@/components/ui'
+import { KpiCard, ObjectifsChart } from '@/components/ui'
 import { evalThreshold, formatThresholdValue } from '@/lib/alertThresholds'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
@@ -627,6 +627,24 @@ export function Dashboard() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {kpis && budKpis && (
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+            🎯 Réalisation des objectifs
+          </div>
+          <ObjectifsChart
+            hasBudget={!!budKpis}
+            height={280}
+            kpis={[
+              { label:"CA",             icon:'💰', color:'#10b981', real: kpis.ca,    bud: budKpis.ca    },
+              { label:"Marge brute",    icon:'📊', color:'#3b82f6', real: kpis.marge, bud: budKpis.marge },
+              { label:"EBE",            icon:'💹', color:'#f59e0b', real: kpis.ebe,   bud: budKpis.ebe   },
+              { label:"Rés. exploit.",  icon:'🎯', color:'#8b5cf6', real: kpis.re,    bud: budKpis.re    },
+            ]}
+          />
         </div>
       )}
 
