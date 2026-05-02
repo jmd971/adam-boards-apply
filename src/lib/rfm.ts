@@ -199,10 +199,9 @@ export function exportToGHL(clients: ClientRFM[], segment?: RFMSegment): void {
 
   const csv = [headers, ...rows]
     .map(r => r.map(v => (v.includes(',') || v.includes('"')) ? `"${v.replace(/"/g, '""')}"` : v).join(','))
-    .join('
-')
+    .join('\n')
 
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' })
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
   const url  = URL.createObjectURL(blob)
   const a    = document.createElement('a')
   a.href     = url
