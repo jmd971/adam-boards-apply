@@ -87,11 +87,9 @@ export function Equilibre() {
   const immo        = plCalc['immo']?.cumulN ?? 0
   const stocks      = plCalc['stocks']?.cumulN ?? 0
   const clients     = plCalc['clients_eq']?.cumulN ?? 0
-  const autresAct   = plCalc['autr_act']?.cumulN ?? 0
   const capProp     = plCalc['cap_prop']?.cumulN ?? 0
   const detFin      = plCalc['det_fin']?.cumulN ?? 0
   const fournisseurs = plCalc['fournisseurs_eq']?.cumulN ?? 0
-  const autresPass  = plCalc['autr_pass']?.cumulN ?? 0
   const bfr         = clients + stocks - fournisseurs
 
   // Derived equilibrium values
