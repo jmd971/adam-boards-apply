@@ -12,19 +12,28 @@ import {
 } from 'recharts'
 
 // Lit les données bilan (bn/b1) — classes 1-5 stockées séparément du P&L
-function sumBilan(RAW: RAWData, selCo: string[], field: 'bn' | 'b1', prefixes: string[]): number {
+// s = debit - credit (positif = actif, négatif = passif)
+// sign=1 → soldes débiteurs uniquement (actif), sign=-1 → soldes créditeurs (passif), undefined → abs tous
+function sumBilan(RAW: RAWData, selCo: string[], field: 'bn' | 'b1', prefixes: string[], sign?: 1 | -1): number {
   let t = 0
   for (const co of selCo) {
     const accts = RAW.companies[co]?.[field] ?? {}
     for (const [acc, data] of Object.entries(accts)) {
-      if (prefixes.some(p => acc.startsWith(p))) t += Math.abs((data as any).s ?? 0)
+      if (prefixes.some(p => acc.startsWith(p))) {
+        const sv = (data as any).s ?? 0
+        if (sign === 1 && sv < 0) continue
+        if (sign === -1 && sv > 0) continue
+        t += Math.abs(sv)
+      }
     }
   }
   return Math.round(t)
 }
 
 function computeEqCalc(RAW: RAWData, selCo: string[]): PlData {
-  const s  = (f: 'bn' | 'b1', p: string[]) => sumBilan(RAW, selCo, f, p)
+  const s    = (f: 'bn' | 'b1', p: string[]) => sumBilan(RAW, selCo, f, p)
+  const sPos = (f: 'bn' | 'b1', p: string[]) => sumBilan(RAW, selCo, f, p, 1)
+  const sNeg = (f: 'bn' | 'b1', p: string[]) => sumBilan(RAW, selCo, f, p, -1)
   const mk = (n: number, n1: number): PlCalcRow => ({
     cumulN: n, cumulN1S: n1, cumulN1F: n1,
     monthsN: [], monthsN1: [], budMonths: Array(12).fill(0), budTotal: 0,
@@ -36,9 +45,9 @@ function computeEqCalc(RAW: RAWData, selCo: string[]): PlData {
   const stN1   = s('b1', ['31','32','33','34','35','36','37','38'])
   const clN    = s('bn', ['411','412','413','416'])
   const clN1   = s('b1', ['411','412','413','416'])
-  // Autres actifs = class 4 + class 5 hors clients déjà comptés
-  const aaN    = s('bn', ['40','41','42','43','44','45','46','48','5']) - clN
-  const aaN1   = s('b1', ['40','41','42','43','44','45','46','48','5']) - clN1
+  // Autres actifs = soldes DÉBITEURS de class 4+5, hors clients déjà comptés
+  const aaN    = sPos('bn', ['40','41','42','43','44','45','46','48','5']) - clN
+  const aaN1   = sPos('b1', ['40','41','42','43','44','45','46','48','5']) - clN1
   const eqAN   = immoN + stN + clN + aaN
   const eqAN1  = immoN1 + stN1 + clN1 + aaN1
 
@@ -48,8 +57,9 @@ function computeEqCalc(RAW: RAWData, selCo: string[]): PlData {
   const detN1  = s('b1', ['16'])
   const foN    = s('bn', ['401','402','403','404','405'])
   const foN1   = s('b1', ['401','402','403','404','405'])
-  const apN    = s('bn', ['42','43','44','45','46','48'])
-  const apN1   = s('b1', ['42','43','44','45','46','48'])
+  // Autres passifs = soldes CRÉDITEURS de class 42-48 (hors fourn déjà comptés)
+  const apN    = sNeg('bn', ['42','43','44','45','46','48'])
+  const apN1   = sNeg('b1', ['42','43','44','45','46','48'])
   const eqPN   = capN + detN + foN + apN
   const eqPN1  = capN1 + detN1 + foN1 + apN1
 
