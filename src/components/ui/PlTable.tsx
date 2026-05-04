@@ -161,12 +161,27 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
     // ── Lignes de détail par compte ───────────────────────────────────────
     if (isOpen && row.accs) {
       for (const acc of row.accs) {
-        const fecLabel = mergeLabel(RAW, selCo, 'pn', acc) || mergeLabel(RAW, selCo, 'p1', acc)
+        // Comptes 1-5 → données bilan (bn/b1), comptes 6-9 → P&L (pn/p1)
+        const isBilan  = acc[0] >= '1' && acc[0] <= '5'
+        const fieldN   = isBilan ? 'bn' : 'pn'
+        const fieldN1  = isBilan ? 'b1' : 'p1'
+        const fecLabel = mergeLabel(RAW, selCo, fieldN, acc) || mergeLabel(RAW, selCo, fieldN1, acc)
         const lbl      = labelFor(acc, fecLabel || undefined)
-        const ents     = mergeEntries(RAW, selCo, 'pn', acc)
+        const ents     = mergeEntries(RAW, selCo, fieldN, acc)
 
-        // Valeur propre à CE compte (pas le total du parent)
-        const val = accValue(RAW, selCo, acc, selectedMs, isCharge)
+        // Valeur propre à CE compte
+        let val: number
+        if (isBilan) {
+          // Bilan : solde cumulatif (abs du solde débiteur/créditeur)
+          val = 0
+          for (const co of selCo) {
+            const sv = (RAW.companies[co]?.[fieldN] as any)?.[acc]?.s ?? 0
+            val += Math.abs(sv)
+          }
+          val = Math.round(val)
+        } else {
+          val = accValue(RAW, selCo, acc, selectedMs, isCharge)
+        }
 
         rows.push(
           <tr key={`${row.id}__${acc}`}
@@ -180,12 +195,14 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
               {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
             </td>
 
-            {/* Colonnes mois par mois pour ce compte */}
+            {/* Colonnes mois par mois — uniquement pour comptes P&L */}
             {showMonths && selectedMs.map(m => {
               let mv = 0
-              for (const co of selCo) {
-                const mo = (RAW.companies[co]?.pn as any)?.[acc]?.mo?.[m]
-                if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+              if (!isBilan) {
+                for (const co of selCo) {
+                  const mo = (RAW.companies[co]?.pn as any)?.[acc]?.mo?.[m]
+                  if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+                }
               }
               mv = Math.round(mv)
               return (

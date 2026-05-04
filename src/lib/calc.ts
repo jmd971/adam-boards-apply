@@ -31,13 +31,13 @@ export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: s
   })
 }
 
-export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: string) {
+export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string) {
   const entries: [string, string, number, number, string, number][] = []
   for (const co of keys) { const acct = RAW.companies[co]?.[field]?.[acc]; if (acct?.e) entries.push(...acct.e as typeof entries) }
   return entries.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''))
 }
 
-export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: string): string {
+export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string): string {
   for (const co of keys) { const label = RAW.companies[co]?.[field]?.[acc]?.l; if (label) return label }
   return ''
 }
