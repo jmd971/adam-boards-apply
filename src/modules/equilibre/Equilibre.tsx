@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import { useAppStore } from '@/store'
 import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
 import { EQ } from '@/lib/structure'
 import { fmt, pct } from '@/lib/calc'
