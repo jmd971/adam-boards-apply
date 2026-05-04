@@ -160,67 +160,94 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
 
     // ── Lignes de détail par compte ───────────────────────────────────────
     if (isOpen && row.accs) {
-      for (const acc of row.accs) {
-        // Comptes 1-5 → données bilan (bn/b1), comptes 6-9 → P&L (pn/p1)
-        const isBilan  = acc[0] >= '1' && acc[0] <= '5'
-        const fieldN   = isBilan ? 'bn' : 'pn'
-        const fieldN1  = isBilan ? 'b1' : 'p1'
-        const fecLabel = mergeLabel(RAW, selCo, fieldN, acc) || mergeLabel(RAW, selCo, fieldN1, acc)
-        const lbl      = labelFor(acc, fecLabel || undefined)
-        const ents     = mergeEntries(RAW, selCo, fieldN, acc)
+      // Bilan rows (class 1-5): expand prefixes into actual FEC accounts
+      // P&L rows (class 6-9): direct lookup by exact code
+      const isBilanRow = row.accs.some(a => a[0] >= '1' && a[0] <= '5')
 
-        // Valeur propre à CE compte
-        let val: number
-        if (isBilan) {
-          // Bilan : solde cumulatif (abs du solde débiteur/créditeur)
-          val = 0
+      if (isBilanRow) {
+        // Collect all actual accounts in bn that match any prefix in row.accs
+        const seen = new Set<string>()
+        const bilanAccs: string[] = []
+        for (const co of selCo) {
+          for (const acc of Object.keys(RAW.companies[co]?.bn ?? {})) {
+            if (!seen.has(acc) && row.accs!.some(p => acc.startsWith(p))) {
+              seen.add(acc); bilanAccs.push(acc)
+            }
+          }
+        }
+        bilanAccs.sort()
+
+        for (const acc of bilanAccs) {
+          const fecLabel = mergeLabel(RAW, selCo, 'bn', acc) || mergeLabel(RAW, selCo, 'b1', acc)
+          const lbl      = labelFor(acc, fecLabel || undefined)
+          const ents     = mergeEntries(RAW, selCo, 'bn', acc)
+
+          let val = 0
           for (const co of selCo) {
-            const sv = (RAW.companies[co]?.[fieldN] as any)?.[acc]?.s ?? 0
+            const sv = (RAW.companies[co]?.bn as any)?.[acc]?.s ?? 0
             val += Math.abs(sv)
           }
           val = Math.round(val)
-        } else {
-          val = accValue(RAW, selCo, acc, selectedMs, isCharge)
+
+          rows.push(
+            <tr key={`${row.id}__${acc}`}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S)}
+              style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
+            >
+              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
+                <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
+                <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
+                <span>{lbl}</span>
+                {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
+              </td>
+              {showMonths && selectedMs.map(m => (
+                <td key={m} style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:10, color:'var(--text-3)' }}>—</td>
+              ))}
+              <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
+                {Math.abs(val) > 0.5 ? fmt(val) : '—'}
+              </td>
+              <td colSpan={99} />
+            </tr>
+          )
         }
+      } else {
+        for (const acc of row.accs) {
+          const fecLabel = mergeLabel(RAW, selCo, 'pn', acc) || mergeLabel(RAW, selCo, 'p1', acc)
+          const lbl      = labelFor(acc, fecLabel || undefined)
+          const ents     = mergeEntries(RAW, selCo, 'pn', acc)
+          const val      = accValue(RAW, selCo, acc, selectedMs, isCharge)
 
-        rows.push(
-          <tr key={`${row.id}__${acc}`}
-            onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S)}
-            style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
-          >
-            <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
-              <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
-              <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
-              <span>{lbl}</span>
-              {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
-            </td>
-
-            {/* Colonnes mois par mois — uniquement pour comptes P&L */}
-            {showMonths && selectedMs.map(m => {
-              let mv = 0
-              if (!isBilan) {
+          rows.push(
+            <tr key={`${row.id}__${acc}`}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S)}
+              style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
+            >
+              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
+                <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
+                <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
+                <span>{lbl}</span>
+                {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
+              </td>
+              {showMonths && selectedMs.map(m => {
+                let mv = 0
                 for (const co of selCo) {
                   const mo = (RAW.companies[co]?.pn as any)?.[acc]?.mo?.[m]
                   if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
                 }
-              }
-              mv = Math.round(mv)
-              return (
-                <td key={m} style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:10, color: Math.abs(mv) < 0.5 ? 'var(--text-3)' : mv < 0 ? 'var(--red)' : 'var(--text-2)' }}>
-                  {Math.abs(mv) > 0.5 ? fmt(mv) : '—'}
-                </td>
-              )
-            })}
-
-            {/* Cumul propre au compte */}
-            <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: val < -0.5 ? 'var(--red)' : Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
-              {Math.abs(val) > 0.5 ? fmt(val) : '—'}
-            </td>
-
-            {/* Colonnes vides pour aligner */}
-            <td colSpan={99} />
-          </tr>
-        )
+                mv = Math.round(mv)
+                return (
+                  <td key={m} style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:10, color: Math.abs(mv) < 0.5 ? 'var(--text-3)' : mv < 0 ? 'var(--red)' : 'var(--text-2)' }}>
+                    {Math.abs(mv) > 0.5 ? fmt(mv) : '—'}
+                  </td>
+                )
+              })}
+              <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: val < -0.5 ? 'var(--red)' : Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
+                {Math.abs(val) > 0.5 ? fmt(val) : '—'}
+              </td>
+              <td colSpan={99} />
+            </tr>
+          )
+        }
       }
     }
   }
