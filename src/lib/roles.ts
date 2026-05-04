@@ -1,9 +1,17 @@
 import type { TabId } from '@/types'
 
-export type Role = 'admin' | 'comptable' | 'viewer'
+export type Role = 'superadmin' | 'cabinet_admin' | 'admin' | 'comptable' | 'viewer'
+
+const ALL_TABS: TabId[] = [
+  'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
+  'import', 'budget', 'saisie', 'tresorerie', 'verification', 'creances',
+  'complementaire', 'rapprochement', 'depot', 'aide', 'ventes',
+]
 
 /** Tabs accessible per role */
 const ROLE_TABS: Record<Role, TabId[]> = {
+  superadmin:    ALL_TABS,
+  cabinet_admin: ALL_TABS,
   admin: [
     'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
     'import', 'budget', 'saisie', 'tresorerie', 'verification', 'creances',
@@ -22,9 +30,11 @@ const ROLE_TABS: Record<Role, TabId[]> = {
 
 /** Whether a role can write (create/edit/delete data) */
 const ROLE_CAN_WRITE: Record<Role, boolean> = {
-  admin: true,
-  comptable: true,
-  viewer: false,
+  superadmin:    true,
+  cabinet_admin: true,
+  admin:         true,
+  comptable:     true,
+  viewer:        false,
 }
 
 export function canAccessTab(role: Role, tab: TabId): boolean {
@@ -37,18 +47,22 @@ export function canWrite(role: Role): boolean {
 
 export function roleLabel(role: Role): string {
   switch (role) {
-    case 'admin':     return 'Administrateur'
-    case 'comptable': return 'Comptable'
-    case 'viewer':    return 'Consultation'
-    default:          return role
+    case 'superadmin':    return 'Super Admin'
+    case 'cabinet_admin': return 'Admin Cabinet'
+    case 'admin':         return 'Administrateur'
+    case 'comptable':     return 'Comptable'
+    case 'viewer':        return 'Consultation'
+    default:              return role
   }
 }
 
 export function roleColor(role: Role): string {
   switch (role) {
-    case 'admin':     return '#ef4444'
-    case 'comptable': return '#3b82f6'
-    case 'viewer':    return '#64748b'
-    default:          return '#64748b'
+    case 'superadmin':    return '#a855f7'
+    case 'cabinet_admin': return '#f97316'
+    case 'admin':         return '#ef4444'
+    case 'comptable':     return '#3b82f6'
+    case 'viewer':        return '#64748b'
+    default:              return '#64748b'
   }
 }
