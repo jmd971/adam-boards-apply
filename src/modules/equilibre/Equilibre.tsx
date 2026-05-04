@@ -6,6 +6,10 @@ import { fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { exportPlCalcXlsx, printModule } from '@/lib/export'
 import type { PlCalcRow, PlData, RAWData } from '@/types'
+import {
+  BarChart, Bar, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer
+} from 'recharts'
 
 // Lit les données bilan (bn/b1) — classes 1-5 stockées séparément du P&L
 function sumBilan(RAW: RAWData, selCo: string[], field: 'bn' | 'b1', prefixes: string[]): number {
@@ -63,10 +67,6 @@ function computeEqCalc(RAW: RAWData, selCo: string[]): PlData {
     eq_achats:       mk(0, 0),
   }
 }
-import {
-  BarChart, Bar, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer
-} from 'recharts'
 
 const WaterfallTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
