@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
+import { useAppStore } from '@/store'
 import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
 import { EQ } from '@/lib/structure'
-import { fmt, pct } from '@/lib/calc'
+import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { exportPlCalcXlsx, printModule } from '@/lib/export'
 import type { PlCalcRow, PlData, RAWData } from '@/types'
@@ -130,14 +131,19 @@ function BfrGauge({ bfr, ca }: { bfr: number; ca: number }) {
 
 export function Equilibre() {
   const printRef = useRef<HTMLDivElement>(null)
-  const { RAW, filters, selectedMs } = usePeriodFilter()
+  const budData  = useAppStore(s => s.budData)
+  const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computeEqCalc(RAW, selCo)
-  }, [RAW, selCo.join(',')])
+    const eq = computeEqCalc(RAW, selCo)
+    // eq_achats = achats (classe 6) : données P&L + budget
+    const EQ_ACHATS = [{ id:'eq_achats', label:'Achats (pour BFR)', accs:['607','601','604','6071'], type:'charge' as const }]
+    const plPart = computePlCalc(RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ_ACHATS, filters.excludeOD)
+    return { ...eq, ...plPart }
+  }, [RAW, selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
   const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
 
@@ -231,7 +237,7 @@ export function Equilibre() {
       <div className="px-2">
         <PlTable
           struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs}
-          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={actif}
+          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={actif}
           onOpenModal={(title, entries, _d, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
           maxHeight="calc(100vh - 200px)"
         />
