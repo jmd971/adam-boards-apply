@@ -2,9 +2,67 @@ import { useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
 import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
 import { EQ } from '@/lib/structure'
-import { computePlCalc, fmt, pct } from '@/lib/calc'
+import { fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { exportPlCalcXlsx, printModule } from '@/lib/export'
+import type { PlCalcRow, PlData, RAWData } from '@/types'
+
+// Lit les données bilan (bn/b1) — classes 1-5 stockées séparément du P&L
+function sumBilan(RAW: RAWData, selCo: string[], field: 'bn' | 'b1', prefixes: string[]): number {
+  let t = 0
+  for (const co of selCo) {
+    const accts = RAW.companies[co]?.[field] ?? {}
+    for (const [acc, data] of Object.entries(accts)) {
+      if (prefixes.some(p => acc.startsWith(p))) t += Math.abs((data as any).s ?? 0)
+    }
+  }
+  return Math.round(t)
+}
+
+function computeEqCalc(RAW: RAWData, selCo: string[]): PlData {
+  const s  = (f: 'bn' | 'b1', p: string[]) => sumBilan(RAW, selCo, f, p)
+  const mk = (n: number, n1: number): PlCalcRow => ({
+    cumulN: n, cumulN1S: n1, cumulN1F: n1,
+    monthsN: [], monthsN1: [], budMonths: Array(12).fill(0), budTotal: 0,
+  })
+
+  const immoN  = s('bn', ['20','21','22','23','26','27'])
+  const immoN1 = s('b1', ['20','21','22','23','26','27'])
+  const stN    = s('bn', ['31','32','33','34','35','36','37','38'])
+  const stN1   = s('b1', ['31','32','33','34','35','36','37','38'])
+  const clN    = s('bn', ['411','412','413','416'])
+  const clN1   = s('b1', ['411','412','413','416'])
+  // Autres actifs = class 4 + class 5 hors clients déjà comptés
+  const aaN    = s('bn', ['40','41','42','43','44','45','46','48','5']) - clN
+  const aaN1   = s('b1', ['40','41','42','43','44','45','46','48','5']) - clN1
+  const eqAN   = immoN + stN + clN + aaN
+  const eqAN1  = immoN1 + stN1 + clN1 + aaN1
+
+  const capN   = s('bn', ['10','11','12','13','14','15'])
+  const capN1  = s('b1', ['10','11','12','13','14','15'])
+  const detN   = s('bn', ['16'])
+  const detN1  = s('b1', ['16'])
+  const foN    = s('bn', ['401','402','403','404','405'])
+  const foN1   = s('b1', ['401','402','403','404','405'])
+  const apN    = s('bn', ['42','43','44','45','46','48'])
+  const apN1   = s('b1', ['42','43','44','45','46','48'])
+  const eqPN   = capN + detN + foN + apN
+  const eqPN1  = capN1 + detN1 + foN1 + apN1
+
+  return {
+    immo:            mk(immoN,  immoN1),
+    stocks:          mk(stN,    stN1),
+    clients_eq:      mk(clN,    clN1),
+    autr_act:        mk(aaN,    aaN1),
+    eq_a:            mk(eqAN,   eqAN1),
+    cap_prop:        mk(capN,   capN1),
+    det_fin:         mk(detN,   detN1),
+    fournisseurs_eq: mk(foN,    foN1),
+    autr_pass:       mk(apN,    apN1),
+    eq_p:            mk(eqPN,   eqPN1),
+    eq_achats:       mk(0, 0),
+  }
+}
 import {
   BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer
@@ -73,14 +131,14 @@ function BfrGauge({ bfr, ca }: { bfr: number; ca: number }) {
 
 export function Equilibre() {
   const printRef = useRef<HTMLDivElement>(null)
-  const budData = useAppStore(s => s.budData)
+  const { RAW, filters, selectedMs } = usePeriodFilter()
 
-  const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
+  const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
-  }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
+    return computeEqCalc(RAW, selCo)
+  }, [RAW, selCo.join(',')])
 
   const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
 
