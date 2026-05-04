@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { PlData, SigRow, RAWData } from '@/types'
-import { fmt, pct, monthLabel, mergeEntries, mergeLabel } from '@/lib/calc'
+import { fmt, pct, monthLabel, mergeEntries, mergeLabel, getBudget } from '@/lib/calc'
 
 interface PlTableProps {
   struct: SigRow[]
@@ -12,6 +12,7 @@ interface PlTableProps {
   showN1Full: boolean
   showBudget: boolean
   caTotal: number
+  budData?: Record<string, Record<string, { b: number[] }>>
   onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
   maxHeight?: string
   cumulRowKey?: string
@@ -63,7 +64,7 @@ function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], 
   return Math.round(total)
 }
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, onOpenModal, maxHeight, cumulRowKey }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
@@ -244,7 +245,29 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
               <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: val < -0.5 ? 'var(--red)' : Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
                 {Math.abs(val) > 0.5 ? fmt(val) : '—'}
               </td>
-              <td colSpan={99} />
+              {/* %CA, N-1, Var€, Var% vides */}
+              <td colSpan={showN1Full ? 5 : 4} />
+              {showBudget && (() => {
+                const budSign  = isCharge ? 1 : -1
+                const accBudget = budData
+                  ? Math.round(getBudget(selCo, budData as any, acc, Array.from({ length: 12 }, (_, i) => i)).reduce((s, v) => s + v * budSign, 0))
+                  : 0
+                const accEcart  = Math.round(val - accBudget)
+                const accEcartP = accBudget !== 0 ? accEcart / Math.abs(accBudget) : null
+                return (
+                  <>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, color:'var(--purple)', borderLeft:'2px solid rgba(168,85,247,0.1)' }}>
+                      {Math.abs(accBudget) > 0.5 ? fmt(accBudget) : '—'}
+                    </td>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: Math.abs(accEcart) < 0.5 ? 'var(--text-3)' : accEcart > 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {Math.abs(accEcart) > 0.5 && Math.abs(accBudget) > 0.5 ? (accEcart > 0 ? '+' : '') + fmt(accEcart) : '—'}
+                    </td>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: accEcartP == null ? 'var(--text-3)' : accEcartP > 0.005 ? 'var(--green)' : accEcartP < -0.005 ? 'var(--red)' : 'var(--text-3)' }}>
+                      {accEcartP != null ? (accEcartP > 0 ? '+' : '') + pct(accEcartP) : '—'}
+                    </td>
+                  </>
+                )
+              })()}
             </tr>
           )
         }

@@ -248,6 +248,7 @@ export function Equilibre() {
         <PlTable
           struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs}
           showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={actif}
+          budData={budData as any}
           onOpenModal={(title, entries, _d, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
           maxHeight="calc(100vh - 200px)"
         />
