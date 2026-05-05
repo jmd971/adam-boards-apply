@@ -240,6 +240,17 @@ export function Saisie() {
     return `${m[3]}/${m[2]}/${m[1]}`
   }
 
+  // Primary company = the one with the most FEC pn accounts (to avoid ghost/empty companies)
+  const primaryCo = useMemo(() => {
+    if (!RAW) return filters.selCo[0] ?? ''
+    const candidates = filters.selCo.length > 0 ? filters.selCo : RAW.keys
+    return candidates.reduce((best, co) => {
+      const n = Object.keys(RAW.companies[co]?.pn ?? {}).length
+      const b = Object.keys(RAW.companies[best]?.pn ?? {}).length
+      return n > b ? co : best
+    }, candidates[0] ?? '')
+  }, [RAW?.keys?.join(','), filters.selCo.join(',')])
+
   const [form, setForm] = useState({
     company_key:   filters.selCo[0] ?? '',
     entry_date:    new Date().toISOString().slice(0, 10),
@@ -253,12 +264,18 @@ export function Saisie() {
     payment_date:  '',
   })
 
-  // Sync company_key when it is empty but data has now loaded (component can mount before
-  // filters.selCo is populated, leaving company_key as '' which causes buildRAW to skip the entry)
+  // Sync company_key to primaryCo when the form has no value, an invalid value,
+  // or a ghost company (no FEC pn accounts) while primaryCo has real FEC data.
   useEffect(() => {
-    const co = filters.selCo[0] || RAW?.keys[0] || ''
-    if (co) setForm(f => f.company_key ? f : { ...f, company_key: co })
-  }, [filters.selCo[0], RAW?.keys[0]])
+    if (!primaryCo || !RAW) return
+    setForm(f => {
+      const currentHasFEC = Object.keys(RAW.companies[f.company_key]?.pn ?? {}).length > 0
+      const primaryHasFEC = Object.keys(RAW.companies[primaryCo]?.pn ?? {}).length > 0
+      if (!f.company_key || !RAW.keys.includes(f.company_key) || (!currentHasFEC && primaryHasFEC))
+        return { ...f, company_key: primaryCo }
+      return f
+    })
+  }, [primaryCo])
 
   // ── Échéancier ──────────────────────────────────────────────────────────
   interface Echeance { date: string; amount: number }
@@ -316,7 +333,7 @@ export function Saisie() {
   const handleEditFacture = (e: ManualEntry) => {
     setEditingId(String(e.id))
     setForm({
-      company_key:  e.company_key || filters.selCo[0] || '',
+      company_key:  e.company_key || primaryCo || '',
       entry_date:   e.entry_date || new Date().toISOString().slice(0, 10),
       category:     e.category,
       subcategory:  e.subcategory || '',
@@ -341,7 +358,7 @@ export function Saisie() {
 
   // ── Réparation en masse : assigner company_key aux entrées qui n'en ont pas ─
   const handleFixCompanyKeys = async () => {
-    const targetCo = RAW?.keys[0] || filters.selCo[0] || ''
+    const targetCo = primaryCo
     if (!targetCo || !tenantId) return
     const broken = entries.filter(e => !e.company_key)
     if (broken.length === 0) { setMsg('✅ Toutes les saisies ont déjà une société.'); setTimeout(() => setMsg(null), 3000); return }
@@ -576,7 +593,7 @@ export function Saisie() {
   const handleSubmit = async () => {
     if (!form.amount_ht || !form.entry_date) return
     // Guard against empty company_key (can happen when component mounted before data loaded)
-    const effectiveCompanyKey = form.company_key || RAW?.keys[0] || filters.selCo[0] || ''
+    const effectiveCompanyKey = form.company_key || primaryCo || ''
     if (!effectiveCompanyKey) return
     if (effectiveCompanyKey !== form.company_key) setForm(f => ({ ...f, company_key: effectiveCompanyKey }))
     setSaving(true)
@@ -822,7 +839,7 @@ export function Saisie() {
           </div>
           <button onClick={handleFixCompanyKeys} disabled={saving}
             style={{ padding:'6px 14px', borderRadius:7, border:'none', background:'#ef4444', color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
-            🔧 Corriger ({RAW?.keys[0] || filters.selCo[0] || '…'})
+            🔧 Corriger ({primaryCo || '…'})
           </button>
         </div>
       )}
