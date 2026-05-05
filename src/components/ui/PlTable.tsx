@@ -54,12 +54,12 @@ const labelFor = (acc: string, fromFec?: string): string => {
 function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], isCharge: boolean): number {
   let total = 0
   for (const co of selCo) {
-    const src = RAW.companies[co]?.pn as any
-    if (!src) continue
-    for (const k of Object.keys(src)) {
-      if (k.startsWith(acc)) {
+    for (const field of ['pn', 'p1'] as const) {
+      const src = (RAW.companies[co] as any)?.[field] ?? {}
+      const matchKeys = src[acc] ? [acc] : Object.keys(src).filter(a => a.startsWith(acc))
+      for (const a of matchKeys) {
         for (const m of months) {
-          const mo = src[k]?.mo?.[m]
+          const mo = src[a]?.mo?.[m]
           if (mo && Array.isArray(mo)) total += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
         }
       }
@@ -238,31 +238,48 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
           )
         }
       } else {
-        for (const acc of row.accs) {
-          const fecLabel = mergeLabel(RAW, selCo, 'pn', acc) || mergeLabel(RAW, selCo, 'p1', acc)
-          const lbl      = labelFor(acc, fecLabel || undefined)
-          const ents     = mergeEntries(RAW, selCo, 'pn', acc)
-          const val      = accValue(RAW, selCo, acc, selectedMs, isCharge)
+        // Deduplicate: a shorter prefix covers more specific codes
+        const uniqueAccs = row.accs!.filter((acc, i, arr) =>
+          !arr.some((other, j) => j !== i && acc.startsWith(other) && other.length < acc.length)
+        )
+        for (const acc of uniqueAccs) {
+          const allEnts: any[] = []
+          let fecLabel = ''
+          for (const co of selCo) {
+            for (const field of ['pn', 'p1'] as const) {
+              const src = (RAW.companies[co] as any)?.[field] ?? {}
+              const matchKeys = src[acc] ? [acc] : Object.keys(src).filter(a => a.startsWith(acc))
+              for (const a of matchKeys) {
+                if (!fecLabel) fecLabel = src[a]?.l || ''
+                const entries = mergeEntries(RAW, [co], field, a)
+                allEnts.push(...entries)
+              }
+            }
+          }
+          const lbl = labelFor(acc, fecLabel || undefined)
+          const val = accValue(RAW, selCo, acc, selectedMs, isCharge)
+
+          if (Math.abs(val) < 0.5 && allEnts.length === 0) continue
 
           rows.push(
             <tr key={`${row.id}__${acc}`}
-              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S)}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, d.cumulN1S)}
               style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
               <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
                 <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
                 <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
                 <span>{lbl}</span>
-                {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
+                {allEnts.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{allEnts.length} éc.</span>}
               </td>
               {showMonths && selectedMs.map(m => {
                 let mv = 0
                 for (const co of selCo) {
-                  const src = RAW.companies[co]?.pn as any
-                  if (!src) continue
-                  for (const k of Object.keys(src)) {
-                    if (k.startsWith(acc)) {
-                      const mo = src[k]?.mo?.[m]
+                  for (const field of ['pn', 'p1'] as const) {
+                    const src = (RAW.companies[co] as any)?.[field] ?? {}
+                    const matchKeys = src[acc] ? [acc] : Object.keys(src).filter(a => a.startsWith(acc))
+                    for (const a of matchKeys) {
+                      const mo = src[a]?.mo?.[m]
                       if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
                     }
                   }
@@ -277,10 +294,9 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
               <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: val < -0.5 ? 'var(--red)' : Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
                 {Math.abs(val) > 0.5 ? fmt(val) : '—'}
               </td>
-              {/* %CA, N-1, Var€, Var% vides */}
               <td colSpan={showN1Full ? 5 : 4} />
               {showBudget && (() => {
-                const budSign  = isCharge ? 1 : -1
+                const budSign   = isCharge ? 1 : -1
                 const accBudget = budData
                   ? Math.round(getBudget(selCo, budData as any, acc, Array.from({ length: 12 }, (_, i) => i)).reduce((s, v) => s + v * budSign, 0))
                   : 0
