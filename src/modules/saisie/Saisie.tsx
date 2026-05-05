@@ -366,9 +366,10 @@ export function Saisie() {
     : null
 
   useEffect(() => {
-    sb.from('manual_entries').select('*').order('entry_date', { ascending: false })
+    if (!tenantId) return
+    sb.from('manual_entries').select('*').eq('tenant_id', tenantId).order('entry_date', { ascending: false })
       .then(({ data }) => { setEntries((data ?? []) as ManualEntry[]); setLoading(false) })
-  }, [])
+  }, [tenantId])
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
 
@@ -1130,6 +1131,7 @@ export function Saisie() {
                   <SortHeader col="date" label="Date" />
                   <SortHeader col="category" label="Catégorie" />
                   <SortHeader col="subcategory" label="Sous-cat. / Libellé" />
+                  <th style={{ padding:'6px 8px', color:'#475569', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)', whiteSpace:'nowrap', background:'#0f172a' }}>Compte</th>
                   <SortHeader col="counterpart" label="Contrepartie" />
                   <SortHeader col="ht" label="HT €" align="right" />
                   <SortHeader col="tva" label="TVA €" align="right" />
@@ -1164,6 +1166,7 @@ export function Saisie() {
                         <td style={{ padding:'6px 8px', color:'#f1f5f9', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', fontWeight:500 }}>
                           {e.subcategory}{e.label ? ' — '+e.label : ''}
                         </td>
+                        <td style={{ padding:'6px 8px', fontFamily:'monospace', color:'#8b5cf6', fontSize:10, whiteSpace:'nowrap' }}>{e.account_num || '—'}</td>
                         <td style={{ padding:'6px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}>{e.counterpart||'—'}</td>
                         <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f1f5f9' }}>{ht.toFixed(2)}</td>
                         <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f59e0b' }}>{tva !== 0 ? tva.toFixed(2) : '—'}</td>
