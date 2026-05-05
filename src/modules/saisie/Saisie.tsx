@@ -1112,7 +1112,7 @@ export function Saisie() {
         // Filtrage — libellé, sous-cat, contrepartie, dates (FR/ISO), montants HT/TVA/TTC
         const q = histSearch.toLowerCase().trim().replace(',', '.')
         let invoices = allInvoices.filter(e => {
-          if (histCoFilter !== 'all' && e.company_key !== histCoFilter) return false
+          if (histCoFilter !== 'all' && e.company_key && e.company_key !== histCoFilter) return false
           if (histCatFilter !== 'all' && e.category !== histCatFilter) return false
           if (q) {
             const dateFR = formatDateFR(e.entry_date)
