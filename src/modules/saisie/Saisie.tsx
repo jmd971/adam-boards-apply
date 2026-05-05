@@ -204,6 +204,7 @@ export function Saisie() {
   const filters        = useAppStore(s => s.filters)
   const role           = useAppStore(s => s.role) as Role
   const tenantId       = useTenantId()
+  const tenantName     = useAppStore(s => s.tenantName)
   const setRAW         = useAppStore(s => s.setRAW)
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const manualEntries  = useAppStore(s => s.manualEntries)
@@ -240,16 +241,23 @@ export function Saisie() {
     return `${m[3]}/${m[2]}/${m[1]}`
   }
 
-  // Primary company = the one with the most FEC pn accounts (to avoid ghost/empty companies)
+  // Primary company = company with the most FEC pn accounts.
+  // Falls back to tenant name when no FEC was imported (saisie-only accounts).
   const primaryCo = useMemo(() => {
-    if (!RAW) return filters.selCo[0] ?? ''
-    const candidates = filters.selCo.length > 0 ? filters.selCo : RAW.keys
-    return candidates.reduce((best, co) => {
-      const n = Object.keys(RAW.companies[co]?.pn ?? {}).length
-      const b = Object.keys(RAW.companies[best]?.pn ?? {}).length
-      return n > b ? co : best
-    }, candidates[0] ?? '')
-  }, [RAW?.keys?.join(','), filters.selCo.join(',')])
+    const candidates = filters.selCo.length > 0
+      ? filters.selCo
+      : (RAW?.keys ?? [])
+    if (candidates.length > 0) {
+      return candidates.reduce((best, co) => {
+        const n = Object.keys(RAW?.companies[co]?.pn ?? {}).length
+        const b = Object.keys(RAW?.companies[best]?.pn ?? {}).length
+        return n > b ? co : best
+      }, candidates[0])
+    }
+    // No FEC imported: derive a stable key from the tenant name
+    return (tenantName ?? tenantId ?? 'ma_societe')
+      .toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 40) || 'ma_societe'
+  }, [RAW?.keys?.join(','), filters.selCo.join(','), tenantName, tenantId])
 
   const [form, setForm] = useState({
     company_key:   filters.selCo[0] ?? '',
@@ -267,11 +275,12 @@ export function Saisie() {
   // Sync company_key to primaryCo when the form has no value, an invalid value,
   // or a ghost company (no FEC pn accounts) while primaryCo has real FEC data.
   useEffect(() => {
-    if (!primaryCo || !RAW) return
+    if (!primaryCo) return
     setForm(f => {
-      const currentHasFEC = Object.keys(RAW.companies[f.company_key]?.pn ?? {}).length > 0
-      const primaryHasFEC = Object.keys(RAW.companies[primaryCo]?.pn ?? {}).length > 0
-      if (!f.company_key || !RAW.keys.includes(f.company_key) || (!currentHasFEC && primaryHasFEC))
+      const currentHasFEC = Object.keys(RAW?.companies[f.company_key]?.pn ?? {}).length > 0
+      const primaryHasFEC = Object.keys(RAW?.companies[primaryCo]?.pn ?? {}).length > 0
+      const notInKeys = !RAW || !RAW.keys.includes(f.company_key)
+      if (!f.company_key || notInKeys || (!currentHasFEC && primaryHasFEC))
         return { ...f, company_key: primaryCo }
       return f
     })
@@ -372,23 +381,19 @@ export function Saisie() {
     const fixed = entries.map(e => e.company_key ? e : { ...e, company_key: targetCo })
     setEntries(fixed)
     setManualEntries(fixed)
-    if (RAW) {
-      const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId!)
-      const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId!)
-      if (cd) {
-        const newRAW = buildRAW(cd as any, (bd ?? []) as any, fixed)
-        setRAW(newRAW)
-        // Étendre la plage de filtre pour inclure les mois des saisies corrigées
-        if (newRAW.mn.length > 0) {
-          const minM = newRAW.mn[0]
-          const maxM = newRAW.mn[newRAW.mn.length - 1]
-          const f = useAppStore.getState().filters
-          const newStart = !f.startM || f.startM > minM ? minM : f.startM
-          const newEnd   = !f.endM   || f.endM   < maxM ? maxM : f.endM
-          if (newStart !== f.startM || newEnd !== f.endM)
-            useAppStore.getState().setFilters({ startM: newStart, endM: newEnd })
-        }
-      }
+    const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId!)
+    const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId!)
+    const newRAW = buildRAW((cd ?? []) as any, (bd ?? []) as any, fixed)
+    setRAW(newRAW)
+    // Étendre la plage de filtre pour inclure les mois des saisies corrigées
+    if (newRAW.mn.length > 0) {
+      const minM = newRAW.mn[0]
+      const maxM = newRAW.mn[newRAW.mn.length - 1]
+      const f = useAppStore.getState().filters
+      const newStart = !f.startM || f.startM > minM ? minM : f.startM
+      const newEnd   = !f.endM   || f.endM   < maxM ? maxM : f.endM
+      if (newStart !== f.startM || newEnd !== f.endM)
+        useAppStore.getState().setFilters({ startM: newStart, endM: newEnd })
     }
     setSaving(false)
     setMsg(`✅ ${broken.length} saisie(s) corrigée(s) → société "${targetCo}"`)
@@ -409,10 +414,10 @@ export function Saisie() {
     const newEntries = entries.filter(en => String(en.id) !== id && en.parent_id !== id)
     setEntries(newEntries)
     setManualEntries(newEntries)
-    if (RAW) {
+    {
       const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId!)
       const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId!)
-      if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, newEntries))
+      setRAW(buildRAW((cd ?? []) as any, (bd ?? []) as any, newEntries))
     }
     queryClient.invalidateQueries({ queryKey: ['companyData'] })
     setConfirmDelete(null)
@@ -771,22 +776,20 @@ export function Saisie() {
 
     // Rafraîchir le store global — mise à jour immédiate + invalidation cache
     setManualEntries(updatedEntries)
-    if (RAW) {
+    {
       const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId!)
       const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId!)
-      if (cd) {
-        const newRAW = buildRAW(cd as any, (bd ?? []) as any, updatedEntries)
-        setRAW(newRAW)
-        // Étendre la plage de filtre période pour inclure les nouveaux mois
-        if (newRAW.mn.length > 0) {
-          const minM = newRAW.mn[0]
-          const maxM = newRAW.mn[newRAW.mn.length - 1]
-          const f = useAppStore.getState().filters
-          const newStart = !f.startM || f.startM > minM ? minM : f.startM
-          const newEnd = !f.endM || f.endM < maxM ? maxM : f.endM
-          if (newStart !== f.startM || newEnd !== f.endM) {
-            useAppStore.getState().setFilters({ startM: newStart, endM: newEnd })
-          }
+      const newRAW = buildRAW((cd ?? []) as any, (bd ?? []) as any, updatedEntries)
+      setRAW(newRAW)
+      // Étendre la plage de filtre période pour inclure les nouveaux mois
+      if (newRAW.mn.length > 0) {
+        const minM = newRAW.mn[0]
+        const maxM = newRAW.mn[newRAW.mn.length - 1]
+        const f = useAppStore.getState().filters
+        const newStart = !f.startM || f.startM > minM ? minM : f.startM
+        const newEnd = !f.endM || f.endM < maxM ? maxM : f.endM
+        if (newStart !== f.startM || newEnd !== f.endM) {
+          useAppStore.getState().setFilters({ startM: newStart, endM: newEnd })
         }
       }
     }
@@ -814,7 +817,7 @@ export function Saisie() {
     boxShadow:  active ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'none',
   })
 
-  if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
+  // Allow saisie even when no FEC has been imported (RAW is null or empty)
 
   return (
     <div style={{ padding:'16px 24px', maxWidth:1400 }}>
@@ -899,11 +902,11 @@ export function Saisie() {
           <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9', marginBottom:16 }}>Nouvelle saisie</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(175px,1fr))', gap:10 }}>
 
-            {RAW.keys.length > 1 && (
+            {(RAW?.keys.length ?? 0) > 1 && (
               <div>
                 <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Société</label>
                 <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
-                  {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name||k}</option>)}
+                  {RAW!.keys.map(k => <option key={k} value={k}>{RAW!.companies[k]?.name||k}</option>)}
                 </select>
               </div>
             )}
@@ -1114,7 +1117,7 @@ export function Saisie() {
           <select value={histCoFilter} onChange={e => { setHistCoFilter(e.target.value); setHistPage(1) }}
             style={{ padding:'5px 10px', borderRadius:6, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#cbd5e1', fontSize:11, outline:'none', fontFamily:'inherit', cursor:'pointer' }}>
             <option value="all">Toutes sociétés</option>
-            {RAW?.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name || k}</option>)}
+            {RAW?.keys.map(k => <option key={k} value={k}>{RAW?.companies[k]?.name || k}</option>)}
           </select>
           <select value={histCatFilter} onChange={e => { setHistCatFilter(e.target.value as any); setHistPage(1) }}
             style={{ padding:'5px 10px', borderRadius:6, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', color:'#cbd5e1', fontSize:11, outline:'none', fontFamily:'inherit', cursor:'pointer' }}>
