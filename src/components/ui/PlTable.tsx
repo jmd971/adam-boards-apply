@@ -54,7 +54,10 @@ const labelFor = (acc: string, fromFec?: string): string => {
 
 
 export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  // All rows with sub-accounts start expanded — user can click to collapse
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(struct.filter(r => (r.accs?.length ?? 0) > 0 && !r.sep && !r.header).map(r => [r.id, true]))
+  )
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
   let currentHeader: string | null = null
