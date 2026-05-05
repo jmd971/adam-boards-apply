@@ -33,13 +33,7 @@ export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: s
 
 export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string) {
   const entries: [string, string, number, number, string, number][] = []
-  for (const co of keys) {
-    const src = RAW.companies[co]?.[field] as any
-    if (!src) continue
-    for (const k of Object.keys(src)) {
-      if (k.startsWith(acc) && src[k]?.e) entries.push(...src[k].e as typeof entries)
-    }
-  }
+  for (const co of keys) { const acct = RAW.companies[co]?.[field]?.[acc]; if (acct?.e) entries.push(...acct.e as typeof entries) }
   return entries.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''))
 }
 
@@ -179,21 +173,32 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
       const monthsN1 = new Array(allMsN1Same.length).fill(0)
       const budMonths = new Array(12).fill(0)
       let cumulN = 0, cumulN1S = 0
-      const allKeys = new Set<string>()
+      // Collect exact FEC account keys — must NOT call getAdjMixed (prefix scan) on these
+      // exact keys, as that would double-count when FEC has both '706' and '7061'/'7062'.
+      const allAccKeys = new Set<string>()
       for (const co of selCo) {
         for (const f of ['pn', 'p1'] as const) {
           const src = (RAW.companies[co] as any)?.[f]
           if (!src) continue
           for (const k of Object.keys(src)) {
-            if (prefixes.some(p => k.startsWith(p))) allKeys.add(k)
+            if (prefixes.some(p => k.startsWith(p))) allAccKeys.add(k)
           }
         }
       }
-      for (const acc of allKeys) {
-        const sN = solde(getAdjMixed(RAW, selCo, selectedMs, msSrc, acc, excludeOD), type === 'charge')
-        sN.forEach((v, i) => { monthsN[i] += v })
-        cumulN += sumArr(sN)
-        cumulN1S += sumArr(solde(getAdjMixed(RAW, selCo, allMsN1Same, allMsN1SameSrc, acc, excludeOD), type === 'charge'))
+      // Direct exact lookup per account key — no prefix scan
+      for (const acc of allAccKeys) {
+        for (const co of selCo) {
+          for (let mi = 0; mi < selectedMs.length; mi++) {
+            const field = msSrc[mi] === 'p1' ? 'p1' : 'pn'
+            const v = (RAW.companies[co] as any)?.[field]?.[acc]?.mo?.[selectedMs[mi]]
+            if (v) { const s = type === 'charge' ? v[0] - v[1] : v[1] - v[0]; monthsN[mi] += s; cumulN += s }
+          }
+          for (let mi = 0; mi < allMsN1Same.length; mi++) {
+            const field = allMsN1SameSrc[mi] === 'p1' ? 'p1' : 'pn'
+            const v = (RAW.companies[co] as any)?.[field]?.[acc]?.mo?.[allMsN1Same[mi]]
+            if (v) cumulN1S += type === 'charge' ? v[0] - v[1] : v[1] - v[0]
+          }
+        }
       }
       return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: 0, accs: [] } as PlCalcRow
     }
