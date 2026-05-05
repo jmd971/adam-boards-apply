@@ -31,12 +31,12 @@ export function Equilibre() {
   const budData = useAppStore(s => s.budData)
   const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
 
-  const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
+  const { RAW, filters, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
-  }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
+    return computePlCalc(RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
+  }, [RAW, selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
   const ventes   = plCalc['tot_ventes']?.cumulN ?? 0
   const achats   = plCalc['tot_achats']?.cumulN ?? 0
@@ -107,7 +107,7 @@ export function Equilibre() {
 
       {/* Table détaillée avec catégories/sous-catégories dépliables */}
       <div className="px-2">
-        <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs} msSrc={msSrc}
+        <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={selCo} selectedMs={selectedMs} msSrc={msSrc}
           showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={ventes}
           collapsible
           onOpenModal={(title, entries, _, cumN, cumN1) => setModal({title, entries, cumN, cumN1})} />
