@@ -339,6 +339,32 @@ export function Saisie() {
     setMsg(null)
   }
 
+  // ── Réparation en masse : assigner company_key aux entrées qui n'en ont pas ─
+  const handleFixCompanyKeys = async () => {
+    const targetCo = RAW?.keys[0] || filters.selCo[0] || ''
+    if (!targetCo || !tenantId) return
+    const broken = entries.filter(e => !e.company_key)
+    if (broken.length === 0) { setMsg('✅ Toutes les saisies ont déjà une société.'); setTimeout(() => setMsg(null), 3000); return }
+    setSaving(true)
+    const ids = broken.map(e => e.id)
+    const { error } = await sb.from('manual_entries')
+      .update({ company_key: targetCo })
+      .in('id', ids)
+      .eq('tenant_id', tenantId)
+    if (error) { setSaving(false); setMsg('❌ ' + error.message); return }
+    const fixed = entries.map(e => e.company_key ? e : { ...e, company_key: targetCo })
+    setEntries(fixed)
+    setManualEntries(fixed)
+    if (RAW) {
+      const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId!)
+      const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId!)
+      if (cd) { const newRAW = buildRAW(cd as any, (bd ?? []) as any, fixed); setRAW(newRAW) }
+    }
+    setSaving(false)
+    setMsg(`✅ ${broken.length} saisie(s) corrigée(s) → société "${targetCo}"`)
+    setTimeout(() => setMsg(null), 5000)
+  }
+
   // ── Suppression d'une facture (et ses échéances/amortissements liés) ─
   const handleDeleteFacture = async (id: string) => {
     setSaving(true)
@@ -766,6 +792,25 @@ export function Saisie() {
       {isReadOnly && (
         <div style={{ padding:'8px 14px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', color:'#f59e0b', fontSize:11, fontWeight:600, marginBottom:16 }}>
           Mode consultation — vous ne pouvez pas ajouter de saisies.
+        </div>
+      )}
+
+      {/* Bannière de réparation : visible si des entrées n'ont pas de company_key */}
+      {entries.some(e => !e.company_key) && !isReadOnly && (
+        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'10px 14px', borderRadius:8, background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)', marginBottom:16 }}>
+          <span style={{ fontSize:16 }}>⚠️</span>
+          <div style={{ flex:1 }}>
+            <span style={{ color:'#fca5a5', fontSize:12, fontWeight:600 }}>
+              {entries.filter(e => !e.company_key).length} saisie(s) sans société associée
+            </span>
+            <span style={{ color:'#94a3b8', fontSize:11, marginLeft:8 }}>
+              Ces entrées n'apparaissent pas dans SIG / CR / Équilibre.
+            </span>
+          </div>
+          <button onClick={handleFixCompanyKeys} disabled={saving}
+            style={{ padding:'6px 14px', borderRadius:7, border:'none', background:'#ef4444', color:'#fff', fontSize:11, fontWeight:700, cursor:'pointer', fontFamily:'inherit', whiteSpace:'nowrap' }}>
+            🔧 Corriger ({RAW?.keys[0] || filters.selCo[0] || '…'})
+          </button>
         </div>
       )}
 
