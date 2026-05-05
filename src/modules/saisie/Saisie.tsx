@@ -917,7 +917,7 @@ export function Saisie() {
                 </select>
               ) : (
                 <div style={{ ...inputSt, color:'#94a3b8', cursor:'default' }}>
-                  {RAW?.companies[RAW.keys[0]]?.name || tenantName || form.company_key || '—'}
+                  {(RAW && RAW.keys.length > 0 ? RAW.companies[RAW.keys[0]]?.name : null) || tenantName || form.company_key || '—'}
                 </div>
               )}
             </div>
