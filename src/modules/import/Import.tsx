@@ -8,6 +8,7 @@ import type { ParsedFEC } from '@/lib/fec'
 interface PendingImport {
   file: File
   company: string
+  companyName: string
   period: string
   fy: string
   parsed: ParsedFEC
@@ -71,7 +72,7 @@ export function Import() {
           .eq('period', period)
           .maybeSingle()
 
-        newPending.push({ file, company, period, fy, parsed, hasConflict: !!data, cancelled: false })
+        newPending.push({ file, company, companyName: company.replace(/_/g, ' '), period, fy, parsed, hasConflict: !!data, cancelled: false })
       } catch (e: any) {
         setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: e.message }])
       }
@@ -91,17 +92,18 @@ export function Import() {
     for (const item of toImport) {
       try {
         const { error } = await sb.from('company_data').upsert({
-          tenant_id:   tenantId,
-          company_key: item.company,
-          period:      item.period,
-          fiscal_year: item.fy,
-          pl_data:     item.parsed.plData,
-          bilan_data:  item.parsed.bilanData,
-          months:      item.parsed.months,
-          entry_count: item.parsed.entryCount,
-          source:      'manual',
-          client_data: item.parsed.clientData,
-          ve_entries:  item.parsed.veEntries,
+          tenant_id:    tenantId,
+          company_key:  item.company,
+          company_name: item.companyName.trim() || item.company,
+          period:       item.period,
+          fiscal_year:  item.fy,
+          pl_data:      item.parsed.plData,
+          bilan_data:   item.parsed.bilanData,
+          months:       item.parsed.months,
+          entry_count:  item.parsed.entryCount,
+          source:       'manual',
+          client_data:  item.parsed.clientData,
+          ve_entries:   item.parsed.veEntries,
         }, { onConflict: 'tenant_id,company_key,period' })
 
         if (error) throw error
@@ -127,6 +129,9 @@ export function Import() {
 
   const cancelPending = (idx: number) =>
     setPending(p => p.map((item, i) => i === idx ? { ...item, cancelled: true } : item))
+
+  const renamePending = (idx: number, name: string) =>
+    setPending(p => p.map((item, i) => i === idx ? { ...item, companyName: name } : item))
 
   const dropZones = [
     { id: 'n2', label: 'N-2 (Avant-dernier)',      period: 'N-2' },
@@ -192,12 +197,24 @@ export function Import() {
                 {pending.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-xs"
                     style={{ opacity: item.cancelled ? 0.4 : 1, background: 'rgba(255,255,255,0.02)' }}>
-                    <span className="font-mono text-muted flex-1 truncate">{item.file.name}</span>
-                    <span className="text-white">{item.company} · {item.period}</span>
+                    <span className="font-mono text-muted truncate" style={{ maxWidth: 160 }}>{item.file.name}</span>
+                    <span style={{ color: '#475569', whiteSpace: 'nowrap' }}>{item.company} · {item.period}</span>
+                    <input
+                      type="text"
+                      value={item.companyName}
+                      onChange={e => renamePending(i, e.target.value)}
+                      placeholder="Nom d'affichage..."
+                      disabled={item.cancelled}
+                      style={{
+                        flex: 1, padding: '3px 8px', borderRadius: 6, fontSize: 11,
+                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                        color: '#f1f5f9', outline: 'none',
+                      }}
+                    />
                     {item.hasConflict && !item.cancelled && (
                       <span className="px-2 py-0.5 rounded text-xs"
-                        style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-                        ⚠️ Écrase les données existantes
+                        style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', whiteSpace: 'nowrap' }}>
+                        ⚠️ Écrase
                       </span>
                     )}
                     {!item.cancelled

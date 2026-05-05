@@ -8,35 +8,68 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [mode, setMode]       = useState<'login' | 'signup'>('login')
-  const [email, setEmail]     = useState('')
+  const [mode, setMode]         = useState<'login' | 'signup'>('login')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+  // Champs inscription
+  const [company,  setCompany]  = useState('')
+  const [agency,   setAgency]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [success,  setSuccess]  = useState(false)
 
-  // Lire l'erreur OAuth depuis le hash de l'URL si présent
   const urlError = (() => {
     const h = window.location.hash
     if (h.includes('error=')) {
       const msg = decodeURIComponent(h.match(/error_description=([^&]*)/)?.[1] ?? '')
       window.history.replaceState(null, '', window.location.pathname)
-      if (msg.includes('expired') || msg.includes('Invalid')) return 'Le lien de confirmation a expiré. Reconnectez-vous avec email + mot de passe.'
-      return msg || 'Erreur de connexion OAuth.'
+      if (msg.includes('expired') || msg.includes('Invalid')) return 'Le lien de confirmation a expiré. Reconnectez-vous.'
+      return msg || 'Erreur de connexion.'
     }
     return null
   })()
 
-  const [error, setError]     = useState<string | null>(urlError)
+  const [error, setError] = useState<string | null>(urlError)
 
   const handleSubmit = async () => {
     if (!email || !password) return
+    if (mode === 'signup' && (!company.trim() || !agency.trim())) {
+      setError('Veuillez renseigner le nom de votre entreprise et votre cabinet.')
+      return
+    }
     setLoading(true); setError(null)
     try {
-      const { data, error: err } = mode === 'login'
-        ? await sb.auth.signInWithPassword({ email, password })
-        : await sb.auth.signUp({ email, password })
+      if (mode === 'login') {
+        const { data, error: err } = await sb.auth.signInWithPassword({ email, password })
+        if (err) throw err
+        if (data.user) onLogin(data.user)
+      } else {
+        // Créer le compte via API (pas d'email de confirmation = pas de rate limit)
+        const resp = await fetch('/api/invite-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email.trim(), password }),
+        })
+        const json = await resp.json() as any
+        if (!resp.ok) throw new Error(json.error ?? 'Erreur création compte.')
 
-      if (err) throw err
-      if (data.user) onLogin(data.user)
+        // Enregistrer la souscription en attente
+        await sb.from('subscriptions').insert({
+          company_name:  company.trim(),
+          company_key:   agency.trim().toUpperCase(),
+          contact_email: email.trim(),
+          user_id:       json.user_id,
+          status:        'pending',
+        })
+
+        // Connecter directement l'utilisateur
+        const { data: loginData, error: loginErr } = await sb.auth.signInWithPassword({ email: email.trim(), password })
+        if (loginErr) {
+          // Compte créé mais connexion échouée → afficher succès quand même
+          setSuccess(true)
+          return
+        }
+        if (loginData.user) onLogin(loginData.user)
+      }
     } catch (e: any) {
       setError(e.message || 'Erreur de connexion')
     } finally {
@@ -72,11 +105,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="rounded-2xl p-8"
           style={{ background: '#0d1426', border: '1px solid rgba(255,255,255,0.07)' }}>
 
-          {/* Tabs login / signup */}
+          {/* Tabs */}
           <div className="flex rounded-xl overflow-hidden mb-6"
             style={{ background: 'rgba(255,255,255,0.04)' }}>
             {(['login', 'signup'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
+              <button key={m} onClick={() => { setMode(m); setError(null); setSuccess(false) }}
                 className="flex-1 py-2.5 text-sm font-semibold transition-all"
                 style={{
                   background: mode === m ? 'rgba(59,130,246,0.2)' : 'transparent',
@@ -90,50 +123,96 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             ))}
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-muted mb-1.5">Email</label>
-              <input
-                type="email"
-                placeholder="votre@email.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-muted mb-1.5">Mot de passe</label>
-              <input
-                type="password"
-                placeholder="8 caractères minimum"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-                className={inputClass}
-              />
-            </div>
-
-            {error && (
-              <div className="px-3 py-2 rounded-lg text-xs text-brand-red bg-brand-red/10 border border-brand-red/20">
-                {error}
+          {/* Succès inscription */}
+          {success ? (
+            <div style={{ textAlign: 'center', padding: '12px 0' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>✅</div>
+              <div style={{ color: '#34d399', fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
+                Demande envoyée !
               </div>
-            )}
+              <div style={{ color: '#64748b', fontSize: 12, lineHeight: 1.6 }}>
+                Votre demande d'accès pour <strong style={{ color: '#94a3b8' }}>{company}</strong> a bien été reçue.
+                Votre cabinet <strong style={{ color: '#94a3b8' }}>{agency}</strong> validera votre accès sous peu.
+              </div>
+              <button onClick={() => { setMode('login'); setSuccess(false) }}
+                style={{ marginTop: 20, padding: '9px 20px', borderRadius: 10, border: 'none',
+                  background: 'rgba(59,130,246,0.2)', color: '#93c5fd', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                Se connecter
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
 
-            <button
-              onClick={handleSubmit}
-              disabled={loading || !email || !password}
-              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2"
-              style={{
-                background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg,#3b82f6,#6366f1)',
-                border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
-              }}
-            >
-              {loading
-                ? <span className="flex items-center justify-center gap-2"><Spinner size={16} /> Connexion...</span>
-                : mode === 'login' ? 'Se connecter' : 'Créer le compte'
-              }
-            </button>
-          </div>
+              {mode === 'signup' && (
+                <>
+                  <div>
+                    <label className="block text-xs text-muted mb-1.5">Nom de l'entreprise *</label>
+                    <input
+                      type="text"
+                      placeholder="Ex : Cocon de Béa"
+                      value={company}
+                      onChange={e => setCompany(e.target.value)}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-muted mb-1.5">Code cabinet / agence *</label>
+                    <input
+                      type="text"
+                      placeholder="Ex : CADOR"
+                      value={agency}
+                      onChange={e => setAgency(e.target.value.toUpperCase())}
+                      className={inputClass}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-xs text-muted mb-1.5">Email</label>
+                <input
+                  type="email"
+                  placeholder="votre@email.com"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-muted mb-1.5">Mot de passe</label>
+                <input
+                  type="password"
+                  placeholder="8 caractères minimum"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                  className={inputClass}
+                />
+              </div>
+
+              {error && (
+                <div className="px-3 py-2 rounded-lg text-xs text-brand-red bg-brand-red/10 border border-brand-red/20">
+                  {error}
+                </div>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={loading || !email || !password}
+                className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2"
+                style={{
+                  background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                  border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loading
+                  ? <span className="flex items-center justify-center gap-2"><Spinner size={16} /> Chargement...</span>
+                  : mode === 'login' ? 'Se connecter' : 'Envoyer ma demande'
+                }
+              </button>
+
+            </div>
+          )}
         </div>
       </div>
     </div>

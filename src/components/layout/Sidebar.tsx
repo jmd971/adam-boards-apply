@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { useAppStore } from '@/store'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
 import type { TabId } from '@/types'
 import { canAccessTab, roleLabel, roleColor, type Role } from '@/lib/roles'
@@ -24,6 +25,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'depot',            label:'Dépôts clients',     icon:'📥', group:'admin'   },
   { id:'import',          label:'Import',             icon:'📁', group:'admin'   },
   { id:'verification',    label:'Vérification',       icon:'🔍', group:'admin'   },
+  { id:'souscription',    label:'Souscription',       icon:'🏢', group:'admin'   },
   { id:'aide',            label:'Aide',               icon:'❓', group:'admin'   },
 ]
 
@@ -44,6 +46,10 @@ export function Sidebar({ onTabChange }: SidebarProps) {
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
   const setFilters = useAppStore(s => s.setFilters)
+  const tenantId = useAppStore(s => s.tenantId)
+  const queryClient = useQueryClient()
+  const [editingCo, setEditingCo] = useState<string | null>(null)
+  const [editName,  setEditName]  = useState('')
 
   const handleTab = (id: TabId) => {
     setTab(id)
@@ -64,6 +70,17 @@ export function Sidebar({ onTabChange }: SidebarProps) {
 
   const companies = RAW?.keys ?? []
   const selCo = filters.selCo
+
+  const handleRename = async (co: string) => {
+    const name = editName.trim()
+    if (!name || !tenantId) { setEditingCo(null); return }
+    await sb.from('company_data')
+      .update({ company_name: name })
+      .eq('tenant_id', tenantId)
+      .eq('company_key', co)
+    setEditingCo(null)
+    queryClient.invalidateQueries({ queryKey: ['companyData'] })
+  }
 
   return (
     <aside style={{
@@ -96,19 +113,38 @@ export function Sidebar({ onTabChange }: SidebarProps) {
             {companies.map(co => {
               const isSelected = selCo.includes(co)
               const name = RAW?.companies[co]?.name || co
+              if (editingCo === co) {
+                return (
+                  <input key={co} autoFocus
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    onBlur={() => handleRename(co)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleRename(co); if (e.key === 'Escape') setEditingCo(null) }}
+                    style={{
+                      padding:'3px 8px', borderRadius:12, fontSize:10, fontWeight:700,
+                      background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.5)',
+                      color:'#93c5fd', outline:'none', width:110,
+                    }}
+                  />
+                )
+              }
               return (
-                <button key={co} onClick={() => {
-                  const next = isSelected && selCo.length > 1
-                    ? selCo.filter(c => c !== co)
-                    : isSelected ? selCo : [...selCo, co]
-                  setFilters({ selCo: next.length ? next : [co] })
-                }} style={{
-                  padding:'4px 10px', borderRadius:20, fontSize:10, fontWeight:700,
-                  cursor:'pointer', border:'none', transition:'all 0.15s',
-                  background: isSelected ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)',
-                  color:      isSelected ? '#93c5fd' : '#64748b',
-                  boxShadow:  isSelected ? 'inset 0 0 0 1px rgba(59,130,246,0.4)' : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
-                }}>
+                <button key={co}
+                  onClick={() => {
+                    const next = isSelected && selCo.length > 1
+                      ? selCo.filter(c => c !== co)
+                      : isSelected ? selCo : [...selCo, co]
+                    setFilters({ selCo: next.length ? next : [co] })
+                  }}
+                  onDoubleClick={() => { setEditingCo(co); setEditName(name) }}
+                  title="Double-clic pour renommer"
+                  style={{
+                    padding:'4px 10px', borderRadius:20, fontSize:10, fontWeight:700,
+                    cursor:'pointer', border:'none', transition:'all 0.15s',
+                    background: isSelected ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)',
+                    color:      isSelected ? '#93c5fd' : '#64748b',
+                    boxShadow:  isSelected ? 'inset 0 0 0 1px rgba(59,130,246,0.4)' : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+                  }}>
                   {name}
                 </button>
               )

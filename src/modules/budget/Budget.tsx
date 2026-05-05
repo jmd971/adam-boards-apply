@@ -439,6 +439,10 @@ export function Budget() {
   const [showWhatIf,   setShowWhatIf]   = useState(false)
   const [newVersionName, setNewVersionName] = useState('')
   const [creating,     setCreating]     = useState(false)
+  const [showAddAcc,   setShowAddAcc]   = useState(false)
+  const [newAccNum,    setNewAccNum]    = useState('')
+  const [newAccLabel,  setNewAccLabel]  = useState('')
+  const [newAccType,   setNewAccType]   = useState<'c' | 'p'>('c')
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -607,6 +611,28 @@ export function Budget() {
       setSelVersion(remaining[0]?.version_name ?? '')
     }
     setMsg('✅ Version supprimée')
+    setTimeout(() => setMsg(null), 3000)
+  }
+
+  const handleAddAccount = () => {
+    const acc = newAccNum.trim()
+    if (!acc || !newAccLabel.trim()) return
+    if (coBud[acc]) {
+      setMsg('❌ Ce compte existe déjà dans le budget')
+      setTimeout(() => setMsg(null), 3000)
+      return
+    }
+    const newData = { ...coBud, [acc]: { b: Array(12).fill(0), t: newAccType, l: newAccLabel.trim() } }
+    const updated = budVersions.map(v =>
+      v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newData } : v
+    )
+    setBudVersions(updated)
+    setBudData({ ...budData, [budCo]: newData } as any)
+    setNewAccNum('')
+    setNewAccLabel('')
+    setNewAccType('c')
+    setShowAddAcc(false)
+    setMsg('✅ Compte ajouté — pensez à sauvegarder')
     setTimeout(() => setMsg(null), 3000)
   }
 
@@ -784,8 +810,59 @@ export function Budget() {
                       Scénarios What-if
                     </button>
                   )}
+                  <button onClick={() => setShowAddAcc(v => !v)}
+                    style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                      background: showAddAcc ? 'rgba(16,185,129,0.2)' : 'transparent',
+                      border: `1px solid ${showAddAcc ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                      color: showAddAcc ? '#34d399' : '#475569' }}>
+                    + Ajouter un compte
+                  </button>
                 </div>
               </div>
+
+              {/* Add account form */}
+              {showAddAcc && (
+                <div style={{
+                  marginBottom: 12, padding: '14px 16px', borderRadius: 10,
+                  background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)',
+                  display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                }}>
+                  <span style={{ fontSize: 11, color: '#34d399', fontWeight: 700, whiteSpace: 'nowrap' }}>Nouveau compte</span>
+                  <input
+                    type="text" placeholder="N° compte (ex: 621)" value={newAccNum}
+                    onChange={e => setNewAccNum(e.target.value)}
+                    style={{ ...inputSt, width: 130, fontSize: 11 }}
+                  />
+                  <input
+                    type="text" placeholder="Libellé (ex: Personnel extérieur)" value={newAccLabel}
+                    onChange={e => setNewAccLabel(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
+                    style={{ ...inputSt, width: 240, fontSize: 11 }}
+                  />
+                  <div style={{ display: 'flex', borderRadius: 7, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+                    {(['c', 'p'] as const).map(t => (
+                      <button key={t} onClick={() => setNewAccType(t)}
+                        style={{ padding: '5px 12px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
+                          background: newAccType === t ? (t === 'c' ? 'rgba(239,68,68,0.2)' : 'rgba(16,185,129,0.2)') : 'transparent',
+                          color: newAccType === t ? (t === 'c' ? '#ef4444' : '#10b981') : '#475569' }}>
+                        {t === 'c' ? '📤 Charge' : '📥 Produit'}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={handleAddAccount}
+                    disabled={!newAccNum.trim() || !newAccLabel.trim()}
+                    style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      background: 'rgba(16,185,129,0.2)', border: '1px solid rgba(16,185,129,0.3)', color: '#34d399',
+                      opacity: !newAccNum.trim() || !newAccLabel.trim() ? 0.4 : 1 }}>
+                    Ajouter
+                  </button>
+                  <button onClick={() => { setShowAddAcc(false); setNewAccNum(''); setNewAccLabel('') }}
+                    style={{ padding: '5px 10px', borderRadius: 8, fontSize: 11, cursor: 'pointer',
+                      background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', color: '#475569' }}>
+                    Annuler
+                  </button>
+                </div>
+              )}
 
               {/* What-if simulation */}
               {showWhatIf && Object.keys(coBud).length > 0 && (

@@ -45,10 +45,14 @@ export function useCompanyData() {
     // Si pas d'user : ne pas toucher à dataLoading (reste true jusqu'au login)
     if (!user) return
 
-    if (query.isLoading || query.isFetching) {
+    // Chargement initial uniquement → spinner plein écran
+    if (query.isLoading) {
       setDataLoading(true)
       return
     }
+
+    // Rafraîchissement en background (invalidation après saisie) → silencieux, pas de spinner
+    if (query.isFetching) return
 
     const { companyData = [], budgets = [], manualEntries = [] } = query.data ?? {}
     const raw = buildRAW(companyData, budgets as any, manualEntries)

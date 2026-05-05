@@ -13,6 +13,7 @@ export interface CompanyDataRow {
   id: string
   tenant_id: string
   company_key: string
+  company_name?: string
   period: 'N' | 'N-1' | 'N-2'
   fiscal_year: string
   pl_data: Record<string, FecAccount>
@@ -54,7 +55,7 @@ export interface ManualEntry {
   tva_amount?: string
   tva_rate?: string
   amount_ht_saisie?: string
-  category: 'Vente' | 'Achat' | 'Depense'
+  category: 'Vente' | 'Achat' | 'Depense' | 'Immobilisation'
   subcategory: string
   label?: string
   counterpart?: string
@@ -62,7 +63,7 @@ export interface ManualEntry {
   payment_mode?: 'comptant' | 'echeancier' | 'cb' | 'virement' | 'cheque' | 'especes' | 'prelevement'
   payment_date?: string
   echeancier_data?: EcheancierData | null
-  source: 'manual' | 'ocr' | 'csv'
+  source: 'manual' | 'ocr' | 'csv' | 'echeance'
   invoice_url?: string
   created_at: string
 }
@@ -230,6 +231,7 @@ export type TabId =
   | 'cr' | 'sig' | 'equilibre' | 'objectifs' | 'bilan' | 'ratios'
   | 'import' | 'budget' | 'saisie' | 'verification' | 'complementaire'
   | 'tresorerie' | 'creances' | 'rapprochement' | 'depot' | 'aide' | 'ventes'
+  | 'souscription'
 
 export interface NavItem {
   id: TabId

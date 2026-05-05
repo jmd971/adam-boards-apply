@@ -26,6 +26,7 @@ import { Rapprochement }    from '@/modules/rapprochement/Rapprochement'
 import { Depot }            from '@/modules/depot/Depot'
 import { Aide }             from '@/modules/aide/Aide'
 import { Ventes }           from '@/modules/ventes/VentesPage'
+import { Souscription }     from '@/modules/souscription/Souscription'
 import { useCompanyData }   from '@/hooks/useCompanyData'
 import type { User }        from '@supabase/supabase-js'
 
@@ -119,7 +120,7 @@ function AppInner() {
         <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Votre rôle ne permet pas d'accéder à cet onglet. Contactez votre administrateur.</div>
       </div>
     )
-    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances' && tab !== 'depot' && tab !== 'ventes') return (
+    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances' && tab !== 'depot' && tab !== 'ventes' && tab !== 'souscription' && tab !== 'saisie') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
@@ -144,6 +145,7 @@ function AppInner() {
       ventes:          ['Ventes & Clients', <Ventes />],
       rapprochement:  ['Rapprochement',   <Rapprochement />],
       depot:          ['Dépôts',          <Depot />],
+      souscription:   ['Souscription',    <Souscription />],
       aide:           ['Aide',            <Aide />],
     }
     const entry = modules[tab]
