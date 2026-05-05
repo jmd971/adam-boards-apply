@@ -51,22 +51,6 @@ const labelFor = (acc: string, fromFec?: string): string => {
   return acc
 }
 
-function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], isCharge: boolean): number {
-  let total = 0
-  for (const co of selCo) {
-    for (const field of ['pn', 'p1'] as const) {
-      const src = (RAW.companies[co] as any)?.[field] ?? {}
-      for (const k of Object.keys(src)) {
-        if (!k.startsWith(acc)) continue
-        for (const m of months) {
-          const mo = src[k]?.mo?.[m]
-          if (mo && Array.isArray(mo)) total += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-        }
-      }
-    }
-  }
-  return Math.round(total)
-}
 
 export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -238,28 +222,52 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
           )
         }
       } else {
-        // Deduplicate: a shorter prefix covers more specific codes
+        // Expand P&L prefixes to individual FEC/manual accounts — shows each sub-account
+        // (including manual entries at specific codes like 6262) as a distinct row.
         const uniqueAccs = row.accs!.filter((acc, i, arr) =>
           !arr.some((other, j) => j !== i && acc.startsWith(other) && other.length < acc.length)
         )
-        for (const acc of uniqueAccs) {
+        const seen = new Set<string>()
+        const plAccs: string[] = []
+        for (const co of selCo) {
+          for (const field of ['pn', 'p1'] as const) {
+            const src = (RAW.companies[co] as any)?.[field] ?? {}
+            for (const k of Object.keys(src)) {
+              if (!seen.has(k) && uniqueAccs.some(p => k.startsWith(p))) {
+                seen.add(k); plAccs.push(k)
+              }
+            }
+          }
+        }
+        plAccs.sort()
+
+        for (const acc of plAccs) {
+          // Exact-account value: sum across companies/fields for the specific account code
+          let val = 0
+          for (const co of selCo) {
+            for (const field of ['pn', 'p1'] as const) {
+              const src = (RAW.companies[co] as any)?.[field] ?? {}
+              for (const m of selectedMs) {
+                const mo = src[acc]?.mo?.[m]
+                if (mo && Array.isArray(mo)) val += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+              }
+            }
+          }
+          val = Math.round(val)
+
           const allEnts: any[] = []
           let fecLabel = ''
           for (const co of selCo) {
             for (const field of ['pn', 'p1'] as const) {
               const src = (RAW.companies[co] as any)?.[field] ?? {}
-              for (const a of Object.keys(src)) {
-                if (!a.startsWith(acc)) continue
-                if (!fecLabel) fecLabel = src[a]?.l || ''
-                const entries = mergeEntries(RAW, [co], field, a)
-                allEnts.push(...entries)
-              }
+              if (!fecLabel && src[acc]?.l) fecLabel = src[acc].l
+              allEnts.push(...mergeEntries(RAW, [co], field, acc))
             }
           }
-          const lbl = labelFor(acc, fecLabel || undefined)
-          const val = accValue(RAW, selCo, acc, selectedMs, isCharge)
 
           if (Math.abs(val) < 0.5 && allEnts.length === 0) continue
+
+          const lbl = labelFor(acc, fecLabel || undefined)
 
           rows.push(
             <tr key={`${row.id}__${acc}`}
@@ -277,11 +285,8 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
                 for (const co of selCo) {
                   for (const field of ['pn', 'p1'] as const) {
                     const src = (RAW.companies[co] as any)?.[field] ?? {}
-                    for (const a of Object.keys(src)) {
-                      if (!a.startsWith(acc)) continue
-                      const mo = src[a]?.mo?.[m]
-                      if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-                    }
+                    const mo = src[acc]?.mo?.[m]
+                    if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
                   }
                 }
                 mv = Math.round(mv)
