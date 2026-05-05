@@ -51,26 +51,16 @@ const labelFor = (acc: string, fromFec?: string): string => {
   return acc
 }
 
-/** Calcule la valeur nette (signe selon type charge/produit) pour un compte sur les mois donnés.
- *  Utilise le match exact d'abord, puis prefix si absent (ex: '623' → '6231', '6232'...). */
 function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], isCharge: boolean): number {
   let total = 0
   for (const co of selCo) {
     const src = RAW.companies[co]?.pn as any
     if (!src) continue
-    const exact = src[acc]
-    if (exact) {
-      for (const m of months) {
-        const mo = exact.mo?.[m]
-        if (mo && Array.isArray(mo)) total += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-      }
-    } else {
-      for (const k of Object.keys(src)) {
-        if (k.startsWith(acc)) {
-          for (const m of months) {
-            const mo = src[k]?.mo?.[m]
-            if (mo && Array.isArray(mo)) total += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-          }
+    for (const k of Object.keys(src)) {
+      if (k.startsWith(acc)) {
+        for (const m of months) {
+          const mo = src[k]?.mo?.[m]
+          if (mo && Array.isArray(mo)) total += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
         }
       }
     }
@@ -270,16 +260,10 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
                 for (const co of selCo) {
                   const src = RAW.companies[co]?.pn as any
                   if (!src) continue
-                  const exact = src[acc]
-                  if (exact) {
-                    const mo = exact.mo?.[m]
-                    if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-                  } else {
-                    for (const k of Object.keys(src)) {
-                      if (k.startsWith(acc)) {
-                        const mo = src[k]?.mo?.[m]
-                        if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-                      }
+                  for (const k of Object.keys(src)) {
+                    if (k.startsWith(acc)) {
+                      const mo = src[k]?.mo?.[m]
+                      if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
                     }
                   }
                 }

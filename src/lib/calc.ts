@@ -36,13 +36,8 @@ export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 
   for (const co of keys) {
     const src = RAW.companies[co]?.[field] as any
     if (!src) continue
-    const exact = src[acc]
-    if (exact?.e) {
-      entries.push(...exact.e as typeof entries)
-    } else {
-      for (const k of Object.keys(src)) {
-        if (k.startsWith(acc) && src[k]?.e) entries.push(...src[k].e as typeof entries)
-      }
+    for (const k of Object.keys(src)) {
+      if (k.startsWith(acc) && src[k]?.e) entries.push(...src[k].e as typeof entries)
     }
   }
   return entries.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''))
@@ -71,17 +66,13 @@ export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], 
     for (const co of keys) {
       const src = RAW.companies[co]?.[field] as any
       if (!src) continue
-      // Exact match first, then prefix match (e.g. '641' matches '6411', '6412'...)
-      const exact = src[acc]
-      if (exact) {
-        const v = exact.mo?.[m]
-        if (v) { d += v[0]; c += v[1] }
-      } else {
-        for (const k of Object.keys(src)) {
-          if (k.startsWith(acc)) {
-            const v = src[k]?.mo?.[m]
-            if (v) { d += v[0]; c += v[1] }
-          }
+      // Always prefix-scan: k.startsWith(acc) covers exact match (acc.startsWith(acc)===true)
+      // and all sub-accounts. This ensures manual entries at 6262 are found even when FEC
+      // also has a summary entry at 626.
+      for (const k of Object.keys(src)) {
+        if (k.startsWith(acc)) {
+          const v = src[k]?.mo?.[m]
+          if (v) { d += v[0]; c += v[1] }
         }
       }
     }
