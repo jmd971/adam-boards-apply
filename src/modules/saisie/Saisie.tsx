@@ -899,12 +899,14 @@ export function Saisie() {
           <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9', marginBottom:16 }}>Nouvelle saisie</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(175px,1fr))', gap:10 }}>
 
-            <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Société</label>
-              <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
-                {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name||k}</option>)}
-              </select>
-            </div>
+            {RAW.keys.length > 1 && (
+              <div>
+                <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Société</label>
+                <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
+                  {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name||k}</option>)}
+                </select>
+              </div>
+            )}
 
             <div>
               <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Date</label>
