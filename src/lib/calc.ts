@@ -108,13 +108,15 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
     }
   }
 
-  const mn1Arr = [...allMsN1].sort()
   for (const me of manualEntries) {
     const mco = me.company_key; if (!mco) continue
     if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
     const mMonth = mDate.slice(0, 7)
-    const isN1 = mn1Arr.length > 0 && mMonth >= mn1Arr[0] && mMonth <= mn1Arr[mn1Arr.length - 1]
+    // Use exact set membership: only treat as N-1 if the month is already in N-1 FEC data
+    // (and not also in N FEC data). Range-based check incorrectly classifies current-period
+    // entries as N-1 when the FEC N-1 import spans many years.
+    const isN1 = allMsN1.has(mMonth) && !allMsN.has(mMonth)
     const plField = isN1 ? 'p1' : 'pn'
     if (isN1) allMsN1.add(mMonth); else allMsN.add(mMonth)
     const acc = me.account_num || '658', ht = parseFloat(me.amount_ht || me.amount_ht_saisie || '0') || 0
