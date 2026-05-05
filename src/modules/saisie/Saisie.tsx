@@ -272,19 +272,22 @@ export function Saisie() {
     payment_date:  '',
   })
 
-  // Sync company_key to primaryCo when the form has no value, an invalid value,
-  // or a ghost company (no FEC pn accounts) while primaryCo has real FEC data.
+  // Sync company_key to a valid key whenever primaryCo or RAW.keys change.
+  // Ensures the select never has a value that doesn't match any option.
   useEffect(() => {
     if (!primaryCo) return
     setForm(f => {
-      const currentHasFEC = Object.keys(RAW?.companies[f.company_key]?.pn ?? {}).length > 0
-      const primaryHasFEC = Object.keys(RAW?.companies[primaryCo]?.pn ?? {}).length > 0
-      const notInKeys = !RAW || !RAW.keys.includes(f.company_key)
-      if (!f.company_key || notInKeys || (!currentHasFEC && primaryHasFEC))
+      if (RAW && RAW.keys.length > 0) {
+        if (!f.company_key || !RAW.keys.includes(f.company_key)) {
+          const validCo = RAW.keys.includes(primaryCo) ? primaryCo : RAW.keys[0]
+          return { ...f, company_key: validCo }
+        }
+      } else if (!f.company_key) {
         return { ...f, company_key: primaryCo }
+      }
       return f
     })
-  }, [primaryCo])
+  }, [primaryCo, RAW?.keys?.join(',')])
 
   // ── Échéancier ──────────────────────────────────────────────────────────
   interface Echeance { date: string; amount: number }
@@ -902,14 +905,22 @@ export function Saisie() {
           <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9', marginBottom:16 }}>Nouvelle saisie</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(175px,1fr))', gap:10 }}>
 
-            {(RAW?.keys.length ?? 0) > 1 && (
-              <div>
-                <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Société</label>
-                <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
+            <div>
+              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Société</label>
+              {(RAW?.keys.length ?? 0) > 1 ? (
+                <select
+                  value={RAW!.keys.includes(form.company_key) ? form.company_key : RAW!.keys[0]}
+                  onChange={e => setForm(f => ({...f, company_key:e.target.value}))}
+                  style={inputSt}
+                >
                   {RAW!.keys.map(k => <option key={k} value={k}>{RAW!.companies[k]?.name||k}</option>)}
                 </select>
-              </div>
-            )}
+              ) : (
+                <div style={{ ...inputSt, color:'#94a3b8', cursor:'default' }}>
+                  {RAW?.companies[RAW.keys[0]]?.name || tenantName || form.company_key || '—'}
+                </div>
+              )}
+            </div>
 
             <div>
               <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Date</label>
