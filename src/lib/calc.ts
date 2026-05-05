@@ -49,7 +49,23 @@ export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], 
   return selectedMs.map((m, i) => {
     const field = msSrc[i] === 'p1' ? 'p1' : 'pn'
     let d = 0, c = 0
-    for (const co of keys) { const v = RAW.companies[co]?.[field]?.[acc]?.mo?.[m]; if (v) { d += v[0]; c += v[1] } }
+    for (const co of keys) {
+      const src = RAW.companies[co]?.[field] as any
+      if (!src) continue
+      // Exact match first, then prefix match (e.g. '641' matches '6411', '6412'...)
+      const exact = src[acc]
+      if (exact) {
+        const v = exact.mo?.[m]
+        if (v) { d += v[0]; c += v[1] }
+      } else {
+        for (const k of Object.keys(src)) {
+          if (k.startsWith(acc)) {
+            const v = src[k]?.mo?.[m]
+            if (v) { d += v[0]; c += v[1] }
+          }
+        }
+      }
+    }
     return [d, c]
   })
 }
