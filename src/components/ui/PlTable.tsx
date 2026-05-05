@@ -243,15 +243,16 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc, showMon
         plAccs.sort()
 
         for (const acc of plAccs) {
-          // Exact-account value: one field per month via msSrc, mirrors getAdjMixed logic
+          // Look in both pn and p1 for each month (same as April-16 accValue approach)
+          // to avoid blank sub-rows when RAW.mn is empty or msSrc routes incorrectly.
           let val = 0
-          for (let mi = 0; mi < selectedMs.length; mi++) {
-            const m     = selectedMs[mi]
-            const field = msSrc[mi] === 'p1' ? 'p1' : 'pn'
+          for (const m of selectedMs) {
             for (const co of selCo) {
-              const src = (RAW.companies[co] as any)?.[field] ?? {}
-              const mo  = src[acc]?.mo?.[m]
-              if (mo && Array.isArray(mo)) val += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+              for (const field of ['pn', 'p1'] as const) {
+                const src = (RAW.companies[co] as any)?.[field] ?? {}
+                const mo  = src[acc]?.mo?.[m]
+                if (mo && Array.isArray(mo)) val += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+              }
             }
           }
           val = Math.round(val)
@@ -281,13 +282,14 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc, showMon
                 <span>{lbl}</span>
                 {allEnts.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{allEnts.length} éc.</span>}
               </td>
-              {showMonths && selectedMs.map((m, mi) => {
-                const field = msSrc[mi] === 'p1' ? 'p1' : 'pn'
+              {showMonths && selectedMs.map((m, _mi) => {
                 let mv = 0
                 for (const co of selCo) {
-                  const src = (RAW.companies[co] as any)?.[field] ?? {}
-                  const mo  = src[acc]?.mo?.[m]
-                  if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+                  for (const field of ['pn', 'p1'] as const) {
+                    const src = (RAW.companies[co] as any)?.[field] ?? {}
+                    const mo  = src[acc]?.mo?.[m]
+                    if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+                  }
                 }
                 mv = Math.round(mv)
                 return (
