@@ -16,6 +16,7 @@ interface PlTableProps {
   onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
   maxHeight?: string
   cumulRowKey?: string
+  collapsible?: boolean
 }
 
 const PLAN: Record<string, string> = {
@@ -64,32 +65,54 @@ function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], 
   return Math.round(total)
 }
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
+  let currentHeader: string | null = null
   const rows: React.ReactNode[] = []
 
   for (const row of struct) {
     if (row.sep) {
       rows.push(<tr key={row.id}><td colSpan={99} style={{ height: 8 }} /></tr>)
+      currentHeader = null
       continue
     }
     if (row.header) {
-      rows.push(
-        <tr key={row.id}>
-          <td colSpan={99} style={{
-            padding: '10px 14px 4px', fontSize: 10, fontWeight: 700,
-            letterSpacing: '1px', textTransform: 'uppercase',
-            color: row.color || 'var(--text-2)',
-            borderTop: `1px solid ${row.color ? row.color + '30' : 'var(--border-1)'}`,
-          }}>
-            {row.label}
-          </td>
-        </tr>
-      )
+      currentHeader = row.id
+      if (collapsible) {
+        const isOpen = !!expanded[row.id]
+        rows.push(
+          <tr key={row.id} onClick={() => toggle(row.id)} style={{ cursor: 'pointer' }}>
+            <td colSpan={99} style={{
+              padding: '10px 14px 4px', fontSize: 10, fontWeight: 700,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              color: row.color || 'var(--text-2)',
+              borderTop: `1px solid ${row.color ? row.color + '30' : 'var(--border-1)'}`,
+            }}>
+              <span style={{ marginRight: 6, fontSize: 9 }}>{isOpen ? '▼' : '▶'}</span>
+              {row.label}
+            </td>
+          </tr>
+        )
+      } else {
+        rows.push(
+          <tr key={row.id}>
+            <td colSpan={99} style={{
+              padding: '10px 14px 4px', fontSize: 10, fontWeight: 700,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              color: row.color || 'var(--text-2)',
+              borderTop: `1px solid ${row.color ? row.color + '30' : 'var(--border-1)'}`,
+            }}>
+              {row.label}
+            </td>
+          </tr>
+        )
+      }
       continue
     }
+
+    if (collapsible && !row.bold && currentHeader && !expanded[currentHeader]) continue
 
     const d = plCalc[row.id]
     if (!d) continue
