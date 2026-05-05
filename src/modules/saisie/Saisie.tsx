@@ -253,6 +253,13 @@ export function Saisie() {
     payment_date:  '',
   })
 
+  // Sync company_key when it is empty but data has now loaded (component can mount before
+  // filters.selCo is populated, leaving company_key as '' which causes buildRAW to skip the entry)
+  useEffect(() => {
+    const co = filters.selCo[0] || RAW?.keys[0] || ''
+    if (co) setForm(f => f.company_key ? f : { ...f, company_key: co })
+  }, [filters.selCo[0], RAW?.keys[0]])
+
   // ── Échéancier ──────────────────────────────────────────────────────────
   interface Echeance { date: string; amount: number }
   const [useSchedule, setUseSchedule] = useState(false)
@@ -495,7 +502,7 @@ export function Saisie() {
       const ttc = parseFloat(row.amount_ttc || row.montant_ttc || '0') || 0
       imported.push({
         tenant_id:    tenantId,
-        company_key:  form.company_key,
+        company_key:  form.company_key || RAW?.keys[0] || filters.selCo[0] || '',
         entry_date:   row.date || row.entry_date || '',
         category:     row.category || row.categorie || 'Depense',
         subcategory:  row.subcategory || row.sous_categorie || '',
@@ -529,6 +536,10 @@ export function Saisie() {
   // ── Soumission manuelle ───────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!form.amount_ht || !form.entry_date) return
+    // Guard against empty company_key (can happen when component mounted before data loaded)
+    const effectiveCompanyKey = form.company_key || RAW?.keys[0] || filters.selCo[0] || ''
+    if (!effectiveCompanyKey) return
+    if (effectiveCompanyKey !== form.company_key) setForm(f => ({ ...f, company_key: effectiveCompanyKey }))
     setSaving(true)
     const ht  = parseFloat(form.amount_ht)  || 0
     const ttc = parseFloat(form.amount_ttc) || ht
@@ -553,7 +564,7 @@ export function Saisie() {
     // 1. Créer ou mettre à jour la facture
     const invoiceRow = {
       tenant_id:    tenantId,
-      company_key:  form.company_key,
+      company_key:  effectiveCompanyKey,
       entry_date:   form.entry_date,
       category:     form.category,
       subcategory:  form.subcategory,
@@ -634,7 +645,7 @@ export function Saisie() {
 
         amortRows.push({
           tenant_id:    tenantId,
-          company_key:  form.company_key,
+          company_key:  effectiveCompanyKey,
           entry_date:   `${anneeEcriture}-12-31`,
           category:     'Depense' as const,
           subcategory:  'Dotation amortissement',
@@ -661,7 +672,7 @@ export function Saisie() {
     if (useSchedule && echeances.length > 1) {
       const paymentRows = echeances.map((ech, i) => ({
         tenant_id:    tenantId,
-        company_key:  form.company_key,
+        company_key:  effectiveCompanyKey,
         entry_date:   ech.date,
         category:     form.category,
         subcategory:  form.subcategory,
