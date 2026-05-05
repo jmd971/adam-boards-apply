@@ -53,7 +53,7 @@ const labelFor = (acc: string, fromFec?: string): string => {
 }
 
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
