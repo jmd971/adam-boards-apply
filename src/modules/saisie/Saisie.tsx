@@ -341,7 +341,7 @@ export function Saisie() {
     if (error) { setMsg('❌ ' + error.message); return }
 
     // Mettre à jour le state local et le store
-    const newEntries = entries.filter(en => String(en.id) !== id && (en as any).parent_id !== id)
+    const newEntries = entries.filter(en => String(en.id) !== id && en.parent_id !== id)
     setEntries(newEntries)
     setManualEntries(newEntries)
     if (RAW) {
@@ -685,7 +685,7 @@ export function Saisie() {
     const allNew = [invoice, ...paymentEntries, ...amortEntries]
     let updatedEntries: ManualEntry[]
     if (editingId) {
-      updatedEntries = entries.filter(en => String(en.id) !== editingId && (en as any).parent_id !== editingId)
+      updatedEntries = entries.filter(en => String(en.id) !== editingId && en.parent_id !== editingId)
       updatedEntries = [...allNew, ...updatedEntries]
     } else {
       updatedEntries = [...allNew, ...entries]
@@ -1033,8 +1033,8 @@ export function Saisie() {
         const allInvoices = entries.filter(e => e.source !== 'echeance')
         const echeancesByParent: Record<string, ManualEntry[]> = {}
         for (const e of entries) {
-          if (e.source === 'echeance' && (e as any).parent_id) {
-            const pid = String((e as any).parent_id)
+          if (e.source === 'echeance' && e.parent_id) {
+            const pid = String(e.parent_id)
             if (!echeancesByParent[pid]) echeancesByParent[pid] = []
             echeancesByParent[pid].push(e)
           }

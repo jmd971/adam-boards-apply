@@ -65,6 +65,7 @@ export interface ManualEntry {
   echeancier_data?: EcheancierData | null
   source: 'manual' | 'ocr' | 'csv' | 'echeance'
   invoice_url?: string
+  parent_id?: string | null
   created_at: string
 }
 
