@@ -56,10 +56,10 @@ function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], 
   for (const co of selCo) {
     for (const field of ['pn', 'p1'] as const) {
       const src = (RAW.companies[co] as any)?.[field] ?? {}
-      const matchKeys = src[acc] ? [acc] : Object.keys(src).filter(a => a.startsWith(acc))
-      for (const a of matchKeys) {
+      for (const k of Object.keys(src)) {
+        if (!k.startsWith(acc)) continue
         for (const m of months) {
-          const mo = src[a]?.mo?.[m]
+          const mo = src[k]?.mo?.[m]
           if (mo && Array.isArray(mo)) total += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
         }
       }
@@ -248,8 +248,8 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
           for (const co of selCo) {
             for (const field of ['pn', 'p1'] as const) {
               const src = (RAW.companies[co] as any)?.[field] ?? {}
-              const matchKeys = src[acc] ? [acc] : Object.keys(src).filter(a => a.startsWith(acc))
-              for (const a of matchKeys) {
+              for (const a of Object.keys(src)) {
+                if (!a.startsWith(acc)) continue
                 if (!fecLabel) fecLabel = src[a]?.l || ''
                 const entries = mergeEntries(RAW, [co], field, a)
                 allEnts.push(...entries)
@@ -277,8 +277,8 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
                 for (const co of selCo) {
                   for (const field of ['pn', 'p1'] as const) {
                     const src = (RAW.companies[co] as any)?.[field] ?? {}
-                    const matchKeys = src[acc] ? [acc] : Object.keys(src).filter(a => a.startsWith(acc))
-                    for (const a of matchKeys) {
+                    for (const a of Object.keys(src)) {
+                      if (!a.startsWith(acc)) continue
                       const mo = src[a]?.mo?.[m]
                       if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
                     }
