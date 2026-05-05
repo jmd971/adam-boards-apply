@@ -134,7 +134,7 @@ export function CompteResultat() {
       <div className="px-2 py-2">
         <PlTable
           struct={CR} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
-          selectedMs={selectedMs} showMonths={filters.showMonths}
+          selectedMs={selectedMs} msSrc={msSrc} showMonths={filters.showMonths}
           showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
           budData={budData as any}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}

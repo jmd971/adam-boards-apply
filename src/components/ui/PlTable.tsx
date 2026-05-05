@@ -8,6 +8,7 @@ interface PlTableProps {
   RAW: RAWData
   selCo: string[]
   selectedMs: string[]
+  msSrc: Array<'pn' | 'p1' | 'bud'>
   showMonths: boolean
   showN1Full: boolean
   showBudget: boolean
@@ -52,7 +53,7 @@ const labelFor = (acc: string, fromFec?: string): string => {
 }
 
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
@@ -242,15 +243,15 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
         plAccs.sort()
 
         for (const acc of plAccs) {
-          // Exact-account value: sum across companies/fields for the specific account code
+          // Exact-account value: one field per month via msSrc, mirrors getAdjMixed logic
           let val = 0
-          for (const co of selCo) {
-            for (const field of ['pn', 'p1'] as const) {
+          for (let mi = 0; mi < selectedMs.length; mi++) {
+            const m     = selectedMs[mi]
+            const field = msSrc[mi] === 'p1' ? 'p1' : 'pn'
+            for (const co of selCo) {
               const src = (RAW.companies[co] as any)?.[field] ?? {}
-              for (const m of selectedMs) {
-                const mo = src[acc]?.mo?.[m]
-                if (mo && Array.isArray(mo)) val += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-              }
+              const mo  = src[acc]?.mo?.[m]
+              if (mo && Array.isArray(mo)) val += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
             }
           }
           val = Math.round(val)
@@ -280,14 +281,13 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
                 <span>{lbl}</span>
                 {allEnts.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{allEnts.length} éc.</span>}
               </td>
-              {showMonths && selectedMs.map(m => {
+              {showMonths && selectedMs.map((m, mi) => {
+                const field = msSrc[mi] === 'p1' ? 'p1' : 'pn'
                 let mv = 0
                 for (const co of selCo) {
-                  for (const field of ['pn', 'p1'] as const) {
-                    const src = (RAW.companies[co] as any)?.[field] ?? {}
-                    const mo = src[acc]?.mo?.[m]
-                    if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-                  }
+                  const src = (RAW.companies[co] as any)?.[field] ?? {}
+                  const mo  = src[acc]?.mo?.[m]
+                  if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
                 }
                 mv = Math.round(mv)
                 return (
