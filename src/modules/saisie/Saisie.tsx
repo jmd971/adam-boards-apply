@@ -1162,9 +1162,10 @@ export function Saisie() {
                   const hasEch = childEch.length > 0
                   return (
                     <React.Fragment key={e.id}>
-                      <tr style={{ borderBottom: hasEch ? 'none' : '1px solid rgba(255,255,255,0.03)' }}>
+                      <tr style={{ borderBottom: hasEch ? 'none' : '1px solid rgba(255,255,255,0.03)', background: !e.company_key ? 'rgba(239,68,68,0.05)' : undefined }}>
                         <td style={{ padding:'6px 4px', width:20 }}>
                           {hasEch && <span style={{ fontSize:9, color:'#3b82f6', cursor:'default' }} title={`${childEch.length} échéance(s)`}>📅</span>}
+                          {!e.company_key && <span style={{ fontSize:10, cursor:'default' }} title="Société manquante — cette entrée n'apparaît pas dans SIG/CR. Cliquez ✏️ puis Enregistrer pour corriger.">⚠️</span>}
                         </td>
                         <td style={{ padding:'6px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}>{formatDateFR(e.entry_date)}</td>
                         <td style={{ padding:'6px 8px' }}>
