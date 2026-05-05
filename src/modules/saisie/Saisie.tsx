@@ -241,15 +241,16 @@ export function Saisie() {
   }
 
   const [form, setForm] = useState({
-    company_key:  filters.selCo[0] ?? '',
-    entry_date:   new Date().toISOString().slice(0, 10),
-    category:     'Vente' as ManualEntry['category'],
-    subcategory:  '',
-    label:        '',
-    amount_ttc:   '',
-    amount_ht:    '',
-    counterpart:  '',
-    payment_mode: 'virement',
+    company_key:   filters.selCo[0] ?? '',
+    entry_date:    new Date().toISOString().slice(0, 10),
+    category:      'Vente' as ManualEntry['category'],
+    subcategory:   '',
+    label:         '',
+    amount_ttc:    '',
+    amount_ht:     '',
+    counterpart:   '',
+    payment_mode:  'virement',
+    payment_date:  '',
   })
 
   // ── Échéancier ──────────────────────────────────────────────────────────
@@ -316,7 +317,8 @@ export function Saisie() {
       amount_ttc:   e.amount_ttc || '',
       amount_ht:    e.amount_ht || e.amount_ht_saisie || '',
       counterpart:  e.counterpart || '',
-      payment_mode: e.payment_mode || 'virement',
+      payment_mode:  e.payment_mode || 'virement',
+      payment_date:  e.payment_date || '',
     })
     setMode('manual')
     setUseSchedule(false)
@@ -326,7 +328,7 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'' }))
+    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setMsg(null)
   }
 
@@ -562,6 +564,7 @@ export function Saisie() {
       tva_rate:     tvaRte,
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
+      payment_date: form.payment_date || null,
       account_num:  accountNum,
       source:       ocrFile ? 'ocr' : 'manual',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
@@ -723,7 +726,7 @@ export function Saisie() {
     queryClient.invalidateQueries({ queryKey: ['companyData'] })
 
     setMsg(`✅ ${verb} et tableaux mis à jour`)
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'' }))
+    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setOcrFile(null)
     setUseSchedule(false)
     setEditingId(null)
@@ -878,6 +881,15 @@ export function Saisie() {
               <select value={form.payment_mode} onChange={e => setForm(f => ({...f, payment_mode:e.target.value}))} style={inputSt}>
                 {['virement','prelevement','cb','cheque','especes'].map(m => <option key={m} value={m}>{m}</option>)}
               </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>
+                {form.category === 'Vente' ? 'Date encaissement' : 'Date paiement'}
+              </label>
+              <input type="date" value={form.payment_date}
+                onChange={e => setForm(f => ({...f, payment_date:e.target.value}))}
+                style={inputSt} />
             </div>
 
             {/* Durée d'amortissement pour immobilisations */}
@@ -1123,6 +1135,7 @@ export function Saisie() {
                   <SortHeader col="tva" label="TVA €" align="right" />
                   <SortHeader col="ttc" label="TTC €" align="right" />
                   <SortHeader col="payment" label="Règlement" />
+                  <th style={{ padding:'6px 8px', color:'#475569', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)', whiteSpace:'nowrap', minWidth:88, background:'#0f172a' }}>Date règlement</th>
                   <th style={{ padding:'6px 8px', color:'#475569', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)', whiteSpace:'nowrap', minWidth:80, background:'#0f172a' }}>Pièce</th>
                   <th style={{ padding:'6px 8px', color:'#475569', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)', whiteSpace:'nowrap', minWidth:130, background:'#0f172a', textAlign:'center' }}>Actions</th>
                 </tr>
@@ -1156,6 +1169,9 @@ export function Saisie() {
                         <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f59e0b' }}>{tva !== 0 ? tva.toFixed(2) : '—'}</td>
                         <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: e.category==='Vente' ? '#10b981':'#f1f5f9' }}>{ttc.toFixed(2)}</td>
                         <td style={{ padding:'6px 8px', color:'#475569' }}>{e.payment_mode||'—'}</td>
+                        <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : '#334155', whiteSpace:'nowrap', fontSize:10 }}>
+                          {e.payment_date ? formatDateFR(e.payment_date) : '—'}
+                        </td>
                         <td style={{ padding:'6px 8px', fontSize:10, whiteSpace:'nowrap', minWidth:80 }}>
                           {e.invoice_url
                             ? <a href={e.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color:'#3b82f6', textDecoration:'none', fontWeight:600 }}>📄 Voir facture</a>
@@ -1212,6 +1228,9 @@ export function Saisie() {
                               {pTtc.toFixed(2)}
                             </td>
                             <td style={{ padding:'4px 8px', color:'#334155', fontSize:10 }}>{p.payment_mode||'—'}</td>
+                            <td style={{ padding:'4px 8px', color: p.payment_date ? '#10b981' : '#334155', fontSize:10 }}>
+                              {p.payment_date ? formatDateFR(p.payment_date) : '—'}
+                            </td>
                             <td></td>
                           </tr>
                         )
