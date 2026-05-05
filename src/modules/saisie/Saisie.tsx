@@ -358,7 +358,20 @@ export function Saisie() {
     if (RAW) {
       const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId!)
       const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId!)
-      if (cd) { const newRAW = buildRAW(cd as any, (bd ?? []) as any, fixed); setRAW(newRAW) }
+      if (cd) {
+        const newRAW = buildRAW(cd as any, (bd ?? []) as any, fixed)
+        setRAW(newRAW)
+        // Étendre la plage de filtre pour inclure les mois des saisies corrigées
+        if (newRAW.mn.length > 0) {
+          const minM = newRAW.mn[0]
+          const maxM = newRAW.mn[newRAW.mn.length - 1]
+          const f = useAppStore.getState().filters
+          const newStart = !f.startM || f.startM > minM ? minM : f.startM
+          const newEnd   = !f.endM   || f.endM   < maxM ? maxM : f.endM
+          if (newStart !== f.startM || newEnd !== f.endM)
+            useAppStore.getState().setFilters({ startM: newStart, endM: newEnd })
+        }
+      }
     }
     setSaving(false)
     setMsg(`✅ ${broken.length} saisie(s) corrigée(s) → société "${targetCo}"`)
