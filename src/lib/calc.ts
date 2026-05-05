@@ -33,12 +33,31 @@ export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: s
 
 export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string) {
   const entries: [string, string, number, number, string, number][] = []
-  for (const co of keys) { const acct = RAW.companies[co]?.[field]?.[acc]; if (acct?.e) entries.push(...acct.e as typeof entries) }
+  for (const co of keys) {
+    const src = RAW.companies[co]?.[field] as any
+    if (!src) continue
+    const exact = src[acc]
+    if (exact?.e) {
+      entries.push(...exact.e as typeof entries)
+    } else {
+      for (const k of Object.keys(src)) {
+        if (k.startsWith(acc) && src[k]?.e) entries.push(...src[k].e as typeof entries)
+      }
+    }
+  }
   return entries.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''))
 }
 
 export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string): string {
-  for (const co of keys) { const label = RAW.companies[co]?.[field]?.[acc]?.l; if (label) return label }
+  for (const co of keys) {
+    const src = RAW.companies[co]?.[field] as any
+    if (!src) continue
+    const label = src[acc]?.l
+    if (label) return label
+    for (const k of Object.keys(src)) {
+      if (k.startsWith(acc) && src[k]?.l) return src[k].l
+    }
+  }
   return ''
 }
 
