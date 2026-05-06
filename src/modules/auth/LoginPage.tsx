@@ -13,7 +13,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [password, setPassword] = useState('')
   // Champs inscription
   const [company,  setCompany]  = useState('')
-  const [agency,   setAgency]   = useState('')
   const [loading, setLoading]   = useState(false)
   const [success,  setSuccess]  = useState(false)
 
@@ -32,8 +31,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
   const handleSubmit = async () => {
     if (!email || !password) return
-    if (mode === 'signup' && (!company.trim() || !agency.trim())) {
-      setError('Veuillez renseigner le nom de votre entreprise et votre cabinet.')
+    if (mode === 'signup' && !company.trim()) {
+      setError('Veuillez renseigner le nom de votre entreprise.')
       return
     }
     setLoading(true); setError(null)
@@ -43,28 +42,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         if (err) throw err
         if (data.user) onLogin(data.user)
       } else {
-        // Créer le compte via API (pas d'email de confirmation = pas de rate limit)
+        // Créer le compte + tenant + rôle admin via API
         const resp = await fetch('/api/invite-user', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email.trim(), password }),
+          body: JSON.stringify({ email: email.trim(), password, company_name: company.trim() }),
         })
         const json = await resp.json() as any
         if (!resp.ok) throw new Error(json.error ?? 'Erreur création compte.')
 
-        // Enregistrer la souscription en attente
-        await sb.from('subscriptions').insert({
-          company_name:  company.trim(),
-          company_key:   agency.trim().toUpperCase(),
-          contact_email: email.trim(),
-          user_id:       json.user_id,
-          status:        'pending',
-        })
-
         // Connecter directement l'utilisateur
         const { data: loginData, error: loginErr } = await sb.auth.signInWithPassword({ email: email.trim(), password })
         if (loginErr) {
-          // Compte créé mais connexion échouée → afficher succès quand même
           setSuccess(true)
           return
         }
@@ -131,8 +120,8 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 Demande envoyée !
               </div>
               <div style={{ color: '#64748b', fontSize: 12, lineHeight: 1.6 }}>
-                Votre demande d'accès pour <strong style={{ color: '#94a3b8' }}>{company}</strong> a bien été reçue.
-                Votre cabinet <strong style={{ color: '#94a3b8' }}>{agency}</strong> validera votre accès sous peu.
+                Votre compte <strong style={{ color: '#94a3b8' }}>{company}</strong> a été créé.
+                Connectez-vous avec vos identifiants.
               </div>
               <button onClick={() => { setMode('login'); setSuccess(false) }}
                 style={{ marginTop: 20, padding: '9px 20px', borderRadius: 10, border: 'none',
@@ -152,16 +141,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                       placeholder="Ex : Cocon de Béa"
                       value={company}
                       onChange={e => setCompany(e.target.value)}
-                      className={inputClass}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-muted mb-1.5">Code cabinet / agence *</label>
-                    <input
-                      type="text"
-                      placeholder="Ex : CADOR"
-                      value={agency}
-                      onChange={e => setAgency(e.target.value.toUpperCase())}
                       className={inputClass}
                     />
                   </div>

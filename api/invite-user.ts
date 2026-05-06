@@ -14,34 +14,66 @@ export default async function handler(req: any, res: any) {
     })
   }
 
-  const { email, password } = req.body ?? {}
+  const { email, password, company_name } = req.body ?? {}
   if (!email || typeof email !== 'string') return res.status(400).json({ error: 'Email requis.' })
 
-  const payload: any = { email: email.trim() }
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${serviceKey}`,
+    'apikey': serviceKey,
+  }
 
+  // ── 1. Créer le compte auth ───────────────────────────────────────────────
+  const payload: any = { email: email.trim() }
   if (password && typeof password === 'string') {
-    // Création directe avec mot de passe — email déjà confirmé, pas d'email envoyé
     payload.password = password
     payload.email_confirm = true
   } else {
-    // Invitation classique (email d'invitation envoyé)
     payload.invite = true
   }
 
-  const resp = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+  const authResp = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${serviceKey}`,
-      'apikey': serviceKey,
-    },
+    headers,
     body: JSON.stringify(payload),
   })
+  const authData = await authResp.json() as any
+  if (!authResp.ok) {
+    return res.status(authResp.status).json({ error: authData.msg ?? authData.message ?? 'Erreur création compte.' })
+  }
+  const userId: string = authData.id
 
-  const data = await resp.json() as any
-  if (!resp.ok) {
-    return res.status(resp.status).json({ error: data.msg ?? data.message ?? 'Erreur Supabase' })
+  // ── 2. Créer le tenant ────────────────────────────────────────────────────
+  const name = (company_name as string | undefined)?.trim() || email.split('@')[0]
+  const baseSlug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30) || 'company'
+  const slug = `${baseSlug}_${Date.now().toString(36)}`   // unique par construction
+
+  const tenantResp = await fetch(`${supabaseUrl}/rest/v1/tenants`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=representation' },
+    body: JSON.stringify({ name, slug }),
+  })
+  const tenantData = await tenantResp.json() as any
+  if (!tenantResp.ok) {
+    console.error('[invite-user] tenant creation failed:', tenantData)
+    return res.status(500).json({ error: 'Erreur création tenant : ' + JSON.stringify(tenantData) })
+  }
+  const tenantId: string = (Array.isArray(tenantData) ? tenantData[0] : tenantData)?.id
+  if (!tenantId) {
+    return res.status(500).json({ error: 'Tenant créé mais id manquant.' })
   }
 
-  return res.status(200).json({ user_id: data.id, email: data.email })
+  // ── 3. Créer le rôle admin ────────────────────────────────────────────────
+  const roleResp = await fetch(`${supabaseUrl}/rest/v1/user_roles`, {
+    method: 'POST',
+    headers: { ...headers, 'Prefer': 'return=minimal' },
+    body: JSON.stringify({ user_id: userId, tenant_id: tenantId, role: 'admin' }),
+  })
+  if (!roleResp.ok) {
+    const roleErr = await roleResp.json().catch(() => ({}))
+    console.error('[invite-user] role creation failed:', roleErr)
+    // On ne bloque pas l'inscription — l'admin peut corriger manuellement
+  }
+
+  return res.status(200).json({ user_id: userId, email: authData.email, tenant_id: tenantId })
 }
