@@ -41,12 +41,12 @@ export function Sig() {
   const budData = useAppStore(s => s.budData)
   const [modal, setModal] = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
 
-  const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
+  const { RAW, filters, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, SIG, filters.excludeOD)
-  }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
+    return computePlCalc(RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, SIG, filters.excludeOD)
+  }, [RAW, selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
   const caTotal = plCalc['ca']?.cumulN ?? 0
 
@@ -136,7 +136,7 @@ export function Sig() {
       {/* Table */}
       <div className="px-2 py-2">
         <PlTable
-          struct={SIG} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
+          struct={SIG} plCalc={plCalc} RAW={RAW} selCo={selCo}
           selectedMs={selectedMs} msSrc={msSrc} showMonths={filters.showMonths}
           showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
           budData={budData as any}
