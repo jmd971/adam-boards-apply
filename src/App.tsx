@@ -39,7 +39,6 @@ function AppInner() {
   const role        = useAppStore(s => s.role) as Role
   const setRole     = useAppStore(s => s.setRole)
   const setTenant   = useAppStore(s => s.setTenant)
-  const tenantId    = useAppStore(s => s.tenantId)
   const dataLoading = useAppStore(s => s.dataLoading)
   const RAW         = useAppStore(s => s.RAW)
   const tab         = useAppStore(s => s.tab)
