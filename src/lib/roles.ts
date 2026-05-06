@@ -1,6 +1,6 @@
 import type { TabId } from '@/types'
 
-export type Role = 'superadmin' | 'cabinet_admin' | 'admin' | 'comptable' | 'viewer'
+export type Role = 'admin' | 'comptable' | 'viewer'
 
 const ALL_TABS: TabId[] = [
   'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
@@ -9,14 +9,8 @@ const ALL_TABS: TabId[] = [
 ]
 
 /** Tabs accessible per role */
-const ROLE_TABS: Record<Role, TabId[]> = {
-  superadmin:    ALL_TABS,
-  cabinet_admin: ALL_TABS,
-  admin: [
-    'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
-    'import', 'budget', 'saisie', 'tresorerie', 'verification', 'creances',
-    'complementaire', 'rapprochement', 'depot', 'aide', 'ventes', 'souscription',
-  ],
+const ROLE_TABS: Record<string, TabId[]> = {
+  admin: ALL_TABS,
   comptable: [
     'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
     'budget', 'saisie', 'tresorerie', 'creances', 'complementaire',
@@ -29,40 +23,34 @@ const ROLE_TABS: Record<Role, TabId[]> = {
 }
 
 /** Whether a role can write (create/edit/delete data) */
-const ROLE_CAN_WRITE: Record<Role, boolean> = {
-  superadmin:    true,
-  cabinet_admin: true,
-  admin:         true,
-  comptable:     true,
-  viewer:        false,
+const ROLE_CAN_WRITE: Record<string, boolean> = {
+  admin:     true,
+  comptable: true,
+  viewer:    false,
 }
 
-export function canAccessTab(role: Role, tab: TabId): boolean {
-  return ROLE_TABS[role]?.includes(tab) ?? false
+export function canAccessTab(role: string, tab: TabId): boolean {
+  return (ROLE_TABS[role] ?? ROLE_TABS.viewer).includes(tab)
 }
 
-export function canWrite(role: Role): boolean {
+export function canWrite(role: string): boolean {
   return ROLE_CAN_WRITE[role] ?? false
 }
 
-export function roleLabel(role: Role): string {
+export function roleLabel(role: string): string {
   switch (role) {
-    case 'superadmin':    return 'Super Admin'
-    case 'cabinet_admin': return 'Admin Cabinet'
-    case 'admin':         return 'Administrateur'
-    case 'comptable':     return 'Comptable'
-    case 'viewer':        return 'Consultation'
-    default:              return role
+    case 'admin':     return 'Administrateur'
+    case 'comptable': return 'Comptable'
+    case 'viewer':    return 'Consultation'
+    default:          return role
   }
 }
 
-export function roleColor(role: Role): string {
+export function roleColor(role: string): string {
   switch (role) {
-    case 'superadmin':    return '#a855f7'
-    case 'cabinet_admin': return '#f97316'
-    case 'admin':         return '#ef4444'
-    case 'comptable':     return '#3b82f6'
-    case 'viewer':        return '#64748b'
-    default:              return '#64748b'
+    case 'admin':     return '#ef4444'
+    case 'comptable': return '#3b82f6'
+    case 'viewer':    return '#64748b'
+    default:          return '#64748b'
   }
 }

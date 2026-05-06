@@ -14,7 +14,7 @@ export default async function handler(req: any, res: any) {
     })
   }
 
-  const { email, password, company_name } = req.body ?? {}
+  const { email, password, company_name, tenant_id, role = 'viewer' } = req.body ?? {}
   if (!email || typeof email !== 'string') return res.status(400).json({ error: 'Email requis.' })
 
   const headers = {
@@ -43,10 +43,24 @@ export default async function handler(req: any, res: any) {
   }
   const userId: string = authData.id
 
-  // ── 2. Créer le tenant ────────────────────────────────────────────────────
+  // ── 2a. Invitation à un tenant existant ───────────────────────────────────
+  if (tenant_id) {
+    const roleResp = await fetch(`${supabaseUrl}/rest/v1/user_roles`, {
+      method: 'POST',
+      headers: { ...headers, 'Prefer': 'return=minimal' },
+      body: JSON.stringify({ user_id: userId, tenant_id, role }),
+    })
+    if (!roleResp.ok) {
+      const err = await roleResp.json().catch(() => ({}))
+      console.error('[invite-user] role creation failed:', err)
+    }
+    return res.status(200).json({ user_id: userId, email: authData.email, tenant_id })
+  }
+
+  // ── 2b. Nouvelle inscription : créer tenant + rôle admin ─────────────────
   const name = (company_name as string | undefined)?.trim() || email.split('@')[0]
   const baseSlug = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').slice(0, 30) || 'company'
-  const slug = `${baseSlug}_${Date.now().toString(36)}`   // unique par construction
+  const slug = `${baseSlug}_${Date.now().toString(36)}`
 
   const tenantResp = await fetch(`${supabaseUrl}/rest/v1/tenants`, {
     method: 'POST',
@@ -55,25 +69,22 @@ export default async function handler(req: any, res: any) {
   })
   const tenantData = await tenantResp.json() as any
   if (!tenantResp.ok) {
-    console.error('[invite-user] tenant creation failed:', tenantData)
     return res.status(500).json({ error: 'Erreur création tenant : ' + JSON.stringify(tenantData) })
   }
-  const tenantId: string = (Array.isArray(tenantData) ? tenantData[0] : tenantData)?.id
-  if (!tenantId) {
+  const newTenantId: string = (Array.isArray(tenantData) ? tenantData[0] : tenantData)?.id
+  if (!newTenantId) {
     return res.status(500).json({ error: 'Tenant créé mais id manquant.' })
   }
 
-  // ── 3. Créer le rôle admin ────────────────────────────────────────────────
-  const roleResp = await fetch(`${supabaseUrl}/rest/v1/user_roles`, {
+  const roleResp2 = await fetch(`${supabaseUrl}/rest/v1/user_roles`, {
     method: 'POST',
     headers: { ...headers, 'Prefer': 'return=minimal' },
-    body: JSON.stringify({ user_id: userId, tenant_id: tenantId, role: 'admin' }),
+    body: JSON.stringify({ user_id: userId, tenant_id: newTenantId, role: 'admin' }),
   })
-  if (!roleResp.ok) {
-    const roleErr = await roleResp.json().catch(() => ({}))
-    console.error('[invite-user] role creation failed:', roleErr)
-    // On ne bloque pas l'inscription — l'admin peut corriger manuellement
+  if (!roleResp2.ok) {
+    const err = await roleResp2.json().catch(() => ({}))
+    console.error('[invite-user] admin role creation failed:', err)
   }
 
-  return res.status(200).json({ user_id: userId, email: authData.email, tenant_id: tenantId })
+  return res.status(200).json({ user_id: userId, email: authData.email, tenant_id: newTenantId })
 }

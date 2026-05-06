@@ -30,12 +30,10 @@ export async function getUserRoleAndTenant(userId: string): Promise<RoleAndTenan
     }
 
     const role = data.role ?? 'viewer'
-    // Superadmin et cabinet_admin choisissent leur tenant via le sélecteur
-    const isMultiTenant = role === 'superadmin' || role === 'cabinet_admin'
     return {
       role,
-      tenantId:   isMultiTenant ? null : (data.tenant_id ?? null),
-      tenantName: isMultiTenant ? null : ((data.tenants as any)?.name ?? null),
+      tenantId:   data.tenant_id ?? null,
+      tenantName: (data.tenants as any)?.name ?? null,
     }
   } catch {
     return { role: 'viewer', tenantId: null, tenantName: null }

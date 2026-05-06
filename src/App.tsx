@@ -7,7 +7,6 @@ import { Sidebar }          from '@/components/layout/Sidebar'
 import { TopBar }           from '@/components/layout/TopBar'
 import { Spinner, ErrorBoundary } from '@/components/ui'
 import { LoginPage }        from '@/modules/auth/LoginPage'
-import { TenantSelector }   from '@/modules/auth/TenantSelector'
 import { CompteResultat }   from '@/modules/cr/CompteResultat'
 import { Sig }              from '@/modules/sig/Sig'
 import { Dashboard }        from '@/modules/dashboard/Dashboard'
@@ -96,14 +95,7 @@ function AppInner() {
     return [...ms].sort()
   }, [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')])
 
-  const isMultiTenant = role === 'superadmin' || role === 'cabinet_admin'
-
   if (!user) return <LoginPage onLogin={(u: User) => { setUser(u); getUserRoleAndTenant(u.id).then(({ role, tenantId, tenantName }) => { setRole(role); setTenant(tenantId, tenantName) }) }} />
-
-  // Superadmin / cabinet_admin doivent choisir un groupe avant d'accéder aux données
-  if (isMultiTenant && !tenantId) {
-    return <TenantSelector role={role} onSelect={(id, name) => setTenant(id, name)} />
-  }
 
   if (dataLoading) return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, background:'#080d1a', color:'#f1f5f9' }}>

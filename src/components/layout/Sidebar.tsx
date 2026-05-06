@@ -41,8 +41,6 @@ export function Sidebar({ onTabChange }: SidebarProps) {
   const user       = useAppStore(s => s.user)
   const role       = useAppStore(s => s.role) as Role
   const tenantName = useAppStore(s => s.tenantName)
-  const setTenant  = useAppStore(s => s.setTenant)
-  const isMultiTenant = role === 'superadmin' || role === 'cabinet_admin'
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
   const setFilters = useAppStore(s => s.setFilters)
@@ -211,19 +209,6 @@ export function Sidebar({ onTabChange }: SidebarProps) {
               {RAW.m1?.length ? `
 N-1: ${RAW.m1[0]} → ${RAW.m1[RAW.m1.length-1]}` : ''}
             </div>
-          )}
-          {isMultiTenant && (
-            <button
-              onClick={() => setTenant(null, null)}
-              style={{
-                marginTop:6, width:'100%', padding:'7px 0', borderRadius:8,
-                border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)',
-                color:'#93c5fd', fontSize:11, fontWeight:600, cursor:'pointer',
-                transition:'all 0.15s',
-              }}
-            >
-              🔄 Changer de groupe
-            </button>
           )}
           <button
             onClick={() => sb.auth.signOut()}
