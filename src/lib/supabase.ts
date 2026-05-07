@@ -38,8 +38,14 @@ export async function getUserRoleAndTenant(userId: string): Promise<RoleAndTenan
       return { role: env !== 'prod' ? 'admin' : 'viewer', tenantId: null, tenantName: null }
     }
 
+    const role = normalizeRole(data.role)
+    // Superadmin = pas de tenant attribué : doit passer par le SuperadminDashboard
+    // pour choisir un tenant cible avant d'accéder aux modules.
+    if (role === 'superadmin') {
+      return { role: 'superadmin', tenantId: null, tenantName: null }
+    }
     return {
-      role: normalizeRole(data.role),
+      role,
       tenantId: data.tenant_id ?? null,
       tenantName: (data.tenants as any)?.name ?? null,
     }

@@ -25,6 +25,7 @@ import { Rapprochement }    from '@/modules/rapprochement/Rapprochement'
 import { Depot }            from '@/modules/depot/Depot'
 import { Aide }             from '@/modules/aide/Aide'
 import { Ventes }           from '@/modules/ventes/VentesPage'
+import { SuperadminDashboard } from '@/modules/superadmin/SuperadminDashboard'
 import { useCompanyData }   from '@/hooks/useCompanyData'
 import type { User }        from '@supabase/supabase-js'
 
@@ -33,15 +34,22 @@ const queryClient = new QueryClient({
 })
 
 function AppInner() {
-  const user        = useAppStore(s => s.user)
-  const setUser     = useAppStore(s => s.setUser)
-  const role        = useAppStore(s => s.role) as Role
-  const setRole     = useAppStore(s => s.setRole)
-  const setTenant   = useAppStore(s => s.setTenant)
-  const dataLoading = useAppStore(s => s.dataLoading)
-  const RAW         = useAppStore(s => s.RAW)
-  const tab         = useAppStore(s => s.tab)
-  const setTab      = useAppStore(s => s.setTab)
+  const user           = useAppStore(s => s.user)
+  const setUser        = useAppStore(s => s.setUser)
+  const role           = useAppStore(s => s.role) as Role
+  const setRole        = useAppStore(s => s.setRole)
+  const tenantId       = useAppStore(s => s.tenantId)
+  const setTenant      = useAppStore(s => s.setTenant)
+  const isSuperadmin   = useAppStore(s => s.isSuperadmin)
+  const setIsSuperadmin = useAppStore(s => s.setIsSuperadmin)
+  const dataLoading    = useAppStore(s => s.dataLoading)
+  const setDataLoading = useAppStore(s => s.setDataLoading)
+  const setRAW         = useAppStore(s => s.setRAW)
+  const setManualEntries = useAppStore(s => s.setManualEntries)
+  const setBudData     = useAppStore(s => s.setBudData)
+  const RAW            = useAppStore(s => s.RAW)
+  const tab            = useAppStore(s => s.tab)
+  const setTab         = useAppStore(s => s.setTab)
 
   const [navOpen, setNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -58,9 +66,10 @@ function AppInner() {
     }
 
     const resolveAuth = (userId: string) =>
-      getUserRoleAndTenant(userId).then(({ role, tenantId, tenantName }) => {
-        setRole(role)
-        setTenant(tenantId, tenantName)
+      getUserRoleAndTenant(userId).then(({ role: r, tenantId: tid, tenantName: tname }) => {
+        setRole(r)
+        setTenant(tid, tname)
+        if (r === 'superadmin') setIsSuperadmin(true)
       })
 
     sb.auth.getSession().then(({ data }) => {
@@ -93,7 +102,27 @@ function AppInner() {
     return [...ms].sort()
   }, [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')])
 
-  if (!user) return <LoginPage onLogin={(u: User) => { setUser(u); getUserRoleAndTenant(u.id).then(({ role, tenantId, tenantName }) => { setRole(role); setTenant(tenantId, tenantName) }) }} />
+  if (!user) return <LoginPage onLogin={(u: User) => {
+    setUser(u)
+    getUserRoleAndTenant(u.id).then(({ role: r, tenantId: tid, tenantName: tname }) => {
+      setRole(r)
+      setTenant(tid, tname)
+      if (r === 'superadmin') setIsSuperadmin(true)
+    })
+  }} />
+
+  // Gate superadmin — on vérifie `role` (synchrone après resolveAuth) ET `tenantId` null
+  // On utilise `role === 'superadmin'` plutôt que `isSuperadmin` pour éviter le problème de timing
+  if ((isSuperadmin || role === 'superadmin') && !tenantId) return (
+    <SuperadminDashboard onSelectTenant={(id, name) => {
+      setRAW(null)
+      setManualEntries([])
+      setBudData({})
+      setDataLoading(true)
+      setTenant(id, name)
+      setRole('admin')
+    }} />
+  )
 
   if (dataLoading) return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, background:'#080d1a', color:'#f1f5f9' }}>
