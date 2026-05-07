@@ -11,9 +11,11 @@ interface AuthState {
   role: string
   tenantId: string | null
   tenantName: string | null
+  isSuperadmin: boolean
   setUser: (user: User | null) => void
   setRole: (role: string) => void
   setTenant: (id: string | null, name: string | null) => void
+  setIsSuperadmin: (v: boolean) => void
 }
 
 // ─── Data slice ────────────────────────────────────────────────────────────
@@ -56,9 +58,11 @@ export const useAppStore = create<AppStore>()(
       role: 'viewer',
       tenantId: null,
       tenantName: null,
+      isSuperadmin: false,
       setUser: (user) => set({ user }),
       setRole: (role) => set({ role }),
       setTenant: (tenantId, tenantName) => set({ tenantId, tenantName }),
+      setIsSuperadmin: (isSuperadmin) => set({ isSuperadmin }),
 
       // Data
       RAW: null,

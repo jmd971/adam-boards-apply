@@ -1,6 +1,6 @@
 import type { TabId } from '@/types'
 
-export type Role = 'admin' | 'comptable' | 'viewer'
+export type Role = 'admin' | 'comptable' | 'viewer' | 'superadmin'
 
 const ALL_TABS: TabId[] = [
   'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
@@ -11,6 +11,7 @@ const ALL_TABS: TabId[] = [
 /** Tabs accessible per role */
 const ROLE_TABS: Record<string, TabId[]> = {
   admin: ALL_TABS,
+  superadmin: ALL_TABS,
   comptable: [
     'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
     'budget', 'saisie', 'tresorerie', 'creances', 'complementaire',
@@ -48,9 +49,10 @@ export function roleLabel(role: string): string {
 
 export function roleColor(role: string): string {
   switch (role) {
-    case 'admin':     return '#ef4444'
-    case 'comptable': return '#3b82f6'
-    case 'viewer':    return '#64748b'
-    default:          return '#64748b'
+    case 'admin':      return '#ef4444'
+    case 'comptable':  return '#3b82f6'
+    case 'viewer':     return '#64748b'
+    case 'superadmin': return '#f59e0b'
+    default:           return '#64748b'
   }
 }

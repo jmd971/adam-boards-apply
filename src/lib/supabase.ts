@@ -30,6 +30,9 @@ export async function getUserRoleAndTenant(userId: string): Promise<RoleAndTenan
     }
 
     const role = data.role ?? 'viewer'
+    if (role === 'superadmin') {
+      return { role: 'superadmin', tenantId: null, tenantName: null }
+    }
     return {
       role,
       tenantId:   data.tenant_id ?? null,

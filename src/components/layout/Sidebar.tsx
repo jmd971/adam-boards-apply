@@ -41,10 +41,17 @@ export function Sidebar({ onTabChange }: SidebarProps) {
   const user       = useAppStore(s => s.user)
   const role       = useAppStore(s => s.role) as Role
   const tenantName = useAppStore(s => s.tenantName)
-  const RAW     = useAppStore(s => s.RAW)
-  const filters = useAppStore(s => s.filters)
+  const RAW        = useAppStore(s => s.RAW)
+  const filters    = useAppStore(s => s.filters)
   const setFilters = useAppStore(s => s.setFilters)
-  const tenantId = useAppStore(s => s.tenantId)
+  const tenantId   = useAppStore(s => s.tenantId)
+  const isSuperadmin    = useAppStore(s => s.isSuperadmin)
+  const setRole         = useAppStore(s => s.setRole)
+  const setTenant       = useAppStore(s => s.setTenant)
+  const setRAW          = useAppStore(s => s.setRAW)
+  const setManualEntries = useAppStore(s => s.setManualEntries)
+  const setBudData      = useAppStore(s => s.setBudData)
+  const setDataLoading  = useAppStore(s => s.setDataLoading)
   const queryClient = useQueryClient()
   const [editingCo, setEditingCo] = useState<string | null>(null)
   const [editName,  setEditName]  = useState('')
@@ -87,6 +94,30 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       display:'flex', flexDirection:'column',
       overflowY:'auto', overflowX:'hidden',
     }}>
+      {/* Bouton retour superadmin */}
+      {isSuperadmin && tenantId && (
+        <button
+          onClick={() => {
+            setRAW(null)
+            setManualEntries([])
+            setBudData({})
+            setDataLoading(false)
+            setRole('superadmin')
+            setTenant(null, null)
+          }}
+          style={{
+            padding: '10px 16px', border: 'none', borderBottom: '1px solid var(--border-0)',
+            background: 'rgba(59,130,246,0.08)', color: '#93c5fd',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
+            display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.15)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)' }}
+        >
+          ← Tous les clients
+        </button>
+      )}
       {/* Logo */}
       <div style={{ padding:'18px 16px 12px', borderBottom:'1px solid var(--border-0)', flexShrink:0 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
