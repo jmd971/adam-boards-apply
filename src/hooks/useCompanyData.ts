@@ -21,10 +21,13 @@ export function useCompanyData() {
     queryKey: ['companyData', user?.id ?? 'anonymous', tenantId],
     enabled:  !!user && !!tenantId,
     queryFn: async () => {
+      // Filtre explicite par tenant : indispensable pour le superadmin qui
+      // switch entre tenants depuis le UI (sinon les requêtes retournent toujours
+      // les mêmes données quel que soit le tenant choisi).
       const [cdRes, bdRes, meRes] = await Promise.all([
-        sb.from('company_data').select('*'),
-        sb.from('budget').select('*'),
-        sb.from('manual_entries').select('*').order('entry_date', { ascending: true }),
+        sb.from('company_data').select('*').eq('tenant_id', tenantId!),
+        sb.from('budget').select('*').eq('tenant_id', tenantId!),
+        sb.from('manual_entries').select('*').eq('tenant_id', tenantId!).order('entry_date', { ascending: true }),
       ])
 
       if (cdRes.error) console.error('[Supabase] company_data:', cdRes.error.message)
