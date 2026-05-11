@@ -92,14 +92,30 @@ export function Ventes() {
           }}>
             {sourceBadge.icon} {sourceBadge.label}
           </span>
+          {source === 'pos' && (
+            <button
+              onClick={() => setShowImport(true)}
+              style={{
+                padding:'4px 12px', borderRadius:8, border:'1px solid var(--border-1)',
+                background:'transparent', color:'var(--text-2)', fontSize:11, cursor:'pointer',
+              }}
+            >
+              ↻ Ré-importer
+            </button>
+          )}
           <button
-            onClick={() => source === 'pos' ? setShowImport(true) : setSource(null)}
+            onClick={() => {
+              // Vide le choix persisté + repasse au chooser
+              if (tenantId) localStorage.removeItem(`ventes_source_${tenantId}`)
+              setSource(null)
+              setPosTxs([])
+            }}
             style={{
               padding:'4px 12px', borderRadius:8, border:'1px solid var(--border-1)',
               background:'transparent', color:'var(--text-2)', fontSize:11, cursor:'pointer',
             }}
           >
-            {source === 'pos' ? '↻ Ré-importer' : '⚙ Changer de source'}
+            ⚙ Changer de source
           </button>
         </div>
       </div>
