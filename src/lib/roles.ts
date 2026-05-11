@@ -32,26 +32,27 @@ const ROLE_CAN_WRITE: Record<Role, boolean> = {
   viewer:     false,
 }
 
-/**
- * Normalise un rôle (défensif) : accepte les variantes super_admin, SUPER-ADMIN, etc.
- * Même logique que supabase.ts:normalizeRole.
- */
-function norm(role: string): Role {
+/** Normalise un rôle brut (DB ou input externe) : "Super_Admin" → "superadmin", "SUPER-ADMIN" → "superadmin"… */
+export function normalizeRole(role: string | null | undefined): Role {
   const n = (role ?? '').toLowerCase().trim().replace(/[_\s-]+/g, '')
   if (n === 'superadmin' || n === 'admin' || n === 'comptable' || n === 'viewer') return n as Role
   return 'viewer'
 }
 
+export function isSuperadmin(role: string | null | undefined): boolean {
+  return normalizeRole(role) === 'superadmin'
+}
+
 export function canAccessTab(role: Role | string, tab: TabId): boolean {
-  return ROLE_TABS[norm(role as string)]?.includes(tab) ?? false
+  return ROLE_TABS[normalizeRole(role)]?.includes(tab) ?? false
 }
 
 export function canWrite(role: Role | string): boolean {
-  return ROLE_CAN_WRITE[norm(role as string)] ?? false
+  return ROLE_CAN_WRITE[normalizeRole(role)] ?? false
 }
 
 export function roleLabel(role: Role | string): string {
-  switch (norm(role as string)) {
+  switch (normalizeRole(role)) {
     case 'superadmin': return 'Super-admin'
     case 'admin':      return 'Administrateur'
     case 'comptable':  return 'Comptable'
@@ -61,7 +62,7 @@ export function roleLabel(role: Role | string): string {
 }
 
 export function roleColor(role: Role | string): string {
-  switch (norm(role as string)) {
+  switch (normalizeRole(role)) {
     case 'superadmin': return '#f59e0b'
     case 'admin':      return '#ef4444'
     case 'comptable':  return '#3b82f6'

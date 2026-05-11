@@ -11,11 +11,11 @@ interface AuthState {
   role: string
   tenantId: string | null
   tenantName: string | null
-  isSuperadmin: boolean
   setUser: (user: User | null) => void
   setRole: (role: string) => void
   setTenant: (id: string | null, name: string | null) => void
-  setIsSuperadmin: (v: boolean) => void
+  /** Bascule sur un tenant : pose role + tenantId + reset des données. */
+  switchTenant: (tenantId: string | null, tenantName: string | null, role: string) => void
 }
 
 // ─── Data slice ────────────────────────────────────────────────────────────
@@ -58,11 +58,14 @@ export const useAppStore = create<AppStore>()(
       role: 'viewer',
       tenantId: null,
       tenantName: null,
-      isSuperadmin: false,
       setUser: (user) => set({ user }),
       setRole: (role) => set({ role }),
       setTenant: (tenantId, tenantName) => set({ tenantId, tenantName }),
-      setIsSuperadmin: (isSuperadmin) => set({ isSuperadmin }),
+      switchTenant: (tenantId, tenantName, role) => set({
+        tenantId, tenantName, role,
+        RAW: null, manualEntries: [], budData: {}, budStatus: {}, budVersions: [],
+        dataLoading: tenantId !== null,
+      }),
 
       // Data
       RAW: null,

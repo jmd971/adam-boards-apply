@@ -41,16 +41,9 @@ export function Sidebar({ onTabChange }: SidebarProps) {
   const tenantName = useAppStore(s => s.tenantName)
   const RAW        = useAppStore(s => s.RAW)
   const filters    = useAppStore(s => s.filters)
-  const setFilters = useAppStore(s => s.setFilters)
-  // Pour le bouton "← Tous les clients" affiché aux superadmins (retour SuperadminDashboard)
-  const tenantId         = useAppStore(s => s.tenantId)
-  const isSuperadmin     = useAppStore(s => s.isSuperadmin)
-  const setRole          = useAppStore(s => s.setRole)
-  const setTenant        = useAppStore(s => s.setTenant)
-  const setRAW           = useAppStore(s => s.setRAW)
-  const setManualEntries = useAppStore(s => s.setManualEntries)
-  const setBudData       = useAppStore(s => s.setBudData)
-  const setDataLoading   = useAppStore(s => s.setDataLoading)
+  const setFilters   = useAppStore(s => s.setFilters)
+  const tenantId     = useAppStore(s => s.tenantId)
+  const switchTenant = useAppStore(s => s.switchTenant)
 
   const handleTab = (id: TabId) => {
     setTab(id)
@@ -80,16 +73,9 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       overflowY:'auto', overflowX:'hidden',
     }}>
       {/* Bouton retour superadmin */}
-      {isSuperadmin && tenantId && (
+      {role === 'superadmin' && tenantId && (
         <button
-          onClick={() => {
-            setRAW(null)
-            setManualEntries([])
-            setBudData({})
-            setDataLoading(false)
-            setRole('superadmin')
-            setTenant(null, null)
-          }}
+          onClick={() => switchTenant(null, null, 'superadmin')}
           style={{
             padding: '10px 16px', border: 'none', borderBottom: '1px solid var(--border-0)',
             background: 'rgba(59,130,246,0.08)', color: '#93c5fd',

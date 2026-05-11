@@ -21,9 +21,9 @@ export function useCompanyData() {
     queryKey: ['companyData', user?.id ?? 'anonymous', tenantId],
     enabled:  !!user && !!tenantId,
     queryFn: async () => {
-      // Filtre explicite par tenant : indispensable pour le superadmin qui
-      // switch entre tenants depuis le UI (sinon les requêtes retournent toujours
-      // les mêmes données quel que soit le tenant choisi).
+      // Filtre tenant explicite : la policy RLS autorise le superadmin à lire
+      // tous les tenants (is_superadmin()), il faut cibler côté client sinon
+      // un switch de tenant renverrait l'union des deux.
       const [cdRes, bdRes, meRes] = await Promise.all([
         sb.from('company_data').select('*').eq('tenant_id', tenantId!),
         sb.from('budget').select('*').eq('tenant_id', tenantId!),

@@ -34,22 +34,17 @@ const queryClient = new QueryClient({
 })
 
 function AppInner() {
-  const user           = useAppStore(s => s.user)
-  const setUser        = useAppStore(s => s.setUser)
-  const role           = useAppStore(s => s.role) as Role
-  const setRole        = useAppStore(s => s.setRole)
-  const tenantId       = useAppStore(s => s.tenantId)
-  const setTenant      = useAppStore(s => s.setTenant)
-  const isSuperadmin   = useAppStore(s => s.isSuperadmin)
-  const setIsSuperadmin = useAppStore(s => s.setIsSuperadmin)
-  const dataLoading    = useAppStore(s => s.dataLoading)
-  const setDataLoading = useAppStore(s => s.setDataLoading)
-  const setRAW         = useAppStore(s => s.setRAW)
-  const setManualEntries = useAppStore(s => s.setManualEntries)
-  const setBudData     = useAppStore(s => s.setBudData)
-  const RAW            = useAppStore(s => s.RAW)
-  const tab            = useAppStore(s => s.tab)
-  const setTab         = useAppStore(s => s.setTab)
+  const user         = useAppStore(s => s.user)
+  const setUser      = useAppStore(s => s.setUser)
+  const role         = useAppStore(s => s.role) as Role
+  const setRole      = useAppStore(s => s.setRole)
+  const tenantId     = useAppStore(s => s.tenantId)
+  const setTenant    = useAppStore(s => s.setTenant)
+  const switchTenant = useAppStore(s => s.switchTenant)
+  const dataLoading  = useAppStore(s => s.dataLoading)
+  const RAW          = useAppStore(s => s.RAW)
+  const tab          = useAppStore(s => s.tab)
+  const setTab       = useAppStore(s => s.setTab)
 
   const [navOpen, setNavOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -69,7 +64,6 @@ function AppInner() {
       getUserRoleAndTenant(userId).then(({ role: r, tenantId: tid, tenantName: tname }) => {
         setRole(r)
         setTenant(tid, tname)
-        if (r === 'superadmin') setIsSuperadmin(true)
       })
 
     sb.auth.getSession().then(({ data }) => {
@@ -107,21 +101,11 @@ function AppInner() {
     getUserRoleAndTenant(u.id).then(({ role: r, tenantId: tid, tenantName: tname }) => {
       setRole(r)
       setTenant(tid, tname)
-      if (r === 'superadmin') setIsSuperadmin(true)
     })
   }} />
 
-  // Gate superadmin — on vérifie `role` (synchrone après resolveAuth) ET `tenantId` null
-  // On utilise `role === 'superadmin'` plutôt que `isSuperadmin` pour éviter le problème de timing
-  if ((isSuperadmin || role === 'superadmin') && !tenantId) return (
-    <SuperadminDashboard onSelectTenant={(id, name) => {
-      setRAW(null)
-      setManualEntries([])
-      setBudData({})
-      setDataLoading(true)
-      setTenant(id, name)
-      setRole('admin')
-    }} />
+  if (role === 'superadmin' && !tenantId) return (
+    <SuperadminDashboard onSelectTenant={(id, name) => switchTenant(id, name, 'admin')} />
   )
 
   if (dataLoading) return (

@@ -163,17 +163,20 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
       for (const acc of row.accs) {
         const fecLabel = mergeLabel(RAW, selCo, 'pn', acc) || mergeLabel(RAW, selCo, 'p1', acc)
         const lbl      = labelFor(acc, fecLabel || undefined)
-        // Récupère écritures N et N-1, taguées par période pour le split de la modale.
-        const entsN    = mergeEntries(RAW, selCo, 'pn', acc).map((e: any) => [...e, 'N'])
-        const entsN1   = mergeEntries(RAW, selCo, 'p1', acc).map((e: any) => [...e, 'N-1'])
-        const ents     = [...entsN, ...entsN1]
+        const ents     = mergeEntries(RAW, selCo, 'pn', acc)
+        const val      = accValue(RAW, selCo, acc, selectedMs, isCharge)
 
-        // Valeur propre à CE compte (pas le total du parent)
-        const val = accValue(RAW, selCo, acc, selectedMs, isCharge)
+        // Tagging N/N-1 fait à la volée au clic — évite N allocations par render
+        // sur des comptes qui n'ouvriront jamais la modale.
+        const openModal = () => {
+          const taggedN  = ents.map((e: any) => [...e, 'N'])
+          const taggedN1 = mergeEntries(RAW, selCo, 'p1', acc).map((e: any) => [...e, 'N-1'])
+          onOpenModal?.(`${acc} — ${lbl}`, [...taggedN, ...taggedN1], true, val, d.cumulN1S)
+        }
 
         rows.push(
           <tr key={`${row.id}__${acc}`}
-            onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S)}
+            onClick={openModal}
             style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
           >
             <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>

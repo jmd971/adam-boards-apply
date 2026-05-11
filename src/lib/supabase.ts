@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { normalizeRole } from '@/lib/roles'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
@@ -10,15 +11,6 @@ interface RoleAndTenant {
   role: string
   tenantId: string | null
   tenantName: string | null
-}
-
-/**
- * Normalise un rôle brut de la DB : casse, espaces, underscores/tirets.
- * Exemples : "Super_Admin" → "superadmin", "SUPER-ADMIN" → "superadmin".
- */
-function normalizeRole(raw: string | null | undefined): string {
-  if (!raw) return 'viewer'
-  return raw.toLowerCase().trim().replace(/[_\s-]+/g, '')
 }
 
 /**

@@ -112,7 +112,7 @@ export function Tresorerie() {
     const fl = months.map((_:string,mi:number) => tE[mi]-tD[mi])
     let cum=0; const cu = fl.map((v:number)=>{cum+=v;return cum})
     return { eB, eA, dB, dA, eM, dM, tE, tD, fl, cu }
-  }, [RAW, selCo.join(','), months.join(','), manualEntries.length])
+  }, [RAW, selCo.join(','), months.join(','), manualEntries])
 
   // ── Données prévisionnelles ────────────────────────────────────────────
   const forecastMs = useMemo(() => {
