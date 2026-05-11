@@ -4,7 +4,7 @@ import { PlTable, EcrituresModal, KpiCard, ExportBar } from '@/components/ui'
 import { CR } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
-import { exportPlCalcXlsx, printModule } from '@/lib/export'
+import { exportPlCalcXlsx, exportPlCalcCsv, printModule } from '@/lib/export'
 import {
   BarChart, Bar, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -84,6 +84,7 @@ export function CompteResultat() {
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportPlCalcXlsx('CompteResultat', 'CR', CR, plCalc, caTotal)}
+        onCsv={() => exportPlCalcCsv('CompteResultat', CR, plCalc, caTotal)}
       />
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 pt-4">

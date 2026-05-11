@@ -3,7 +3,7 @@ import { useAppStore } from '@/store'
 import { computeBilan } from '@/lib/bilan'
 import { fmt } from '@/lib/calc'
 import { KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
-import { exportBilanXlsx, printModule } from '@/lib/export'
+import { exportBilanXlsx, exportBilanCsv, printModule } from '@/lib/export'
 import type { RAWData, FecEntry } from '@/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -309,6 +309,7 @@ export function Bilan() {
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportBilanXlsx('Bilan', n)}
+        onCsv={() => exportBilanCsv('Bilan', n)}
       />
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24, marginTop:12 }}>

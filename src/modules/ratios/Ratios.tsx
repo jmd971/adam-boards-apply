@@ -4,7 +4,7 @@ import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { computeBilan } from '@/lib/bilan'
 import { SIG } from '@/lib/structure'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
-import { exportRatiosXlsx, printModule } from '@/lib/export'
+import { exportRatiosXlsx, exportRatiosCsv, printModule } from '@/lib/export'
 import { ExportBar, ExplainModal } from '@/components/ui'
 import type { Explanation } from '@/components/ui'
 import { evalThreshold, formatThresholdValue } from '@/lib/alertThresholds'
@@ -238,6 +238,7 @@ export function Ratios() {
         <ExportBar
           onPdf={() => printModule(printRef, 'module-print')}
           onExcel={() => exportRatiosXlsx('Ratios', ratios.map(r => ({ label: r.label, value: r.value, sub: r.sub, status: r.status })))}
+          onCsv={() => exportRatiosCsv('Ratios', ratios.map(r => ({ label: r.label, value: r.value, sub: r.sub, status: r.status })))}
         />
         <button onClick={() => setShowConfig(v => !v)} className="print-hide" style={{
           padding:'7px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',

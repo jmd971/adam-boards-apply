@@ -4,7 +4,7 @@ import { PlTable, EcrituresModal, KpiCard, ExportBar } from '@/components/ui'
 import { SIG } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
-import { exportPlCalcXlsx, printModule } from '@/lib/export'
+import { exportPlCalcXlsx, exportPlCalcCsv, printModule } from '@/lib/export'
 import {
   BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Cell
@@ -82,6 +82,7 @@ export function Sig() {
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportPlCalcXlsx('SIG', 'SIG', SIG, plCalc, caTotal)}
+        onCsv={() => exportPlCalcCsv('SIG', SIG, plCalc, caTotal)}
       />
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 px-6 pt-4">

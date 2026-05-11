@@ -1,10 +1,11 @@
 interface ExportBarProps {
   onPdf: () => void
   onExcel: () => void
+  onCsv?: () => void
   info?: string
 }
 
-export function ExportBar({ onPdf, onExcel, info }: ExportBarProps) {
+export function ExportBar({ onPdf, onExcel, onCsv, info }: ExportBarProps) {
   const btnStyle: React.CSSProperties = {
     display: 'flex', alignItems: 'center', gap: 6,
     padding: '7px 14px', borderRadius: 'var(--radius-md, 8px)',
@@ -18,6 +19,7 @@ export function ExportBar({ onPdf, onExcel, info }: ExportBarProps) {
       <div style={{ display: 'flex', gap: 8 }}>
         <button onClick={onPdf} style={btnStyle}>PDF</button>
         <button onClick={onExcel} style={btnStyle}>Excel</button>
+        {onCsv && <button onClick={onCsv} style={btnStyle}>CSV</button>}
       </div>
     </div>
   )

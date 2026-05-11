@@ -4,7 +4,7 @@ import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
 import { EQ } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
-import { exportPlCalcXlsx, printModule } from '@/lib/export'
+import { exportPlCalcXlsx, exportPlCalcCsv, printModule } from '@/lib/export'
 import {
   BarChart, Bar, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer
@@ -135,6 +135,7 @@ export function Equilibre() {
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportPlCalcXlsx('Equilibre', 'Équilibre', EQ, plCalc, actif)}
+        onCsv={() => exportPlCalcCsv('Equilibre', EQ, plCalc, actif)}
       />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 pt-4">
         <KpiCard label="Actif économique"   value={`${fmt(actif)} €`}          color="#3b82f6" />

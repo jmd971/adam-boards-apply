@@ -106,6 +106,8 @@ export function Saisie() {
   }
 
   // ── Upload facture vers Supabase Storage ───────────────────────────────────
+  // Retourne le path de stockage (le bucket "invoice" est privé — on génère
+  // une URL signée à la volée au moment de l'affichage).
   const uploadInvoice = async (file: File): Promise<string | null> => {
     const ext = file.name.split('.').pop() || 'jpg'
     const path = `${tenantId}/${form.company_key}/${Date.now()}.${ext}`
@@ -114,8 +116,19 @@ export function Saisie() {
       setMsg(`⚠️ Upload facture échoué : ${error.message}`)
       return null
     }
-    const { data } = sb.storage.from('invoice').getPublicUrl(path)
-    return data.publicUrl
+    return path
+  }
+
+  // Ouvre la facture en générant une URL signée (bucket privé).
+  // Rétro-compat : si la valeur stockée commence par "http", on l'utilise telle quelle.
+  const openInvoice = async (urlOrPath: string) => {
+    if (urlOrPath.startsWith('http')) { window.open(urlOrPath, '_blank', 'noopener'); return }
+    const { data, error } = await sb.storage.from('invoice').createSignedUrl(urlOrPath, 3600)
+    if (error || !data?.signedUrl) {
+      setMsg(`⚠️ Impossible d'ouvrir la facture : ${error?.message ?? 'URL non disponible'}`)
+      return
+    }
+    window.open(data.signedUrl, '_blank', 'noopener')
   }
 
   // ── OCR ───────────────────────────────────────────────────────────────────
@@ -148,7 +161,7 @@ export function Saisie() {
       const resp = await fetch(OCR_PROXY_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.data.session?.access_token}` },
-        body: JSON.stringify({ model: 'claude-opus-4-5', max_tokens: 500, messages }),
+        body: JSON.stringify({ model: 'claude-opus-4-7', max_tokens: 500, messages }),
       }).catch(() => null)
 
       // Erreur réseau
@@ -505,7 +518,7 @@ export function Saisie() {
                     <td style={{ padding:'6px 8px', color:'#8b5cf6', fontSize:9 }}>{e.source}</td>
                     <td style={{ padding:'6px 8px', fontSize:9 }}>
                       {e.invoice_url
-                        ? <a href={e.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color:'#3b82f6', textDecoration:'none' }}>📄 Voir</a>
+                        ? <button onClick={() => openInvoice(e.invoice_url!)} style={{ background:'none', border:'none', padding:0, color:'#3b82f6', textDecoration:'none', cursor:'pointer', font:'inherit' }}>📄 Voir</button>
                         : <span style={{ color:'#334155' }}>—</span>}
                     </td>
                   </tr>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { fmt } from '@/lib/calc'
 import { EcrituresModal } from '@/components/ui'
+import { RelancesPanel, RelancesBadge } from './relances'
 
 const TODAY = new Date()
 
@@ -48,6 +49,7 @@ interface InvoiceLine {
 interface ClientRow {
   name: string
   account: string
+  companyKey: string
   total: number
   bk: number
   entries: any[]
@@ -120,7 +122,7 @@ export function Creances() {
           const bk = getBucket(days)
           const nbInvoices = invoices.filter(inv => inv.debit > 0).length
 
-          if (!map[acc]) map[acc] = { name: lbl, account: acc, total: 0, bk: 4, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }
+          if (!map[acc]) map[acc] = { name: lbl, account: acc, companyKey: co, total: 0, bk: 4, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }
           map[acc].total = Math.round(soldeReel)
           map[acc].entries = entries
           map[acc].invoices = invoices.sort((a, b) => a.date.localeCompare(b.date))
@@ -134,11 +136,11 @@ export function Creances() {
             const [cAux, cLbl, montant] = t
             if ((montant || 0) <= 0) continue
             const key = `${acc}__${cAux}`
-            if (!map[key]) map[key] = { name: String(cLbl || cAux), account: String(cAux), total: 0, bk: 3, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }
+            if (!map[key]) map[key] = { name: String(cLbl || cAux), account: String(cAux), companyKey: co, total: 0, bk: 3, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }
             map[key].total += Math.round(montant)
           }
         } else if ((data?.s || 0) > 0) {
-          if (!map[acc]) map[acc] = { name: lbl, account: acc, total: 0, bk: 3, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }
+          if (!map[acc]) map[acc] = { name: lbl, account: acc, companyKey: co, total: 0, bk: 3, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }
           map[acc].total += Math.round(data.s)
         }
       }
@@ -419,8 +421,9 @@ export function Creances() {
                                 </span>
                               )}
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {c.name}
+                                <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                                  <RelancesBadge account={c.account} />
                                 </div>
                                 <div style={{ fontSize: 10, color: '#334155', fontFamily: 'monospace' }}>{c.account}</div>
                               </div>
@@ -559,6 +562,7 @@ export function Creances() {
                                   Voir toutes les écritures ({c.entries.length})
                                 </button>
                               </div>
+                              <RelancesPanel account={c.account} clientLabel={c.name} companyKey={c.companyKey} outstanding={c.total} />
                             </div>
                           )}
                         </div>
@@ -625,7 +629,10 @@ export function Creances() {
                           <span style={{ fontSize: 9, color: '#475569', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>▶</span>
                         )}
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+                            <RelancesBadge account={c.account} />
+                          </div>
                           <div style={{ fontSize: 9, color: '#334155', fontFamily: 'monospace' }}>{c.account}</div>
                         </div>
                       </div>
@@ -752,6 +759,7 @@ export function Creances() {
                             Voir toutes les écritures ({c.entries.length})
                           </button>
                         </div>
+                        <RelancesPanel account={c.account} clientLabel={c.name} companyKey={c.companyKey} outstanding={c.total} />
                       </div>
                     )}
                   </div>
