@@ -13,6 +13,15 @@ interface RoleAndTenant {
 }
 
 /**
+ * Normalise un rôle brut de la DB : casse, espaces, underscores/tirets.
+ * Exemples : "Super_Admin" → "superadmin", "SUPER-ADMIN" → "superadmin".
+ */
+function normalizeRole(raw: string | null | undefined): string {
+  if (!raw) return 'viewer'
+  return raw.toLowerCase().trim().replace(/[_\s-]+/g, '')
+}
+
+/**
  * Retourne le rôle et le tenant de l'utilisateur.
  * Lookup dans la table user_roles avec jointure sur tenants.
  */
@@ -30,7 +39,7 @@ export async function getUserRoleAndTenant(userId: string): Promise<RoleAndTenan
     }
 
     return {
-      role: data.role ?? 'viewer',
+      role: normalizeRole(data.role),
       tenantId: data.tenant_id ?? null,
       tenantName: (data.tenants as any)?.name ?? null,
     }
