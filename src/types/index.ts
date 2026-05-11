@@ -62,7 +62,8 @@ export interface ManualEntry {
   payment_mode?: 'comptant' | 'echeancier' | 'cb' | 'virement' | 'cheque' | 'especes' | 'prelevement'
   payment_date?: string
   echeancier_data?: EcheancierData | null
-  source: 'manual' | 'ocr' | 'csv'
+  source: 'manual' | 'ocr' | 'csv' | 'echeance'
+  parent_id?: string | null
   invoice_url?: string
   created_at: string
 }

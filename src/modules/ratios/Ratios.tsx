@@ -154,6 +154,7 @@ export function Ratios() {
   const setThresholds = useAppStore(s => s.setAlertThresholds)
   const [showConfig, setShowConfig] = useState(false)
   const [activeExpl, setActiveExpl] = useState<string | null>(null)
+  const [draft, setDraft] = useState(alertThresholds)
 
   const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
@@ -212,7 +213,6 @@ export function Ratios() {
     { label:'Capitaux propres',      value:`${fmt(n.capitaux)} €`,    icon:'🏦', color:'#10b981', explKey:'cp' },
   ]
 
-  const [draft, setDraft] = useState(alertThresholds)
   const draftDirty = JSON.stringify(draft) !== JSON.stringify(alertThresholds)
 
   const updateTh = (id: string, field: 'warn' | 'bad', value: string) => {

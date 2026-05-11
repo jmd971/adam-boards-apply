@@ -44,6 +44,9 @@ function computeSide(RAW: RAWData, keys: string[], field: 'bn' | 'b1'): BilanSid
       else if (acc.match(/^1[6-7]/))               b.detteFin     += s
       else if (acc.match(/^40[1-5]/))             { b.fournisseurs += s; if (s > 100) fournMap[label] = (fournMap[label] ?? 0) + s }
       else if (acc.match(/^4[234]/))               b.dettesFisc   += s
+      // Résiduels : sinon Total Actif ≠ Total Passif (régul 47/48, comptes liaison 18, prov 29/39/49, classe 5 hors 51-55…)
+      else if (acc.match(/^[235]/))                b.autresActif  += s
+      else if (acc.match(/^[14]/))                 b.autresPassif += s
     }
   }
 

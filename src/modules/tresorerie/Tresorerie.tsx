@@ -36,6 +36,13 @@ function catOf(acc: string, cats: { label:string; accs:string[] }[]): string|nul
 
 type AD = { vals:number[]; label:string }
 
+// Décale un mois YYYY-MM de `shift` mois calendaires (négatif = passé).
+function monthShift(m: string, shift: number): string {
+  const [y, mo] = m.split('-').map(Number)
+  const d = new Date(y, mo - 1 + shift, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 export function Tresorerie() {
   const RAW           = useAppStore(s => s.RAW)
   const filters       = useAppStore(s => s.filters)
@@ -89,9 +96,12 @@ export function Tresorerie() {
         }
       }
     }
+    // Factures parentes ayant des échéances : on compte les échéances, pas le parent (sinon double comptage)
+    const parentIds = new Set(manualEntries.filter(e => e.parent_id).map(e => e.parent_id!))
     for (const me of manualEntries) {
       if (!me.entry_date) continue
       const mi = months.findIndex((m: string) => me.entry_date.startsWith(m)); if (mi < 0) continue
+      if (parentIds.has(String(me.id))) continue
       const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
       if (me.category === 'Vente') eM[mi] += ht; else dM[mi] += ht
     }
@@ -121,7 +131,7 @@ export function Tresorerie() {
       for (const co of selCo) {
         const bd=(budData as any)[co]??{}, p=getP(co)
         const dC=Math.max(0,Math.round(p.delaiClient/30)), dF=Math.max(0,Math.round(p.delaiFourn/30))
-        const fiC=fiscalIndex(forecastMs[Math.max(0,mi-dC)]), fiF=fiscalIndex(forecastMs[Math.max(0,mi-dF)])
+        const fiC=fiscalIndex(monthShift(forecastMs[mi], -dC)), fiF=fiscalIndex(monthShift(forecastMs[mi], -dF))
         for (const bv of Object.values(bd)) {
           const b=(bv as any).b??[]; const t=(bv as any).t
           if (t==='p') enc+=b[fiC]||0

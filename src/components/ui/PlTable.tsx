@@ -163,7 +163,10 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
       for (const acc of row.accs) {
         const fecLabel = mergeLabel(RAW, selCo, 'pn', acc) || mergeLabel(RAW, selCo, 'p1', acc)
         const lbl      = labelFor(acc, fecLabel || undefined)
-        const ents     = mergeEntries(RAW, selCo, 'pn', acc)
+        // Récupère écritures N et N-1, taguées par période pour le split de la modale.
+        const entsN    = mergeEntries(RAW, selCo, 'pn', acc).map((e: any) => [...e, 'N'])
+        const entsN1   = mergeEntries(RAW, selCo, 'p1', acc).map((e: any) => [...e, 'N-1'])
+        const ents     = [...entsN, ...entsN1]
 
         // Valeur propre à CE compte (pas le total du parent)
         const val = accValue(RAW, selCo, acc, selectedMs, isCharge)

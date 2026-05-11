@@ -200,13 +200,13 @@ export function Sidebar({ onTabChange }: SidebarProps) {
               {roleLabel(role)}
             </span>
           </div>
-          {RAW?.mn?.length && (
+          {RAW?.mn?.length ? (
             <div style={{ fontSize:9, color:'#334155' }}>
               N: {RAW.mn[0]} → {RAW.mn[RAW.mn.length-1]}
               {RAW.m1?.length ? `
 N-1: ${RAW.m1[0]} → ${RAW.m1[RAW.m1.length-1]}` : ''}
             </div>
-          )}
+          ) : null}
           <button
             onClick={() => sb.auth.signOut()}
             style={{
