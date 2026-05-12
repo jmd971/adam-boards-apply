@@ -107,8 +107,9 @@ export function Equilibre() {
 
       {/* Table détaillée avec catégories/sous-catégories dépliables */}
       <div className="px-2">
-        <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={selCo} selectedMs={selectedMs}
+        <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={selCo} selectedMs={selectedMs} msSrc={msSrc}
           showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={ventes}
+          collapsible
           onOpenModal={(title, entries, _, cumN, cumN1) => setModal({title, entries, cumN, cumN1})} />
       </div>
 

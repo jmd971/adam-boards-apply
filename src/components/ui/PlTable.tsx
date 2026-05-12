@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { PlData, SigRow, RAWData } from '@/types'
-import { fmt, pct, monthLabel, mergeEntries, mergeLabel } from '@/lib/calc'
+import { fmt, pct, monthLabel, mergeEntries, mergeLabel, getBudget } from '@/lib/calc'
 
 interface PlTableProps {
   struct: SigRow[]
@@ -8,13 +8,16 @@ interface PlTableProps {
   RAW: RAWData
   selCo: string[]
   selectedMs: string[]
+  msSrc?: Array<'pn' | 'p1' | 'bud'>
   showMonths: boolean
   showN1Full: boolean
   showBudget: boolean
   caTotal: number
+  budData?: Record<string, Record<string, { b: number[] }>>
   onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
   maxHeight?: string
   cumulRowKey?: string
+  collapsible?: boolean
 }
 
 const PLAN: Record<string, string> = {
@@ -49,46 +52,58 @@ const labelFor = (acc: string, fromFec?: string): string => {
   return acc
 }
 
-/** Calcule la valeur nette (signe selon type charge/produit) pour un compte sur les mois donnés */
-function accValue(RAW: RAWData, selCo: string[], acc: string, months: string[], isCharge: boolean): number {
-  let total = 0
-  for (const co of selCo) {
-    const moMap = (RAW.companies[co]?.pn as any)?.[acc]?.mo ?? {}
-    for (const m of months) {
-      const mo = moMap[m]
-      if (!mo || !Array.isArray(mo)) continue
-      total += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-    }
-  }
-  return Math.round(total)
-}
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, showN1Full, showBudget, caTotal, onOpenModal, maxHeight, cumulRowKey }: PlTableProps) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
+  // All rows with sub-accounts start expanded — user can click to collapse
+  const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(struct.filter(r => (r.accs?.length ?? 0) > 0 && !r.sep && !r.header).map(r => [r.id, true]))
+  )
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
+  let currentHeader: string | null = null
   const rows: React.ReactNode[] = []
 
   for (const row of struct) {
     if (row.sep) {
       rows.push(<tr key={row.id}><td colSpan={99} style={{ height: 8 }} /></tr>)
+      currentHeader = null
       continue
     }
     if (row.header) {
-      rows.push(
-        <tr key={row.id}>
-          <td colSpan={99} style={{
-            padding: '10px 14px 4px', fontSize: 10, fontWeight: 700,
-            letterSpacing: '1px', textTransform: 'uppercase',
-            color: row.color || 'var(--text-2)',
-            borderTop: `1px solid ${row.color ? row.color + '30' : 'var(--border-1)'}`,
-          }}>
-            {row.label}
-          </td>
-        </tr>
-      )
+      currentHeader = row.id
+      if (collapsible) {
+        const isOpen = !!expanded[row.id]
+        rows.push(
+          <tr key={row.id} onClick={() => toggle(row.id)} style={{ cursor: 'pointer' }}>
+            <td colSpan={99} style={{
+              padding: '10px 14px 4px', fontSize: 10, fontWeight: 700,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              color: row.color || 'var(--text-2)',
+              borderTop: `1px solid ${row.color ? row.color + '30' : 'var(--border-1)'}`,
+            }}>
+              <span style={{ marginRight: 6, fontSize: 9 }}>{isOpen ? '▼' : '▶'}</span>
+              {row.label}
+            </td>
+          </tr>
+        )
+      } else {
+        rows.push(
+          <tr key={row.id}>
+            <td colSpan={99} style={{
+              padding: '10px 14px 4px', fontSize: 10, fontWeight: 700,
+              letterSpacing: '1px', textTransform: 'uppercase',
+              color: row.color || 'var(--text-2)',
+              borderTop: `1px solid ${row.color ? row.color + '30' : 'var(--border-1)'}`,
+            }}>
+              {row.label}
+            </td>
+          </tr>
+        )
+      }
       continue
     }
+
+    if (collapsible && !row.bold && currentHeader && !expanded[currentHeader]) continue
 
     const d = plCalc[row.id]
     if (!d) continue
@@ -160,56 +175,160 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, showMonths, sh
 
     // ── Lignes de détail par compte ───────────────────────────────────────
     if (isOpen && row.accs) {
-      for (const acc of row.accs) {
-        const fecLabel = mergeLabel(RAW, selCo, 'pn', acc) || mergeLabel(RAW, selCo, 'p1', acc)
-        const lbl      = labelFor(acc, fecLabel || undefined)
-        const ents     = mergeEntries(RAW, selCo, 'pn', acc)
-        const val      = accValue(RAW, selCo, acc, selectedMs, isCharge)
+      // Bilan rows (class 1-5): expand prefixes into actual FEC accounts
+      // P&L rows (class 6-9): direct lookup by exact code
+      const isBilanRow = row.accs.some(a => a[0] >= '1' && a[0] <= '5')
 
-        // Tagging N/N-1 fait à la volée au clic — évite N allocations par render
-        // sur des comptes qui n'ouvriront jamais la modale.
-        const openModal = () => {
-          const taggedN  = ents.map((e: any) => [...e, 'N'])
-          const taggedN1 = mergeEntries(RAW, selCo, 'p1', acc).map((e: any) => [...e, 'N-1'])
-          onOpenModal?.(`${acc} — ${lbl}`, [...taggedN, ...taggedN1], true, val, d.cumulN1S)
+      if (isBilanRow) {
+        // Collect all actual accounts in bn that match any prefix in row.accs
+        const seen = new Set<string>()
+        const bilanAccs: string[] = []
+        for (const co of selCo) {
+          for (const acc of Object.keys(RAW.companies[co]?.bn ?? {})) {
+            if (!seen.has(acc) && row.accs!.some(p => acc.startsWith(p))) {
+              seen.add(acc); bilanAccs.push(acc)
+            }
+          }
         }
+        bilanAccs.sort()
 
-        rows.push(
-          <tr key={`${row.id}__${acc}`}
-            onClick={openModal}
-            style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
-          >
-            <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
-              <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
-              <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
-              <span>{lbl}</span>
-              {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
-            </td>
+        for (const acc of bilanAccs) {
+          const fecLabel = mergeLabel(RAW, selCo, 'bn' as any, acc) || mergeLabel(RAW, selCo, 'b1' as any, acc)
+          const lbl      = labelFor(acc, fecLabel || undefined)
+          const ents     = mergeEntries(RAW, selCo, 'bn' as any, acc)
 
-            {/* Colonnes mois par mois pour ce compte */}
-            {showMonths && selectedMs.map(m => {
-              let mv = 0
-              for (const co of selCo) {
-                const mo = (RAW.companies[co]?.pn as any)?.[acc]?.mo?.[m]
-                if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
-              }
-              mv = Math.round(mv)
-              return (
-                <td key={m} style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:10, color: Math.abs(mv) < 0.5 ? 'var(--text-3)' : mv < 0 ? 'var(--red)' : 'var(--text-2)' }}>
-                  {Math.abs(mv) > 0.5 ? fmt(mv) : '—'}
-                </td>
-              )
-            })}
+          let val = 0
+          for (const co of selCo) {
+            const sv = (RAW.companies[co]?.bn as any)?.[acc]?.s ?? 0
+            val += Math.abs(sv)
+          }
+          val = Math.round(val)
 
-            {/* Cumul propre au compte */}
-            <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: val < -0.5 ? 'var(--red)' : Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
-              {Math.abs(val) > 0.5 ? fmt(val) : '—'}
-            </td>
-
-            {/* Colonnes vides pour aligner */}
-            <td colSpan={99} />
-          </tr>
+          rows.push(
+            <tr key={`${row.id}__${acc}`}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S)}
+              style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
+            >
+              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
+                <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
+                <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
+                <span>{lbl}</span>
+                {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
+              </td>
+              {showMonths && selectedMs.map(m => (
+                <td key={m} style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:10, color:'var(--text-3)' }}>—</td>
+              ))}
+              <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
+                {Math.abs(val) > 0.5 ? fmt(val) : '—'}
+              </td>
+              <td colSpan={99} />
+            </tr>
+          )
+        }
+      } else {
+        // Expand P&L prefixes to individual FEC/manual accounts — shows each sub-account
+        // (including manual entries at specific codes like 6262) as a distinct row.
+        const uniqueAccs = row.accs!.filter((acc, i, arr) =>
+          !arr.some((other, j) => j !== i && acc.startsWith(other) && other.length < acc.length)
         )
+        const seen = new Set<string>()
+        const plAccs: string[] = []
+        for (const co of selCo) {
+          for (const field of ['pn', 'p1'] as const) {
+            const src = (RAW.companies[co] as any)?.[field] ?? {}
+            for (const k of Object.keys(src)) {
+              if (!seen.has(k) && uniqueAccs.some(p => k.startsWith(p))) {
+                seen.add(k); plAccs.push(k)
+              }
+            }
+          }
+        }
+        plAccs.sort()
+
+        for (const acc of plAccs) {
+          // Look in both pn and p1 for each month (same as April-16 accValue approach)
+          // to avoid blank sub-rows when RAW.mn is empty or msSrc routes incorrectly.
+          let val = 0
+          for (const m of selectedMs) {
+            for (const co of selCo) {
+              for (const field of ['pn', 'p1'] as const) {
+                const src = (RAW.companies[co] as any)?.[field] ?? {}
+                const mo  = src[acc]?.mo?.[m]
+                if (mo && Array.isArray(mo)) val += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+              }
+            }
+          }
+          val = Math.round(val)
+
+          const allEnts: any[] = []
+          let fecLabel = ''
+          for (const co of selCo) {
+            for (const field of ['pn', 'p1'] as const) {
+              const src = (RAW.companies[co] as any)?.[field] ?? {}
+              if (!fecLabel && src[acc]?.l) fecLabel = src[acc].l
+              allEnts.push(...mergeEntries(RAW, [co], field, acc))
+            }
+          }
+
+          if (Math.abs(val) < 0.5 && allEnts.length === 0) continue
+
+          const lbl = labelFor(acc, fecLabel || undefined)
+
+          rows.push(
+            <tr key={`${row.id}__${acc}`}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, d.cumulN1S)}
+              style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
+            >
+              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
+                <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
+                <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
+                <span>{lbl}</span>
+                {allEnts.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{allEnts.length} éc.</span>}
+              </td>
+              {showMonths && selectedMs.map((m, _mi) => {
+                let mv = 0
+                for (const co of selCo) {
+                  for (const field of ['pn', 'p1'] as const) {
+                    const src = (RAW.companies[co] as any)?.[field] ?? {}
+                    const mo  = src[acc]?.mo?.[m]
+                    if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+                  }
+                }
+                mv = Math.round(mv)
+                return (
+                  <td key={m} style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:10, color: Math.abs(mv) < 0.5 ? 'var(--text-3)' : mv < 0 ? 'var(--red)' : 'var(--text-2)' }}>
+                    {Math.abs(mv) > 0.5 ? fmt(mv) : '—'}
+                  </td>
+                )
+              })}
+              <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: val < -0.5 ? 'var(--red)' : Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
+                {Math.abs(val) > 0.5 ? fmt(val) : '—'}
+              </td>
+              <td colSpan={showN1Full ? 5 : 4} />
+              {showBudget && (() => {
+                const budSign   = isCharge ? 1 : -1
+                const accBudget = budData
+                  ? Math.round(getBudget(selCo, budData as any, acc, Array.from({ length: 12 }, (_, i) => i)).reduce((s, v) => s + v * budSign, 0))
+                  : 0
+                const accEcart  = Math.round(val - accBudget)
+                const accEcartP = accBudget !== 0 ? accEcart / Math.abs(accBudget) : null
+                return (
+                  <>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, color:'var(--purple)', borderLeft:'2px solid rgba(168,85,247,0.1)' }}>
+                      {Math.abs(accBudget) > 0.5 ? fmt(accBudget) : '—'}
+                    </td>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: Math.abs(accEcart) < 0.5 ? 'var(--text-3)' : accEcart > 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {Math.abs(accEcart) > 0.5 && Math.abs(accBudget) > 0.5 ? (accEcart > 0 ? '+' : '') + fmt(accEcart) : '—'}
+                    </td>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: accEcartP == null ? 'var(--text-3)' : accEcartP > 0.005 ? 'var(--green)' : accEcartP < -0.005 ? 'var(--red)' : 'var(--text-3)' }}>
+                      {accEcartP != null ? (accEcartP > 0 ? '+' : '') + pct(accEcartP) : '—'}
+                    </td>
+                  </>
+                )
+              })()}
+            </tr>
+          )
+        }
       }
     }
   }
