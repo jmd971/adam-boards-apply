@@ -4,69 +4,24 @@ import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
 import { EQ } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
-import { exportPlCalcXlsx, exportPlCalcCsv, printModule } from '@/lib/export'
+import { exportPlCalcXlsx, printModule } from '@/lib/export'
 import {
-  BarChart, Bar, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer
+  BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
 
-const WaterfallTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
-  const d = payload[0]?.payload
-  if (!d) return null
-  const displayVal = d.rawValue
-  const color = d.isTotal ? '#3b82f6' : (d.isPositive ? '#10b981' : '#ef4444')
   return (
     <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
-      <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:4 }}>{label}</div>
-      <div style={{ fontFamily:'monospace', fontWeight:600, color }}>
-        {displayVal > 0 && !d.isTotal ? '+' : ''}{fmt(displayVal)} €
-      </div>
-      {d.isTotal && <div style={{ fontSize:10, color:'var(--text-3)', marginTop:2 }}>Cumul</div>}
-    </div>
-  )
-}
-
-function BfrGauge({ bfr, ca }: { bfr: number; ca: number }) {
-  const ratio = ca > 0 ? bfr / ca : 0
-  const clamp = Math.max(-0.3, Math.min(0.3, ratio))
-  const pctPos = ((clamp + 0.3) / 0.6) * 100
-  const color = bfr <= 0 ? '#10b981' : bfr / Math.max(ca, 1) < 0.1 ? '#f59e0b' : '#ef4444'
-
-  return (
-    <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-2)' }}>Jauge BFR / CA</h3>
-      <div className="flex flex-col items-center gap-3 py-2">
-        <div className="w-full relative" style={{ height: 28, background: 'rgba(255,255,255,0.06)', borderRadius: 14 }}>
-          <div style={{
-            position: 'absolute', inset: 0, borderRadius: 14, overflow: 'hidden',
-            background: 'linear-gradient(to right, #10b981 0%, #10b981 40%, #f59e0b 50%, #ef4444 100%)',
-            opacity: 0.15,
-          }} />
-          <div style={{ position: 'absolute', left: '50%', top: 2, bottom: 2, width: 1, background: 'rgba(255,255,255,0.3)' }} />
-          <div style={{
-            position: 'absolute',
-            left: `${pctPos}%`,
-            top: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 16, height: 16,
-            borderRadius: '50%',
-            background: color,
-            border: '2px solid rgba(255,255,255,0.3)',
-            boxShadow: `0 0 12px ${color}60`,
-            transition: 'left 0.5s ease',
-          }} />
+      <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:6 }}>{label}</div>
+      {payload.map((p: any) => (
+        <div key={p.name} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:3 }}>
+          <span style={{ width:8, height:8, borderRadius:'50%', background:p.color, flexShrink:0 }} />
+          <span style={{ color:'var(--text-2)', flex:1 }}>{p.name}</span>
+          <span style={{ fontFamily:'monospace', fontWeight:600, color:p.color }}>{fmt(p.value)} €</span>
         </div>
-        <div className="w-full flex justify-between text-[10px]" style={{ color: 'var(--text-2)' }}>
-          <span>BFR négatif (favorable)</span>
-          <span>0</span>
-          <span>BFR élevé (risque)</span>
-        </div>
-        <div className="text-center">
-          <div className="text-lg font-bold" style={{ color }}>{fmt(bfr)} €</div>
-          <div className="text-xs" style={{ color: 'var(--text-2)' }}>{pct(ratio)} du CA</div>
-        </div>
-      </div>
+      ))}
     </div>
   )
 }
@@ -74,59 +29,30 @@ function BfrGauge({ bfr, ca }: { bfr: number; ca: number }) {
 export function Equilibre() {
   const printRef = useRef<HTMLDivElement>(null)
   const budData = useAppStore(s => s.budData)
+  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
 
-  const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
+  const { RAW, filters, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
-  }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
+    return computePlCalc(RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
+  }, [RAW, selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
-  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
+  const ventes   = plCalc['tot_ventes']?.cumulN ?? 0
+  const achats   = plCalc['tot_achats']?.cumulN ?? 0
+  const marge    = plCalc['marge_eq']?.cumulN ?? 0
+  const charges  = plCalc['tot_charges_eq']?.cumulN ?? 0
+  const resultat = plCalc['resultat_eq']?.cumulN ?? 0
+  const tauxMarge = ventes !== 0 ? marge / ventes : 0
 
-  const actif        = plCalc['eq_a']?.cumulN ?? 0
-  const passif       = plCalc['eq_p']?.cumulN ?? 0
-  const immo         = plCalc['immo']?.cumulN ?? 0
-  const stocks       = plCalc['stocks']?.cumulN ?? 0
-  const clients      = plCalc['clients_eq']?.cumulN ?? 0
-  const capProp      = plCalc['cap_prop']?.cumulN ?? 0
-  const detFin       = plCalc['det_fin']?.cumulN ?? 0
-  const fournisseurs = plCalc['fournisseurs_eq']?.cumulN ?? 0
-  const bfr          = clients + stocks - fournisseurs
-
-  const resourcesStables = Math.round(capProp + detFin)
-  const fdr              = Math.round(resourcesStables - immo)
-  const trNette          = Math.round(fdr - bfr)
-
-  const wfData = useMemo(() => {
-    let run = 0
-    type Step = { name: string; delta?: number; total?: number; isTotal?: boolean }
-    const steps: Step[] = [
-      { name: 'Cap. propres',  delta: Math.round(capProp) },
-      { name: 'Dettes fin.',   delta: Math.round(detFin) },
-      { name: 'Res. stables',  total: resourcesStables, isTotal: true },
-      { name: '— Immobi.',     delta: -Math.round(immo) },
-      { name: 'FDR',           total: fdr, isTotal: true },
-      { name: bfr >= 0 ? '— BFR' : '+ BFR (fav.)', delta: -Math.round(bfr) },
-      { name: 'Tréso. nette',  total: trNette, isTotal: true },
-    ]
-    return steps.map(step => {
-      if (step.isTotal) {
-        const t = step.total ?? 0
-        return { name: step.name, invisible: t >= 0 ? 0 : t, bar: Math.abs(t), rawValue: t, isTotal: true, isPositive: t >= 0 }
-      }
-      const d = step.delta ?? 0
-      if (d >= 0) {
-        const entry = { name: step.name, invisible: run, bar: d, rawValue: d, isTotal: false, isPositive: true }
-        run += d
-        return entry
-      } else {
-        const entry = { name: step.name, invisible: run + d, bar: Math.abs(d), rawValue: d, isTotal: false, isPositive: false }
-        run += d
-        return entry
-      }
-    })
-  }, [capProp, detFin, immo, bfr, resourcesStables, fdr, trNette])
+  // Données graphique
+  const chartData = useMemo(() => [
+    { name: 'Ventes',   N: Math.round(ventes),   'N-1': Math.round(plCalc['tot_ventes']?.cumulN1S ?? 0) },
+    { name: 'Achats',   N: Math.round(achats),   'N-1': Math.round(plCalc['tot_achats']?.cumulN1S ?? 0) },
+    { name: 'Marge',    N: Math.round(marge),     'N-1': Math.round((plCalc['tot_ventes']?.cumulN1S ?? 0) - (plCalc['tot_achats']?.cumulN1S ?? 0)) },
+    { name: 'Charges',  N: Math.round(charges),   'N-1': Math.round(plCalc['tot_charges_eq']?.cumulN1S ?? 0) },
+    { name: 'Résultat', N: Math.round(resultat),  'N-1': Math.round((plCalc['tot_ventes']?.cumulN1S ?? 0) - (plCalc['tot_achats']?.cumulN1S ?? 0) - (plCalc['tot_charges_eq']?.cumulN1S ?? 0)) },
+  ], [ventes, achats, marge, charges, resultat, plCalc])
 
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée. Importez un fichier FEC.</div>
 
@@ -134,51 +60,56 @@ export function Equilibre() {
     <div ref={printRef} className="flex flex-col gap-4 module-equilibre">
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
-        onExcel={() => exportPlCalcXlsx('Equilibre', 'Équilibre', EQ, plCalc, actif)}
-        onCsv={() => exportPlCalcCsv('Equilibre', EQ, plCalc, actif)}
+        onExcel={() => exportPlCalcXlsx('Equilibre', 'Équilibre exploitation', EQ, plCalc, ventes)}
       />
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 pt-4">
-        <KpiCard label="Actif économique"   value={`${fmt(actif)} €`}          color="#3b82f6" />
-        <KpiCard label="Financement"        value={`${fmt(passif)} €`}         color="#8b5cf6" />
-        <KpiCard label="BFR"                value={`${fmt(bfr)} €`}            color={bfr < 0 ? '#10b981' : '#f97316'} sub={bfr < 0 ? 'Favorable' : 'À financer'} />
-        <KpiCard label="Écart actif/passif" value={`${fmt(actif - passif)} €`} color={Math.abs(actif - passif) < 1000 ? '#10b981' : '#ef4444'} />
+
+      {/* KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 px-6 pt-4">
+        <KpiCard label="Ventes" value={`${fmt(ventes)} €`} color="#10b981" />
+        <KpiCard label="Achats" value={`${fmt(achats)} €`} color="#f97316" />
+        <KpiCard label="Marge brute" value={`${fmt(marge)} €`} color="#14b8a6" sub={`${pct(tauxMarge)} du CA`} />
+        <KpiCard label="Charges" value={`${fmt(charges)} €`} color="#ef4444" />
+        <KpiCard label="Résultat net" value={`${fmt(resultat)} €`} color={resultat >= 0 ? '#3b82f6' : '#ef4444'} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6">
+      {/* Graphique N vs N-1 */}
+      <div className="px-6">
         <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <h3 className="text-xs font-semibold mb-1" style={{ color: 'var(--text-2)' }}>Équilibre financier — cascade</h3>
-          <div style={{ display:'flex', gap:16, marginBottom:10, fontSize:10, color:'var(--text-3)' }}>
-            <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:2, background:'#10b981', marginRight:4 }}/>Flux positif</span>
-            <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:2, background:'#ef4444', marginRight:4 }}/>Flux négatif</span>
-            <span><span style={{ display:'inline-block', width:8, height:8, borderRadius:2, background:'#3b82f6', marginRight:4 }}/>Cumul</span>
-          </div>
+          <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-2)' }}>Ventes → Marge → Résultat (N vs N-1)</h3>
           <ResponsiveContainer width="100%" height={260}>
-            <BarChart data={wfData} barSize={44} margin={{ top:4, right:8, left:0, bottom:0 }}>
+            <BarChart data={chartData} barGap={4}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="name" tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="name" tick={{ fill: 'var(--text-2)', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip content={<WaterfallTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
-              <Bar dataKey="invisible" stackId="wf" fill="transparent" isAnimationActive={false} />
-              <Bar dataKey="bar" stackId="wf" radius={[3, 3, 0, 0]} isAnimationActive={false}>
-                {wfData.map((entry, i) => (
-                  <Cell key={i} fill={entry.isTotal ? '#3b82f6' : (entry.isPositive ? '#10b981' : '#ef4444')} fillOpacity={entry.isTotal ? 0.9 : 0.72} />
-                ))}
-              </Bar>
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize: 10 }} />
+              <Bar dataKey="N" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
+              <Bar dataKey="N-1" fill="#475569" radius={[4, 4, 0, 0]} barSize={32} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-        <BfrGauge bfr={bfr} ca={actif} />
       </div>
 
+      {/* Formule visuelle */}
+      <div className="px-6">
+        <div className="flex items-center justify-center gap-3 py-3 text-sm font-bold" style={{ color: 'var(--text-2)' }}>
+          <span style={{ color:'#10b981' }}>Ventes {fmt(ventes)}</span>
+          <span>−</span>
+          <span style={{ color:'#f97316' }}>Achats {fmt(achats)}</span>
+          <span>=</span>
+          <span style={{ color:'#14b8a6' }}>Marge {fmt(marge)}</span>
+          <span>−</span>
+          <span style={{ color:'#ef4444' }}>Charges {fmt(charges)}</span>
+          <span>=</span>
+          <span style={{ color: resultat >= 0 ? '#3b82f6' : '#ef4444', fontSize:16 }}>Résultat {fmt(resultat)}</span>
+        </div>
+      </div>
+
+      {/* Table détaillée avec catégories/sous-catégories dépliables */}
       <div className="px-2">
-        <PlTable
-          struct={EQ} plCalc={plCalc} RAW={RAW} selCo={filters.selCo} selectedMs={selectedMs}
-          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={actif}
-          onOpenModal={(title, entries, _d, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
-          maxHeight="calc(100vh - 200px)"
-        />
+        <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={selCo} selectedMs={selectedMs}
+          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={false} caTotal={ventes}
+          onOpenModal={(title, entries, _, cumN, cumN1) => setModal({title, entries, cumN, cumN1})} />
       </div>
 
       {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
