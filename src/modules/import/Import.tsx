@@ -97,7 +97,7 @@ export function Import() {
           fiscal_year: item.fy,
           pl_data:     item.parsed.plData,
           bilan_data:  item.parsed.bilanData,
-          months:      item.parsed.months,
+          months_covered: item.parsed.months,
           entry_count: item.parsed.entryCount,
           source:      'manual',
           client_data: item.parsed.clientData,

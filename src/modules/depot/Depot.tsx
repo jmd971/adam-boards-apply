@@ -230,7 +230,7 @@ function PendingDeposits() {
         fiscal_year: fy,
         pl_data: parsed.plData,
         bilan_data: parsed.bilanData,
-        months: parsed.months,
+        months_covered: parsed.months,
         entry_count: parsed.entryCount,
         source: 'depot',
         client_data: parsed.clientData,
