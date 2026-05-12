@@ -266,7 +266,8 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
             for (const field of ['pn', 'p1'] as const) {
               const src = (RAW.companies[co] as any)?.[field] ?? {}
               if (!fecLabel && src[acc]?.l) fecLabel = src[acc].l
-              allEnts.push(...mergeEntries(RAW, [co], field, acc))
+              const tag = field === 'pn' ? 'N' : 'N-1'
+              allEnts.push(...mergeEntries(RAW, [co], field, acc).map((e: any) => [...e, tag]))
             }
           }
 
