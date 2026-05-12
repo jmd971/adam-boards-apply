@@ -9,28 +9,20 @@ import { computeRFM, manualEntriesToTransactions, type SaleTransaction } from '@
 type Source = 'factures' | 'pos'
 type SubTab = 'segments' | 'campagnes'
 
-function getStoredSource(tenantId: string | null): Source | null {
-  if (!tenantId) return null
-  return (localStorage.getItem(`ventes_source_${tenantId}`) as Source) ?? null
-}
-
-function setStoredSource(tenantId: string | null, source: Source) {
-  if (tenantId) localStorage.setItem(`ventes_source_${tenantId}`, source)
-}
-
 export function Ventes() {
   const manualEntries = useAppStore(s => s.manualEntries)
   const filters       = useAppStore(s => s.filters)
-  const tenantId      = useAppStore(s => s.tenantId)
   const selCo         = filters.selCo
 
-  const [source,     setSource]     = useState<Source | null>(() => getStoredSource(tenantId))
+  // Pas de persistance entre visites : on repart sur le chooser à chaque entrée
+  // sur l'onglet. Le state POS étant local au composant, le persister seul forcerait
+  // l'utilisateur sur une vue vide "Aucun fichier importé".
+  const [source,     setSource]     = useState<Source | null>(null)
   const [subTab,     setSubTab]     = useState<SubTab>('segments')
   const [posTxs,     setPosTxs]     = useState<SaleTransaction[]>([])
   const [showImport, setShowImport] = useState(false)
 
   const handleSelectSource = (s: Source) => {
-    setStoredSource(tenantId, s)
     setSource(s)
     if (s === 'pos') setShowImport(true)
   }
@@ -104,12 +96,7 @@ export function Ventes() {
             </button>
           )}
           <button
-            onClick={() => {
-              // Vide le choix persisté + repasse au chooser
-              if (tenantId) localStorage.removeItem(`ventes_source_${tenantId}`)
-              setSource(null)
-              setPosTxs([])
-            }}
+            onClick={() => { setSource(null); setPosTxs([]) }}
             style={{
               padding:'4px 12px', borderRadius:8, border:'1px solid var(--border-1)',
               background:'transparent', color:'var(--text-2)', fontSize:11, cursor:'pointer',
