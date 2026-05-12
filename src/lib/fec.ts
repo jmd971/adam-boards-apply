@@ -323,6 +323,15 @@ export function detectCompany(filename: string): string {
   return clean.toUpperCase() || 'SOCIETE'
 }
 
+/** Nom propre pour affichage : retire le préfixe FEC et l'année de fin. */
+export function detectCompanyName(filename: string): string {
+  return detectCompany(filename)
+    .replace(/^FEC[\s_]+/i, '')
+    .replace(/[\s_]+(19|20)\d{2}$/i, '')
+    .replace(/[\s_]+$/g, '')
+    .trim() || 'SOCIETE'
+}
+
 export function detectPeriod(months: string[]): { period: 'N' | 'N-1'; fy: string } {
   if (!months.length) {
     const cy = new Date().getFullYear()

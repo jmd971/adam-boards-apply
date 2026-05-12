@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectPeriod, type ParseWarning } from '@/lib/fec'
+import { parseFEC, detectCompany, detectCompanyName, detectPeriod, type ParseWarning } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 import type { ParsedFEC } from '@/lib/fec'
@@ -91,12 +91,13 @@ export function Import() {
     for (const item of toImport) {
       try {
         const { error } = await sb.from('company_data').upsert({
-          tenant_id:   tenantId,
-          company_key: item.company,
-          period:      item.period,
-          fiscal_year: item.fy,
-          pl_data:     item.parsed.plData,
-          bilan_data:  item.parsed.bilanData,
+          tenant_id:    tenantId,
+          company_key:  item.company,
+          company_name: detectCompanyName(item.file.name),
+          period:       item.period,
+          fiscal_year:  item.fy,
+          pl_data:      item.parsed.plData,
+          bilan_data:   item.parsed.bilanData,
           months_covered: item.parsed.months,
           entry_count: item.parsed.entryCount,
           source:      'manual',

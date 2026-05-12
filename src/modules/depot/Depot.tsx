@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectPeriod } from '@/lib/fec'
+import { parseFEC, detectCompany, detectCompanyName, detectPeriod } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 import type { DepositLink, Deposit } from '@/types'
@@ -226,6 +226,7 @@ function PendingDeposits() {
       const { error: upsertErr } = await sb.from('company_data').upsert({
         tenant_id: tenantId,
         company_key: dep.company_key || co,
+        company_name: detectCompanyName(dep.file_name),
         period,
         fiscal_year: fy,
         pl_data: parsed.plData,
