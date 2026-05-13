@@ -409,9 +409,11 @@ export function Saisie() {
     const isEch = form.payment_mode === 'echeancier'
     const dates = isEch ? echDates : []
 
+    const companyKey = form.company_key || filters.selCo[0] || RAW?.keys[0] || ''
+
     const { data, error } = await sb.from('manual_entries').insert({
       tenant_id:    tenantId,
-      company_key:  form.company_key,
+      company_key:  companyKey,
       entry_date:   form.entry_date,
       category:     form.category,
       subcategory:  form.subcategory,
