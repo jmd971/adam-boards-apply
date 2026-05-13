@@ -109,6 +109,7 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
   }
 
   for (const me of manualEntries) {
+    if (me.source === 'echeance') continue          // entrées-enfants : ignorées du P&L (gérées dans trésorerie)
     const mco = me.company_key; if (!mco) continue
     if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
@@ -314,3 +315,4 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
 
   return result
 }
+
