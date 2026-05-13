@@ -105,7 +105,10 @@ function AppInner() {
   }} />
 
   if (role === 'superadmin' && !tenantId) return (
-    <SuperadminDashboard onSelectTenant={(id, name) => switchTenant(id, name, 'admin')} />
+    // On garde role='superadmin' (pas de déclassement en admin) pour que le bouton
+    // "← Tous les clients" reste visible dans la sidebar. Les droits superadmin et
+    // admin sont identiques dans ROLE_TABS, donc pas d'impact d'accès.
+    <SuperadminDashboard onSelectTenant={(id, name) => switchTenant(id, name, 'superadmin')} />
   )
 
   if (dataLoading) return (
