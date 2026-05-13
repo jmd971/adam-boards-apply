@@ -432,6 +432,7 @@ export function Budget() {
 
   const [budCo,        setBudCo]        = useState(filters.selCo[0] ?? '')
   const [selVersion,   setSelVersion]   = useState<string>('')
+  const [compareVersion, setCompareVersion] = useState<string>('')
   const [saving,       setSaving]       = useState(false)
   const [msg,          setMsg]          = useState<string | null>(null)
   const [filter,       setFilter]       = useState<'all' | 'charge' | 'produit'>('all')
@@ -463,6 +464,28 @@ export function Budget() {
     () => (budVersions.find(v => v.company_key === budCo && v.version_name === selVersion)?.data ?? {}) as Record<string, any>,
     [budVersions, budCo, selVersion]
   )
+
+  // ── Comparaison de versions (#7 bis) ─────────────────────────────────────
+  const compareBud = useMemo(
+    () => compareVersion
+      ? ((budVersions.find(v => v.company_key === budCo && v.version_name === compareVersion)?.data ?? {}) as Record<string, any>)
+      : null,
+    [budVersions, budCo, compareVersion]
+  )
+
+  const compareDiff = useMemo(() => {
+    if (!compareBud) return null
+    const cur = computeCategoryTotals(coBud)
+    const cmp = computeCategoryTotals(compareBud)
+    const labels: Record<string, string> = { ca:'CA', achat:'Achats', serv:'Services ext.', pers:'Personnel', amort:'Amort.', other:'Autres' }
+    return ['ca', 'achat', 'serv', 'pers', 'amort', 'other'].map(cat => {
+      const curT = cur[cat]?.total ?? 0
+      const cmpT = cmp[cat]?.total ?? 0
+      const diff = curT - cmpT
+      const pctDiff = cmpT !== 0 ? diff / Math.abs(cmpT) : null
+      return { cat, label: labels[cat], curT, cmpT, diff, pctDiff }
+    })
+  }, [coBud, compareBud])
 
   // Générer le budget depuis FEC N-1
   const handleGenerate = () => {
@@ -731,6 +754,25 @@ export function Budget() {
               {creating ? 'Création...' : '+ Nouvelle version'}
             </button>
           </div>
+
+          {/* Compare against another version */}
+          {coVersions.length >= 2 && (
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>
+                Comparer avec
+              </div>
+              <select
+                value={compareVersion}
+                onChange={e => setCompareVersion(e.target.value)}
+                style={{ ...inputSt, width: '100%', boxSizing: 'border-box', fontSize: 11 }}
+              >
+                <option value="">— Aucune —</option>
+                {coVersions
+                  .filter(v => v.version_name !== selVersion)
+                  .map(v => <option key={v.version_name} value={v.version_name}>{v.version_name}</option>)}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Right panel: budget editor */}
@@ -790,6 +832,71 @@ export function Budget() {
               {/* What-if simulation */}
               {showWhatIf && Object.keys(coBud).length > 0 && (
                 <WhatIfPanel coBud={coBud} />
+              )}
+
+              {/* Comparaison de versions (#7 bis) */}
+              {compareDiff && (
+                <div style={{
+                  marginBottom: 16, padding: '14px 16px', borderRadius: 12,
+                  background: 'linear-gradient(135deg, rgba(139,92,246,0.12), rgba(99,102,241,0.08))',
+                  border: '1px solid rgba(139,92,246,0.3)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 18 }}>📊</span>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>Comparaison de versions</div>
+                        <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                          <span style={{ color: '#93c5fd' }}>{selVersion}</span>
+                          <span style={{ margin: '0 6px' }}>vs</span>
+                          <span style={{ color: '#a78bfa' }}>{compareVersion}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setCompareVersion('')}
+                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontSize: 10, padding: '4px 8px', borderRadius: 6 }}
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 10 }}>
+                    {compareDiff.map(({ cat, label, curT, cmpT, diff, pctDiff }) => {
+                      const pos = diff >= 0
+                      const isCharge = cat !== 'ca'
+                      const goodForBusiness = isCharge ? !pos : pos
+                      return (
+                        <div key={cat} style={{
+                          padding: '10px 12px', borderRadius: 8,
+                          background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.05)',
+                        }}>
+                          <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 6 }}>{label}</div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginBottom: 2 }}>
+                            <span>{selVersion}</span>
+                            <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(curT)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginBottom: 6 }}>
+                            <span>{compareVersion}</span>
+                            <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(cmpT)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <span style={{ fontSize: 10, color: '#64748b' }}>Écart</span>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: goodForBusiness ? '#10b981' : '#ef4444' }}>
+                                {pos ? '+' : ''}{fmt(diff)}
+                              </div>
+                              {pctDiff !== null && (
+                                <div style={{ fontSize: 10, color: goodForBusiness ? '#10b981' : '#ef4444', opacity: 0.85 }}>
+                                  {pos ? '+' : ''}{(pctDiff * 100).toFixed(1)}%
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
               )}
 
               {accounts.length === 0 && Object.keys(coBud).length === 0 ? (

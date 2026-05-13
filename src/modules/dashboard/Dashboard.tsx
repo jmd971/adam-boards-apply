@@ -291,6 +291,36 @@ export function Dashboard() {
     })
   }, [RAW, selCo.join(','), selectedMs.join(','), budKpis])
 
+  // ── Évolution mensuelle cumulée : réalisé vs budget ───────────────────────
+  // Sert à voir le DRIFT par rapport au budget au fil de l'année (pas juste l'écart total)
+  const cumulComparisonData = useMemo(() => {
+    if (!selectedMs.length || !showBudget || !budVersionKey) return []
+    const [co, vn] = budVersionKey.split('|||')
+    const version = budVersions.find(v => v.company_key === co && v.version_name === vn)
+    if (!version) return []
+
+    // Budget par mois fiscal : somme des comptes CA pour chaque fi
+    const budByMonth = new Array(12).fill(0)
+    for (const [acc, v] of Object.entries(version.data)) {
+      const bv = v as { b: number[]; t: string }
+      if (!bv.b || !CA_ACCS.some(p => acc.startsWith(p))) continue
+      bv.b.forEach((val, i) => { budByMonth[i] += val })
+    }
+
+    let realCumul = 0, budCumul = 0
+    return selectedMs.map((m: string) => {
+      const real = sumAccs(RAW, selCo, 'pn', m, CA_ACCS)
+      const bud  = budByMonth[fiscalIndex(m)] ?? 0
+      realCumul += real; budCumul += bud
+      return {
+        month: MONTHS_SHORT[parseInt(m.slice(5))-1],
+        'Réalisé cumulé': Math.round(realCumul),
+        'Budget cumulé':  Math.round(budCumul),
+        'Écart':          Math.round(realCumul - budCumul),
+      }
+    })
+  }, [RAW, selCo.join(','), selectedMs.join(','), showBudget, budVersionKey, budVersions])
+
   const chargesData = useMemo(() => {
     if (!selectedMs.length) return []
     const cats = [
@@ -700,6 +730,31 @@ export function Dashboard() {
               { label:"Rés. exploit.",  icon:'🎯', color:'#8b5cf6', real: kpis.re,    bud: budKpis.re    },
             ]}
           />
+        </div>
+      )}
+
+      {/* Évolution mensuelle cumulée : réalisé vs budget */}
+      {cumulComparisonData.length > 0 && (
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+            📈 Évolution mensuelle — Réalisé vs Budget cumulé
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            <LineChart data={cumulComparisonData} margin={{ top:4, right:16, bottom:0, left:0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis dataKey="month" tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} width={50} />
+              <Tooltip content={<CustomTooltip />} />
+              <Legend wrapperStyle={{ fontSize:11 }} />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
+              <Line type="monotone" dataKey="Réalisé cumulé" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r:4 }} />
+              <Line type="monotone" dataKey="Budget cumulé"  stroke="#8b5cf6" strokeWidth={2} dot={false} strokeDasharray="5 5" />
+              <Line type="monotone" dataKey="Écart"          stroke="#f59e0b" strokeWidth={1.5} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+          <div style={{ fontSize:10, color:'var(--text-3)', marginTop:6, textAlign:'center' }}>
+            Vert = CA réalisé cumulé · Violet pointillé = budget cumulé · Orange = écart (positif = on dépasse le budget)
+          </div>
         </div>
       )}
 
