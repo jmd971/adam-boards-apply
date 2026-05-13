@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+# Une seule run par branche : si on pushe deux fois, la 1re est annulée.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: tsc + tests + lint + build
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: TypeScript check
+        run: npx tsc -b
+
+      - name: Unit tests (Vitest)
+        run: npm test -- --run
+
+      - name: Lint
+        run: npm run lint
+        continue-on-error: true   # Lint encore en mode warning — bascule sur false quand 0 warning
+
+      - name: Build (production)
+        run: npm run build
+        env:
+          # Valeurs factices pour que `import.meta.env.VITE_*` soit défini au build.
+          # Le vrai .env est injecté par Vercel au déploiement.
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder-anon-key
+          VITE_ENV: test
