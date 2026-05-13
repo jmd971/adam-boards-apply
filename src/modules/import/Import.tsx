@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
 import { parseFEC, detectCompany, detectCompanyName, detectPeriod, type ParseWarning } from '@/lib/fec'
 import { useAppStore } from '@/store'
@@ -31,6 +32,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 Mo
 export function Import() {
   const role     = useAppStore(s => s.role)
   const tenantId = useAppStore(s => s.tenantId)
+  const qc       = useQueryClient()
   const canEdit  = role === 'admin' || role === 'comptable'
 
   const [checking,  setChecking]  = useState(false)
@@ -124,6 +126,12 @@ export function Import() {
     setPending([])
     setResults(r => [...newResults, ...r])
     setImporting(false)
+
+    // Invalide le cache TanStack Query → useCompanyData refetch → CR/SIG/etc.
+    // voient les nouvelles données sans refresh manuel de la page.
+    if (newResults.some(r => !r.error)) {
+      qc.invalidateQueries({ queryKey: ['companyData'] })
+    }
   }
 
   const cancelPending = (idx: number) =>
