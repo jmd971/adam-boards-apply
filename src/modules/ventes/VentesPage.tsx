@@ -3,11 +3,13 @@ import { useAppStore } from '@/store'
 import { ChoixSource } from './ChoixSource'
 import { SegmentsView } from './SegmentsView'
 import { CampagnesView } from './CampagnesView'
+import { ArticlesView } from './ArticlesView'
+import { ScenariosView } from './ScenariosView'
 import { ImportWizard } from './ImportWizard'
 import { computeRFM, manualEntriesToTransactions, type SaleTransaction } from '@/lib/rfm'
 
 type Source = 'factures' | 'pos'
-type SubTab = 'segments' | 'campagnes'
+type SubTab = 'segments' | 'articles' | 'campagnes' | 'scenarios'
 
 export function Ventes() {
   const manualEntries = useAppStore(s => s.manualEntries)
@@ -74,7 +76,9 @@ export function Ventes() {
         borderBottom:'1px solid var(--border-0)',
       }}>
         <button onClick={() => setSubTab('segments')}  style={tabSt(subTab === 'segments')}>📊 Segments clients</button>
+        <button onClick={() => setSubTab('articles')}  style={tabSt(subTab === 'articles')}>📦 Articles</button>
         <button onClick={() => setSubTab('campagnes')} style={tabSt(subTab === 'campagnes')}>🎯 Campagnes GHL</button>
+        <button onClick={() => setSubTab('scenarios')} style={tabSt(subTab === 'scenarios')}>🎬 Scénarios</button>
 
         <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:10 }}>
           <span style={{
@@ -137,7 +141,9 @@ export function Ventes() {
       {transactions.length > 0 && (
         <>
           {subTab === 'segments'  && <SegmentsView  clients={clients} />}
+          {subTab === 'articles'  && <ArticlesView  transactions={transactions} />}
           {subTab === 'campagnes' && <CampagnesView clients={clients} />}
+          {subTab === 'scenarios' && <ScenariosView clients={clients} />}
         </>
       )}
     </>
