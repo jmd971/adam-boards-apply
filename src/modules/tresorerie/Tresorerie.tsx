@@ -267,6 +267,12 @@ export function Tresorerie() {
 
   return (
     <>
+      {/* Comptes bancaires — placé AU-DESSUS de la barre sticky des onglets
+          pour éviter que le titre soit masqué quand la page défile. */}
+      <div style={{padding:'16px 24px 0'}}>
+        <BankAccountsPanel selCo={selCo} />
+      </div>
+
       {/* Toggle */}
       <div style={{display:'flex',gap:4,padding:'16px 24px 12px',background:'var(--bg-0)',position:'sticky',top:54,zIndex:9,borderBottom:'1px solid var(--border-0)'}}>
         <button onClick={()=>setView('realise')} style={tabSt(view==='realise')}>📊 Réalisé</button>
@@ -276,9 +282,6 @@ export function Tresorerie() {
       {/* VUE PREVISIONNELLE */}
       {view==='prev' && (
         <div style={{padding:'16px 24px'}}>
-          {/* Comptes bancaires (somme = solde initial du prévisionnel) */}
-          <BankAccountsPanel selCo={selCo} />
-
           {/* Params */}
           <div style={{background:'var(--bg-1)',borderRadius:'var(--radius-md)',padding:16,border:'1px solid var(--border-1)',marginBottom:20}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
