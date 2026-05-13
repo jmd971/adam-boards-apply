@@ -427,11 +427,15 @@ export function Tresorerie() {
                       </tr>
                       {isOpen&&detail.map(([acc,a])=>{
                         const dTot=a.vals.reduce((s:number,v:number)=>s+v,0)
+                        const ents=!acc.startsWith('__')?mergeEntries(RAW!,selCo,'pn',acc):[]
                         return (
-                          <tr key={acc} style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)'}}>
+                          <tr key={acc}
+                            onClick={ents.length>0?()=>setModal({title:`${acc} — ${a.label}`,entries:ents,cumN:dTot,cumN1:0}):undefined}
+                            style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:ents.length>0?'pointer':'default'}}>
                             <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>
                               {!acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{acc}</span>}
                               {a.label}
+                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--text-3)',background:'rgba(255,255,255,0.06)',padding:'1px 5px',borderRadius:10}}>{ents.length} éc.</span>}
                             </td>
                             {a.vals.map((v:number,i:number)=>(
                               <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
