@@ -108,9 +108,10 @@
 
 /* ── Mobile : sidebar cachée par défaut ────────────── */
 
+@media (max-width: 768px) {
   /* Bouton hamburger visible sur mobile */
   .mobile-menu-btn { display: flex !important; }
-@media (max-width: 768px) {
+
   .sidebar-wrapper {
     transform: translateX(-100%);
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
