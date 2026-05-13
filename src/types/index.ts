@@ -70,7 +70,8 @@ export interface ManualEntry {
 
 export interface EcheancierData {
   nb: number
-  freq: 'mensuel' | 'bimestriel' | 'trimestriel' | 'semestriel' | 'annuel'
+  freq?: 'mensuel' | 'bimestriel' | 'trimestriel' | 'semestriel' | 'annuel'
+  delai_jours?: number
   dates: string[]
 }
 
