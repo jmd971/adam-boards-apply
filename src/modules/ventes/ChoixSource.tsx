@@ -44,7 +44,7 @@ export function ChoixSource({ onSelect }: Props) {
             Mes factures
           </div>
           <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.6, marginBottom:16 }}>
-            Vos factures sont déjà saisies dans Adam Boards via le module Saisie
+            Extrait automatiquement depuis le FEC (comptes 411 clients) — aucune saisie manuelle
           </div>
           <div style={{ fontSize:10, color:'var(--text-3)', background:'rgba(255,255,255,0.05)', padding:'6px 12px', borderRadius:20 }}>
             Artisans · B2B · Professions libérales
