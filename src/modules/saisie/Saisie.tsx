@@ -111,6 +111,7 @@ export function Saisie() {
   const tenantId       = useTenantId()
   const setRAW         = useAppStore(s => s.setRAW)
   const setManualEntries = useAppStore(s => s.setManualEntries)
+  const setFilters     = useAppStore(s => s.setFilters)
   const manualEntries  = useAppStore(s => s.manualEntries)
   const isReadOnly     = !canWrite(role)
   
@@ -143,6 +144,7 @@ export function Saisie() {
     amount_ht:    '',
     counterpart:  '',
     payment_mode: 'virement',
+    payment_date: '',
   })
 
   // TVA calculée automatiquement
@@ -213,13 +215,20 @@ export function Saisie() {
   const refreshStore = async (newEntry: ManualEntry) => {
     const allEntries = [newEntry, ...manualEntries]
     setManualEntries(allEntries)
-    if (RAW) {
-      // Reconstruire le RAW avec les nouvelles saisies
-      const { data: cd } = await sb.from('company_data').select('*')
-      const { data: bd } = await sb.from('budget').select('*')
-      if (cd) {
-        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
-        setRAW(newRAW)
+    if (!tenantId) return
+    const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+    const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+    if (cd) {
+      const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+      setRAW(newRAW)
+      // Étendre la période pour inclure le mois de la nouvelle entrée
+      if (newRAW.mn.length > 0) {
+        const newStart = newRAW.mn[0]
+        const newEnd   = newRAW.mn[newRAW.mn.length - 1]
+        setFilters({
+          startM: (!filters.startM || newStart < filters.startM) ? newStart : filters.startM,
+          endM:   (!filters.endM   || newEnd   > filters.endM)   ? newEnd   : filters.endM,
+        })
       }
     }
   }
@@ -379,9 +388,20 @@ export function Saisie() {
     // Refresh store
     const allEntries = [...newEntries, ...manualEntries]
     setManualEntries(allEntries)
-    const { data: cd } = await sb.from('company_data').select('*')
-    const { data: bd } = await sb.from('budget').select('*')
-    if (cd && RAW) setRAW(buildRAW(cd as any, (bd ?? []) as any, allEntries))
+    if (tenantId) {
+      const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+      const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+      if (cd) {
+        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+        setRAW(newRAW)
+        if (newRAW.mn.length > 0) {
+          setFilters({
+            startM: (!filters.startM || newRAW.mn[0] < filters.startM) ? newRAW.mn[0] : filters.startM,
+            endM:   (!filters.endM   || newRAW.mn[newRAW.mn.length-1] > filters.endM) ? newRAW.mn[newRAW.mn.length-1] : filters.endM,
+          })
+        }
+      }
+    }
     setTimeout(() => setMsg(null), 4000)
   }
 
@@ -419,6 +439,7 @@ export function Saisie() {
       tva_rate:     tvaRte,
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
+      payment_date: !isEch && form.payment_date ? form.payment_date : null,
       account_num:  catConfig?.acc ?? '658',
       source:       ocrFile ? 'ocr' : 'manual',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
@@ -436,7 +457,7 @@ export function Saisie() {
     // Rafraîchir tous les onglets
     await refreshStore(newEntry)
     setMsg('✅ Entrée ajoutée et tableaux mis à jour')
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'' }))
+    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setEchDates([])
     setOcrFile(null)
     setTimeout(() => setMsg(null), 3000)
@@ -594,6 +615,16 @@ export function Saisie() {
               </select>
             </div>
 
+            {/* Date de paiement pour les modes non-échelonnés */}
+            {form.payment_mode !== 'echeancier' && (
+              <div>
+                <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Date de paiement</label>
+                <input type="date" value={form.payment_date}
+                  onChange={e => setForm(f => ({...f, payment_date:e.target.value}))}
+                  style={inputSt} placeholder="Optionnel" />
+              </div>
+            )}
+
             {/* Écheancier : dates libres */}
             {form.payment_mode === 'echeancier' && (
               <>
@@ -682,7 +713,9 @@ export function Saisie() {
             <thead style={{ position:'sticky', top:0, zIndex:2 }}>
               <tr style={{ background:'#0f172a' }}>
                 {([
-                  { label:'Date',               col:'entry_date'  as const, align:'left'  },
+                  { label:'Date facture',         col:'entry_date'  as const, align:'left'  },
+                  { label:'Dt paiement',          col:null,                   align:'left'  },
+                  { label:'Société',              col:null,                   align:'left'  },
                   { label:'Pièce',               col:null,                   align:'left'  },
                   { label:'Catégorie',           col:null,                   align:'left'  },
                   { label:'Sous-cat. / Libellé', col:null,                   align:'left'  },
@@ -712,6 +745,16 @@ export function Saisie() {
                 return (
                   <tr key={e.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                     <td style={{ padding:'6px 8px', color:'#475569', whiteSpace:'nowrap' }}>{fmtDate(e.entry_date)}</td>
+                    <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : '#334155', whiteSpace:'nowrap', fontSize:11 }}>
+                      {e.payment_mode === 'echeancier'
+                        ? <span style={{ color:'#8b5cf6', fontSize:10 }}>échelonné</span>
+                        : e.payment_date ? fmtDate(e.payment_date) : <span style={{ color:'#334155' }}>—</span>}
+                    </td>
+                    <td style={{ padding:'6px 8px', whiteSpace:'nowrap', fontSize:11 }}>
+                      <span style={{ color:'#60a5fa', fontWeight:500 }}>
+                        {RAW.companies[e.company_key]?.name || e.company_key || '—'}
+                      </span>
+                    </td>
                     <td style={{ padding:'6px 8px', fontSize:11 }}>
                       {e.invoice_url
                         ? <button onClick={() => openInvoice(e.invoice_url!)} style={{ background:'none', border:'none', padding:0, color:'#60a5fa', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>📄 Voir</button>
