@@ -7,11 +7,13 @@ import { ArticlesView } from './ArticlesView'
 import { ScenariosView } from './ScenariosView'
 import { ImportWizard } from './ImportWizard'
 import { computeRFM, manualEntriesToTransactions, diagnoseEntries, type SaleTransaction } from '@/lib/rfm'
+import { fecToSaleTransactions, diagnoseFec } from '@/lib/fecSales'
 
 type Source = 'factures' | 'pos'
 type SubTab = 'segments' | 'articles' | 'campagnes' | 'scenarios'
 
 export function Ventes() {
+  const RAW           = useAppStore(s => s.RAW)
   const manualEntries = useAppStore(s => s.manualEntries)
   const filters       = useAppStore(s => s.filters)
   const selCo         = filters.selCo
@@ -35,17 +37,21 @@ export function Ventes() {
   }
 
   const transactions = useMemo<SaleTransaction[]>(() => {
-    if (source === 'factures') return manualEntriesToTransactions(manualEntries, selCo)
-    if (source === 'pos')      return posTxs
+    if (source === 'factures') {
+      // Priorité au FEC (extraction automatique depuis 411xxx). Fallback Saisie
+      // pour les tenants qui n'ont pas (encore) ré-importé un FEC avec compAux.
+      const fec = fecToSaleTransactions(RAW, selCo)
+      if (fec.length > 0) return fec
+      return manualEntriesToTransactions(manualEntries, selCo)
+    }
+    if (source === 'pos') return posTxs
     return []
-  }, [source, manualEntries, selCo, posTxs])
+  }, [source, RAW, manualEntries, selCo, posTxs])
 
   const clients = useMemo(() => computeRFM(transactions), [transactions])
 
-  const diag = useMemo(
-    () => diagnoseEntries(manualEntries, selCo),
-    [manualEntries, selCo]
-  )
+  const diagFec    = useMemo(() => diagnoseFec(RAW, selCo),             [RAW, selCo])
+  const diagSaisie = useMemo(() => diagnoseEntries(manualEntries, selCo), [manualEntries, selCo])
 
   // Écran de choix de source
   if (!source) return <ChoixSource onSelect={handleSelectSource} />
@@ -116,53 +122,68 @@ export function Ventes() {
         </div>
       </div>
 
-      {/* État vide — Factures (diagnostic) */}
+      {/* État vide — Factures (diagnostic FEC + Saisie) */}
       {source === 'factures' && transactions.length === 0 && (
         <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 40 }}>📄</span>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
-            Aucune facture éligible pour l'analyse clients
+            Aucune facture exploitable
           </div>
 
-          {/* Tableau de diagnostic */}
+          {/* Diagnostic FEC */}
           <div style={{
             width: '100%', maxWidth: 520,
             background: 'var(--bg-1)', borderRadius: 12, border: '1px solid var(--border-1)',
             padding: '14px 18px',
           }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
-              Diagnostic
+              Source 1 — FEC (extraction automatique)
             </div>
             {[
-              { label: 'Entrées de saisie au total',         value: diag.total,         color: 'var(--text-1)' },
-              { label: 'Catégorie "Vente"',                  value: diag.ventes,        color: 'var(--text-1)' },
-              { label: 'Vente sur sociétés sélectionnées',   value: diag.ventesCo,      color: 'var(--text-1)' },
-              { label: 'Sans contrepartie (à compléter)',    value: diag.ventesSansCp,  color: diag.ventesSansCp > 0 ? 'var(--amber)' : 'var(--text-3)' },
-              { label: 'Sans date',                          value: diag.ventesSansDate,color: diag.ventesSansDate > 0 ? 'var(--amber)' : 'var(--text-3)' },
-              { label: 'Éligibles à l\'analyse',             value: diag.eligibles,     color: diag.eligibles > 0 ? 'var(--green)' : 'var(--red)' },
+              { label: 'Sociétés analysées',                  value: diagFec.companies,     color: 'var(--text-1)' },
+              { label: 'Clients identifiés (N)',              value: diagFec.clientsN,      color: diagFec.clientsN  > 0 ? 'var(--green)' : 'var(--text-3)' },
+              { label: 'Clients identifiés (N-1)',            value: diagFec.clientsN1,     color: diagFec.clientsN1 > 0 ? 'var(--green)' : 'var(--text-3)' },
+              { label: 'Factures comptées',                   value: diagFec.totalFactures, color: 'var(--text-1)' },
+              { label: 'Transactions FEC extraites',          value: diagFec.transactions,  color: diagFec.transactions > 0 ? 'var(--green)' : 'var(--red)' },
             ].map(({ label, value, color }) => (
-              <div key={label} style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: '5px 0', fontSize: 12,
-              }}>
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 12 }}>
                 <span style={{ color: 'var(--text-2)' }}>{label}</span>
                 <span style={{ fontFamily: 'monospace', fontWeight: 700, color }}>{value}</span>
               </div>
             ))}
           </div>
 
-          {/* Aide contextuelle selon le diagnostic */}
+          {/* Diagnostic Saisie (fallback) */}
+          <div style={{
+            width: '100%', maxWidth: 520,
+            background: 'var(--bg-1)', borderRadius: 12, border: '1px solid var(--border-1)',
+            padding: '14px 18px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+              Source 2 — Saisie manuelle (fallback)
+            </div>
+            {[
+              { label: 'Entrées de saisie au total',         value: diagSaisie.total,         color: 'var(--text-1)' },
+              { label: 'Catégorie "Vente"',                  value: diagSaisie.ventes,        color: 'var(--text-1)' },
+              { label: 'Vente sur sociétés sélectionnées',   value: diagSaisie.ventesCo,      color: 'var(--text-1)' },
+              { label: 'Sans contrepartie (à compléter)',    value: diagSaisie.ventesSansCp,  color: diagSaisie.ventesSansCp > 0 ? 'var(--amber)' : 'var(--text-3)' },
+              { label: 'Éligibles (Saisie)',                 value: diagSaisie.eligibles,     color: diagSaisie.eligibles > 0 ? 'var(--green)' : 'var(--red)' },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '5px 0', fontSize: 12 }}>
+                <span style={{ color: 'var(--text-2)' }}>{label}</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color }}>{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Aide contextuelle */}
           <div style={{ fontSize: 11, color: 'var(--text-3)', maxWidth: 520, textAlign: 'center', lineHeight: 1.7 }}>
-            {diag.total === 0 ? (
-              <>Aucune entrée n'est encore saisie. Commencez dans le module <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
-            ) : diag.ventes === 0 ? (
-              <>Vous avez {diag.total} entrées mais aucune n'est de catégorie <strong>Vente</strong>. Modifiez la catégorie dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
-            ) : diag.ventesCo === 0 ? (
-              <>Vos {diag.ventes} ventes ne concernent pas les sociétés sélectionnées. Ajustez le filtre Société en haut de l'écran.</>
-            ) : diag.ventesSansCp > 0 ? (
-              <>{diag.ventesSansCp} vente{diag.ventesSansCp > 1 ? 's' : ''} sur {diag.ventesCo} {diag.ventesSansCp > 1 ? "n'ont" : "n'a"} pas de <strong style={{ color: 'var(--amber)' }}>contrepartie</strong> (nom client). Ouvrez le module <strong style={{ color: 'var(--blue)' }}>Saisie</strong> et renseignez le champ "Contrepartie" pour exploiter ces ventes.</>
+            {diagFec.clientsN === 0 && diagFec.clientsN1 === 0 ? (
+              <>Aucun client identifié dans le FEC. Si votre FEC utilise un compte 411 avec code client en CompAux, <strong style={{ color: 'var(--blue)' }}>ré-importez-le</strong> via le module Import — le parser a été mis à jour pour extraire les clients automatiquement.</>
+            ) : diagSaisie.ventesSansCp > 0 ? (
+              <>Le FEC ne donne rien et {diagSaisie.ventesSansCp} vente{diagSaisie.ventesSansCp > 1 ? 's' : ''} en Saisie {diagSaisie.ventesSansCp > 1 ? "n'ont" : "n'a"} pas de contrepartie. Soit ré-importez le FEC, soit complétez les contreparties dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
             ) : (
-              <>Aucune vente exploitable. Vérifiez les dates et les contreparties dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
+              <>Aucune donnée client n'est exploitable. Ré-importez un FEC contenant des comptes 411 avec CompAux, ou ajoutez des factures dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
             )}
           </div>
         </div>

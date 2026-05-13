@@ -250,26 +250,6 @@ export function parseFEC(text: string): ParsedFEC | null {
       plData[acc].mo[month][0] = Math.round((plData[acc].mo[month][0] + debit) * 100) / 100
       plData[acc].mo[month][1] = Math.round((plData[acc].mo[month][1] + credit) * 100) / 100
       plData[acc].e.push([parseDate(cols[dateCol] || ''), ecLib || label, debit, credit, piece, isOD])
-
-      // Clients (comptes 41x) → données de créances
-      if (acc.startsWith('411') && compAux) {
-        if (!clientData[compAux]) clientData[compAux] = { n: compAux, ca: 0, entries: 0 }
-        clientData[compAux].ca += credit - debit
-        clientData[compAux].entries++
-      }
-
-      // Ventes à encaisser (4111)
-      if (acc.startsWith('411') && !lettrage) {
-        const dateEch = ci.dateEcheance >= 0 ? cols[ci.dateEcheance] || '' : ''
-        veEntries.push({
-          date: parseDate(cols[dateCol] || ''),
-          label: ecLib || label,
-          amount: credit - debit,
-          account: acc,
-          lettrage: 0,
-          dueDate: parseDate(dateEch),
-        })
-      }
     }
     // Comptes de classes 1-5 → bilan
     else if (acc[0] >= '1' && acc[0] <= '5') {
@@ -277,11 +257,46 @@ export function parseFEC(text: string): ParsedFEC | null {
       bilanData[acc].s = Math.round((bilanData[acc].s + debit - credit) * 100) / 100
       const dateStr = parseDate(cols[dateCol] || '')
       ;(bilanData[acc].e as any[]).push([dateStr, ecLib || label, debit, credit, piece || '', isOD])
-      if (compAux && acc.startsWith('411')) {
-        const topArr = bilanData[acc].top as any[]
-        const existing = topArr.find((t: any) => t[0] === compAux)
-        if (existing) existing[2] = (existing[2] || 0) + (credit - debit)
-        else topArr.push([compAux, ecLib || compAux, credit - debit])
+
+      // ─── Clients (comptes 411xxx) ──────────────────────────────────────
+      // Extraction agrégée par client pour Ventes / Créances / Complémentaire
+      if (acc.startsWith('411')) {
+        // Clé client : compAux (préférable) ou sous-compte 411xxx si pas de compAux
+        const clientKey = compAux || (acc !== '411' && acc !== '411000' ? acc : '')
+        if (clientKey) {
+          // Nom : libellé du compte (per-customer subaccount) ou ecLib (compAux)
+          const clientName = (compAux ? (ecLib || label) : (label || ecLib)) || clientKey
+          if (!clientData[clientKey]) clientData[clientKey] = { n: clientName, ca: 0, entries: 0 }
+          // CA = somme des débits (factures émises au client)
+          if (debit > 0) {
+            clientData[clientKey].ca += debit
+            clientData[clientKey].entries++
+            if (!clientData[clientKey].lastDate || dateStr > clientData[clientKey].lastDate!) {
+              clientData[clientKey].lastDate = dateStr
+            }
+          }
+        }
+
+        // Aussi : agrégat per-client sur top[] (créances restantes)
+        if (compAux) {
+          const topArr = bilanData[acc].top as any[]
+          const existing = topArr.find((t: any) => t[0] === compAux)
+          if (existing) existing[2] = (existing[2] || 0) + (credit - debit)
+          else topArr.push([compAux, ecLib || compAux, credit - debit])
+        }
+
+        // Ventes à encaisser (non lettrées)
+        if (!lettrage) {
+          const dateEch = ci.dateEcheance >= 0 ? cols[ci.dateEcheance] || '' : ''
+          veEntries.push({
+            date: dateStr,
+            label: ecLib || label,
+            amount: debit - credit,   // débit = facture, montant positif
+            account: acc,
+            lettrage: 0,
+            dueDate: parseDate(dateEch),
+          })
+        }
       }
     }
   }

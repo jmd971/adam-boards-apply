@@ -192,9 +192,10 @@ export interface BudgetAccount {
 // ─── Clients / VE ──────────────────────────────────────────────────────────
 
 export interface ClientInfo {
-  n: string         // nom
-  ca: number        // CA
-  entries: number   // nb écritures
+  n: string           // nom
+  ca: number          // CA (somme des débits sur 411xxx = factures émises)
+  entries: number     // nb factures (lignes au débit sur 411xxx)
+  lastDate?: string   // date de la dernière facture (YYYY-MM-DD)
 }
 
 export interface VeEntry {

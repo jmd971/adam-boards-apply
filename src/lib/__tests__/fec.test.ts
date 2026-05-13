@@ -4,14 +4,15 @@ import { parseFEC, detectPeriod, detectCompany, detectCompanyName } from '@/lib/
 /* ─── Fixture : minimal FEC standard (tab-separated) ─────────────────────── */
 
 function buildFEC(rows: Array<{
-  date: string; acc: string; lib?: string; debit?: number; credit?: number; journal?: string; ecLib?: string
+  date: string; acc: string; lib?: string; debit?: number; credit?: number; journal?: string; ecLib?: string; compAux?: string
 }>): string {
-  const header = ['JournalCode', 'EcritureDate', 'CompteNum', 'CompteLib', 'EcritureLib', 'Debit', 'Credit'].join('\t')
+  const header = ['JournalCode', 'EcritureDate', 'CompteNum', 'CompteLib', 'CompAuxNum', 'EcritureLib', 'Debit', 'Credit'].join('\t')
   const body = rows.map(r => [
     r.journal ?? 'VTE',
     r.date,
     r.acc,
     r.lib ?? '',
+    r.compAux ?? '',
     r.ecLib ?? '',
     String(r.debit ?? 0),
     String(r.credit ?? 0),
@@ -132,6 +133,37 @@ describe('parseFEC', () => {
     // L'entrée a la structure [date, libellé, débit, crédit, pièce, isOD]
     expect(r.plData['707'].e[0][2]).toBe(0)   // debit
     expect(r.plData['707'].e[0][3]).toBe(1000) // credit
+  })
+
+  it('agrège clientData depuis 411 + CompAux (CA = somme débits, entries = nb factures, lastDate)', () => {
+    const text = buildFEC([
+      { date: '20260115', acc: '411', lib: 'Clients', compAux: 'DUPONT', ecLib: 'F-001', debit: 1200 },
+      { date: '20260210', acc: '411', lib: 'Clients', compAux: 'DUPONT', ecLib: 'F-002', debit: 800  },
+      { date: '20260220', acc: '411', lib: 'Clients', compAux: 'DUPONT', ecLib: 'Pmt',   credit: 1200 },
+      { date: '20260305', acc: '411', lib: 'Clients', compAux: 'MARTIN', ecLib: 'F-003', debit: 500  },
+      // Aussi besoin d'au moins une écriture 6/7 pour que parseFEC ne renvoie pas null
+      { date: '20260115', acc: '707', credit: 2500 },
+    ])
+    const r = parseFEC(text)!
+    expect(r.clientData['DUPONT']).toBeDefined()
+    expect(r.clientData['DUPONT'].ca).toBe(2000)        // 1200 + 800 (paiement ignoré)
+    expect(r.clientData['DUPONT'].entries).toBe(2)
+    expect(r.clientData['DUPONT'].lastDate).toBe('2026-02-10')
+    expect(r.clientData['MARTIN'].ca).toBe(500)
+    expect(r.clientData['MARTIN'].entries).toBe(1)
+  })
+
+  it('utilise le sous-compte 411xxx comme clé si pas de CompAux', () => {
+    const text = buildFEC([
+      { date: '20260115', acc: '4110001', lib: 'DUPONT SAS', ecLib: 'F-001', debit: 600 },
+      { date: '20260210', acc: '4110001', lib: 'DUPONT SAS', ecLib: 'F-002', debit: 400 },
+      { date: '20260115', acc: '707', credit: 1000 },
+    ])
+    const r = parseFEC(text)!
+    expect(r.clientData['4110001']).toBeDefined()
+    expect(r.clientData['4110001'].ca).toBe(1000)
+    expect(r.clientData['4110001'].n).toBe('DUPONT SAS')
+    expect(r.clientData['4110001'].entries).toBe(2)
   })
 })
 
