@@ -159,7 +159,7 @@ export function Saisie() {
   }, [])
 
   const displayEntries = useMemo(() => {
-    let result = entries
+    let result = entries.filter(e => e.source !== 'echeance')
     if (filterCat !== 'Tous') result = result.filter(e => e.category === filterCat)
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -190,6 +190,13 @@ export function Saisie() {
   const pageEntries = displayEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   useEffect(() => { setPage(0) }, [search, filterCat])
+
+  // Auto-sélectionner la première société si company_key est vide (quand selCo n'est pas filtré)
+  useEffect(() => {
+    if (!form.company_key && RAW?.keys?.length) {
+      setForm(f => ({ ...f, company_key: filters.selCo[0] || RAW!.keys[0] }))
+    }
+  }, [RAW?.keys?.join(','), filters.selCo.join(',')])
 
   // Auto-recalcule les dates d'échéances quand les paramètres changent
   useEffect(() => {
@@ -424,36 +431,10 @@ export function Saisie() {
       } : {}),
     }).select().single()
 
-    if (error) { setSaving(false); setMsg('❌ ' + error.message); return }
+    setSaving(false)
+    if (error) { setMsg('❌ ' + error.message); return }
 
     const newEntry = data as ManualEntry
-
-    // Créer les entrées enfant d'échéances (pour la trésorerie)
-    if (isEch && dates.length > 0) {
-      const htPart  = Math.round((ht  / dates.length) * 100) / 100
-      const ttcPart = Math.round((ttc / dates.length) * 100) / 100
-      const childEntries = dates.map((d, i) => ({
-        tenant_id:    tenantId,
-        company_key:  form.company_key,
-        entry_date:   d,
-        category:     form.category,
-        subcategory:  form.subcategory,
-        label:        `Éch. ${i + 1}/${dates.length}${form.label ? ' — ' + form.label : ''}`,
-        amount_ttc:   String(ttcPart),
-        amount_ht:    String(htPart),
-        amount_ht_saisie: String(htPart),
-        tva_amount:   String(calcTvaAmount(htPart, ttcPart)),
-        tva_rate:     calcTvaRate(htPart, ttcPart),
-        counterpart:  form.counterpart,
-        payment_mode: 'virement' as const,
-        account_num:  catConfig?.acc ?? '658',
-        source:       'echeance' as const,
-        parent_id:    newEntry.id,
-      }))
-      await sb.from('manual_entries').insert(childEntries)
-    }
-
-    setSaving(false)
     setEntries(p => [newEntry, ...p])
     setMsg('✅ Entrée ajoutée — mise à jour des tableaux en cours...')
 
