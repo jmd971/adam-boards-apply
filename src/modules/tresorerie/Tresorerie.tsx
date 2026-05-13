@@ -60,9 +60,10 @@ export function Tresorerie() {
   // valeur manuelle "Solde initial" (rétro-compat) → fallback à 0 si aucun des deux.
   const soldeInitialPerCo = (co: string) =>
     (bank?.sumByCompany?.[co] ?? params[co]?.soldeInitial ?? 0)
-  const [secOpen,    setSecOpen]    = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
-  const [paramsOpen, setParamsOpen] = useState(true)
-  const [showHelp,   setShowHelp]   = useState(false)
+  const [secOpen,     setSecOpen]     = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
+  const [paramsOpen,  setParamsOpen]  = useState(true)
+  const [prevRowOpen, setPrevRowOpen] = useState<Record<string,boolean>>({})
+  const [showHelp,    setShowHelp]    = useState(false)
   const [dayMonth, setDayMonth] = useState<string>('')
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
@@ -183,6 +184,40 @@ export function Tresorerie() {
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
+  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany])
+
+  // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
+  const forecastDetail = useMemo(() => {
+    const enc: Record<string, { label:string; vals:number[] }> = {}
+    const dec: Record<string, { label:string; vals:number[] }> = {}
+    for (let mi = 0; mi < forecastMs.length; mi++) {
+      for (const co of selCo) {
+        const bd = (budData as any)[co] ?? {}, p = getP(co)
+        const dC = Math.max(0, Math.round(p.delaiClient/30))
+        const dF = Math.max(0, Math.round(p.delaiFourn/30))
+        const fiC = fiscalIndex(monthShift(forecastMs[mi], -dC))
+        const fiF = fiscalIndex(monthShift(forecastMs[mi], -dF))
+        for (const [acc, bv] of Object.entries(bd)) {
+          const b = (bv as any).b ?? [], t = (bv as any).t, l = (bv as any).l || acc
+          if (t === 'p') {
+            const v = Math.round(b[fiC] || 0)
+            if (!enc[acc]) enc[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            enc[acc].vals[mi] += v
+          }
+          if (t === 'c') {
+            const v = Math.round(b[fiF] || 0)
+            if (!dec[acc]) dec[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            dec[acc].vals[mi] += v
+          }
+        }
+        if (p.remb > 0) {
+          const k = `__remb_${co}`
+          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0) }
+          dec[k].vals[mi] += Math.round(p.remb)
+        }
+      }
+    }
+    return { enc, dec }
   }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany])
 
   // ── Vue journalière ────────────────────────────────────────────────────
@@ -372,12 +407,40 @@ export function Tresorerie() {
                   const vals=forecast.map(r=>(r as any)[key])
                   const tot=key==='cum'?forecast[forecast.length-1]?.cum??0:vals.reduce((s:number,v:number)=>s+v,0)
                   const bold=key==='fl'||key==='cum'
+                  const canExpand=key==='enc'||key==='dec'
+                  const isOpen=canExpand&&!!prevRowOpen[key]
+                  const detail=canExpand
+                    ? Object.entries(key==='enc'?forecastDetail.enc:forecastDetail.dec)
+                        .filter(([,a])=>a.vals.some((v:number)=>v!==0))
+                        .sort(([,a],[,b])=>b.vals.reduce((s:number,v:number)=>s+v,0)-a.vals.reduce((s:number,v:number)=>s+v,0))
+                    : []
                   return (
-                    <tr key={key} style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':'transparent'}}>
-                      <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent'}}>{lbl}</td>
-                      {vals.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:bold?700:400,fontSize:bold?12:11,color:v<0?'var(--red)':v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>)}
-                      <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700,color:tot<0?'var(--red)':col}}>{fmt(tot)}</td>
-                    </tr>
+                    <React.Fragment key={key}>
+                      <tr onClick={canExpand?()=>setPrevRowOpen(p=>({...p,[key]:!p[key]})):undefined}
+                        style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':isOpen?'rgba(255,255,255,0.02)':'transparent',cursor:canExpand?'pointer':'default'}}>
+                        <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent'}}>
+                          {canExpand&&<span style={{display:'inline-block',width:14,marginRight:4,fontSize:9,color:'var(--text-3)'}}>{isOpen?'▾':'▸'}</span>}
+                          {lbl}
+                        </td>
+                        {vals.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:bold?700:400,fontSize:bold?12:11,color:v<0?'var(--red)':v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>)}
+                        <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700,color:tot<0?'var(--red)':col}}>{fmt(tot)}</td>
+                      </tr>
+                      {isOpen&&detail.map(([acc,a])=>{
+                        const dTot=a.vals.reduce((s:number,v:number)=>s+v,0)
+                        return (
+                          <tr key={acc} style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)'}}>
+                            <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>
+                              {!acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{acc}</span>}
+                              {a.label}
+                            </td>
+                            {a.vals.map((v:number,i:number)=>(
+                              <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
+                            ))}
+                            <td style={{padding:'5px 10px',textAlign:'right',fontFamily:'monospace',fontSize:10,fontWeight:600,color:dTot<0?'var(--red)':col}}>{dTot!==0?fmt(dTot):'—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </React.Fragment>
                   )
                 })}
               </tbody>
