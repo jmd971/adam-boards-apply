@@ -114,9 +114,9 @@ export function Saisie() {
   const manualEntries  = useAppStore(s => s.manualEntries)
   const isReadOnly     = !canWrite(role)
   
+  const dataLoading    = useAppStore(s => s.dataLoading)
+
   const [mode,       setMode]       = useState<Mode>('manual')
-  const [entries,    setEntries]    = useState<ManualEntry[]>([])
-  const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState(false)
   const [msg,        setMsg]        = useState<string | null>(null)
   const [ocrLoading, setOcrLoading] = useState(false)
@@ -153,13 +153,8 @@ export function Saisie() {
     ? calcTvaRate(parseFloat(form.amount_ht), parseFloat(form.amount_ttc))
     : null
 
-  useEffect(() => {
-    sb.from('manual_entries').select('*').order('entry_date', { ascending: false }).limit(50)
-      .then(({ data }) => { setEntries((data ?? []) as ManualEntry[]); setLoading(false) })
-  }, [])
-
   const displayEntries = useMemo(() => {
-    let result = entries.filter(e => e.source !== 'echeance')
+    let result = manualEntries.filter(e => e.source !== 'echeance')
     if (filterCat !== 'Tous') result = result.filter(e => e.category === filterCat)
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -183,7 +178,7 @@ export function Saisie() {
       if (av > bv) return sortDir === 'asc' ? 1 : -1
       return 0
     })
-  }, [entries, search, filterCat, sortCol, sortDir])
+  }, [manualEntries, search, filterCat, sortCol, sortDir])
 
   const PAGE_SIZE = 20
   const pageCount = Math.ceil(displayEntries.length / PAGE_SIZE)
@@ -380,7 +375,6 @@ export function Saisie() {
     setSaving(false)
     if (error) { setMsg('❌ ' + error.message); return }
     const newEntries = data as ManualEntry[]
-    setEntries(p => [...newEntries, ...p])
     setMsg(`✅ ${newEntries.length} lignes importées`)
     // Refresh store
     const allEntries = [...newEntries, ...manualEntries]
@@ -437,7 +431,6 @@ export function Saisie() {
     if (error) { setMsg('❌ ' + error.message); return }
 
     const newEntry = data as ManualEntry
-    setEntries(p => [newEntry, ...p])
     setMsg('✅ Entrée ajoutée — mise à jour des tableaux en cours...')
 
     // Rafraîchir tous les onglets
@@ -653,7 +646,7 @@ export function Saisie() {
       <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Historique</div>
 
       {/* Recherche + filtres */}
-      {!loading && entries.length > 0 && (
+      {!dataLoading && manualEntries.filter(e => e.source !== 'echeance').length > 0 && (
         <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap' }}>
           <input
             type="text"
@@ -681,7 +674,7 @@ export function Saisie() {
           </span>
         </div>
       )}
-      {loading ? <Spinner size={24} /> : entries.length === 0 ? (
+      {dataLoading ? <Spinner size={24} /> : manualEntries.filter(e => e.source !== 'echeance').length === 0 ? (
         <div style={{ fontSize:12, color:'#334155', textAlign:'center', padding:40 }}>Aucune saisie pour le moment.</div>
       ) : (
         <div style={{ overflowX:'auto' }}>
