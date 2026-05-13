@@ -212,7 +212,7 @@ export function Tresorerie() {
         }
         if (p.remb > 0) {
           const k = `__remb_${co}`
-          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0) }
+          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW?.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0) }
           dec[k].vals[mi] += Math.round(p.remb)
         }
       }
