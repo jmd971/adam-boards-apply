@@ -4,20 +4,59 @@ import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
 import { buildRAW } from '@/lib/calc'
 import { canWrite, type Role } from '@/lib/roles'
-import type { ManualEntry, EcheancierData } from '@/types'
+import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
 
 const CATEGORIES = [
-  { cat: 'Vente',          subs: ['Prestation de service','Vente de marchandise','Activité annexe','Autre vente'],                                        acc: '706'  },
-  { cat: 'Achat',          subs: ['Marchandises','Matières premières','Sous-traitance','Autre achat'],                                                     acc: '607'  },
-  { cat: 'Depense',        subs: ['Loyer / Location','Energie / EDF','Eau','Téléphone / Internet','Abonnement logiciel',
-                                   'Assurance','Carburant','Entretien / Réparation','Fournitures bureau',
-                                   'Repas / Restaurant','Frais de réception','Publicité','Déplacement / Mission',
-                                   'Honoraires comptable','Honoraires divers','Formation','Services bancaires',
-                                   'Cotisations professionnelles','Salaires','Charges sociales',
-                                   'Impôts et taxes','Autre dépense'],                                                                                     acc: '626'  },
-  { cat: 'Immobilisation', subs: ['Matériel informatique','Matériel bureau','Mobilier','Matériel industriel',
-                                   'Véhicule','Logiciel / Licence','Agencements / Installations','Autre immobilisation'], acc: '2181' },
+  { cat: 'Vente', acc: '706', subs: [
+    'Ventes de marchandises (707)','Prestations de services (706)','Travaux (704)',
+    'Négoce (707)','Location de biens (713)','Commissions reçues (708)',
+    'Subventions (740)','Revenus financiers (76)','Reprises sur provisions (781)',
+    'Activité annexe (708)','Autre produit (70)',
+  ]},
+  { cat: 'Achat', acc: '607', subs: [
+    'Achats de marchandises (607)','Matières premières (601)','Matières consommables (602)',
+    'Fournitures non stockées (606)','Emballages (603)','Sous-traitance générale (611)',
+    'Variation de stocks (603)','Autre achat (609)',
+  ]},
+  { cat: 'Depense', acc: '626', subs: [
+    // 61x — Services extérieurs A
+    'Loyer et charges locatives (613/614)','Crédit-bail (612)','Entretien et réparations (615)',
+    'Assurances (616)','Documentation et abonnements (618)','Concessions et brevets (611)',
+    // 62x — Services extérieurs B
+    'Personnel extérieur (621)','Honoraires et commissions (622)','Frais d\'actes et contentieux (622)',
+    'Publicité et marketing (623)','Frais de représentation (623)','Cadeaux clients (623)',
+    'Transports sur achats (624)','Transports sur ventes (624)',
+    'Déplacements et missions (625)','Repas d\'affaires (625)','Carburant (625)',
+    'Téléphone et Internet (626)','Affranchissements (626)','Services bancaires (627)',
+    'Cotisations professionnelles (628)',
+    // 63x — Impôts et taxes
+    'Formation professionnelle (633)','Taxe apprentissage (632)','Taxe foncière (635)',
+    'CFE / CVAE (635)','TVA non récupérable (635)','Autres impôts et taxes (635)',
+    // 64x — Charges de personnel
+    'Salaires bruts (641)','Primes et intéressements (648)','Charges patronales URSSAF (645)',
+    'Mutuelle et prévoyance (646)','Retraite complémentaire (645)',
+    // 65x — Autres charges de gestion
+    'Créances irrécouvrables (654)','Redevances et royalties (651)',
+    // 66x — Charges financières
+    'Intérêts bancaires (661)','Charges sur emprunts (661)',
+    // 67x — Charges exceptionnelles
+    'Charges exceptionnelles (671)',
+    // 68x — Dotations
+    'Dotations aux amortissements (681)','Dotations aux provisions (681)',
+    // Autre
+    'Electricité / Energie (606)','Eau (606)','Fournitures de bureau (606)',
+    'Abonnements logiciels (618)','Autre charge (658)',
+  ]},
+  { cat: 'Immobilisation', acc: '2181', subs: [
+    'Logiciels et licences (205)','Brevets et marques (205)','Fonds commercial (207)',
+    'Matériel informatique (2183)','Matériel de bureau (2184)','Mobilier (2184)',
+    'Agencements et installations (2131)','Matériel de transport (2182)',
+    'Matériel industriel (2154)','Matériel médical (2186)',
+    'Constructions (213)','Terrains (211)',
+    'Participations (261)','Dépôts et cautionnements (275)',
+    'Autre immobilisation (218)',
+  ]},
 ] as { cat: ManualEntry['category']; subs: string[]; acc: string }[]
 
 const OCR_PROMPT = `Tu es un expert-comptable. Analyse cette facture et retourne UNIQUEMENT un JSON valide sans backticks ni markdown.
@@ -53,12 +92,13 @@ function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
-function calcEcheancierDates(startDate: string, nb: number, freq: EcheancierData['freq']): string[] {
+function calcEcheancierDates(startDate: string, nb: number, delaiJours: number): string[] {
   const dates: string[] = []
-  const monthAdd = { mensuel:1, bimestriel:2, trimestriel:3, semestriel:6, annuel:12 }[freq] ?? 1
+  if (!startDate || nb <= 0) return dates
+  const start = new Date(startDate)
   for (let i = 0; i < nb; i++) {
-    const d = new Date(startDate)
-    d.setMonth(d.getMonth() + i * monthAdd)
+    const d = new Date(start)
+    d.setDate(d.getDate() + i * delaiJours)
     dates.push(d.toISOString().slice(0, 10))
   }
   return dates
@@ -87,9 +127,11 @@ export function Saisie() {
   const [filterCat,  setFilterCat]  = useState<string>('Tous')
   const [sortCol,    setSortCol]    = useState<'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'>('entry_date')
   const [sortDir,    setSortDir]    = useState<'asc'|'desc'>('desc')
-  const [page,       setPage]       = useState(0)
-  const [echNb,      setEchNb]      = useState(3)
-  const [echFreq,    setEchFreq]    = useState<EcheancierData['freq']>('mensuel')
+  const [page,          setPage]          = useState(0)
+  const [echNb,         setEchNb]         = useState(3)
+  const [echDelaiJours, setEchDelaiJours] = useState(30)
+  const [echStartDate,  setEchStartDate]  = useState('')
+  const [echDates,      setEchDates]      = useState<string[]>([])
 
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
@@ -148,6 +190,13 @@ export function Saisie() {
   const pageEntries = displayEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   useEffect(() => { setPage(0) }, [search, filterCat])
+
+  // Auto-recalcule les dates d'échéances quand les paramètres changent
+  useEffect(() => {
+    const start = echStartDate || form.entry_date
+    if (!start) return
+    setEchDates(calcEcheancierDates(start, echNb, echDelaiJours))
+  }, [echStartDate, echNb, echDelaiJours, form.entry_date])
 
   const handleSort = (col: typeof sortCol) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -350,6 +399,9 @@ export function Saisie() {
       invoiceUrl = await uploadInvoice(ocrFile)
     }
 
+    const isEch = form.payment_mode === 'echeancier'
+    const dates = isEch ? echDates : []
+
     const { data, error } = await sb.from('manual_entries').insert({
       tenant_id:    tenantId,
       company_key:  form.company_key,
@@ -367,15 +419,41 @@ export function Saisie() {
       account_num:  catConfig?.acc ?? '658',
       source:       ocrFile ? 'ocr' : 'manual',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
-      ...(form.payment_mode === 'echeancier' ? {
-        echeancier_data: { nb: echNb, freq: echFreq, dates: calcEcheancierDates(form.entry_date, echNb, echFreq) }
+      ...(isEch ? {
+        echeancier_data: { nb: echNb, delai_jours: echDelaiJours, dates }
       } : {}),
     }).select().single()
 
-    setSaving(false)
-    if (error) { setMsg('❌ ' + error.message); return }
+    if (error) { setSaving(false); setMsg('❌ ' + error.message); return }
 
     const newEntry = data as ManualEntry
+
+    // Créer les entrées enfant d'échéances (pour la trésorerie)
+    if (isEch && dates.length > 0) {
+      const htPart  = Math.round((ht  / dates.length) * 100) / 100
+      const ttcPart = Math.round((ttc / dates.length) * 100) / 100
+      const childEntries = dates.map((d, i) => ({
+        tenant_id:    tenantId,
+        company_key:  form.company_key,
+        entry_date:   d,
+        category:     form.category,
+        subcategory:  form.subcategory,
+        label:        `Éch. ${i + 1}/${dates.length}${form.label ? ' — ' + form.label : ''}`,
+        amount_ttc:   String(ttcPart),
+        amount_ht:    String(htPart),
+        amount_ht_saisie: String(htPart),
+        tva_amount:   String(calcTvaAmount(htPart, ttcPart)),
+        tva_rate:     calcTvaRate(htPart, ttcPart),
+        counterpart:  form.counterpart,
+        payment_mode: 'virement' as const,
+        account_num:  catConfig?.acc ?? '658',
+        source:       'echeance' as const,
+        parent_id:    newEntry.id,
+      }))
+      await sb.from('manual_entries').insert(childEntries)
+    }
+
+    setSaving(false)
     setEntries(p => [newEntry, ...p])
     setMsg('✅ Entrée ajoutée — mise à jour des tableaux en cours...')
 
@@ -383,6 +461,7 @@ export function Saisie() {
     await refreshStore(newEntry)
     setMsg('✅ Entrée ajoutée et tableaux mis à jour')
     setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'' }))
+    setEchDates([])
     setOcrFile(null)
     setTimeout(() => setMsg(null), 3000)
   }
@@ -539,30 +618,36 @@ export function Saisie() {
               </select>
             </div>
 
-            {/* Écheancier : nb + fréquence */}
+            {/* Écheancier : dates libres */}
             {form.payment_mode === 'echeancier' && (
               <>
                 <div>
-                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Nb d'échéances</label>
-                  <select value={echNb} onChange={e => setEchNb(Number(e.target.value))} style={inputSt}>
-                    {[2,3,4,6,12,24,36].map(n => <option key={n} value={n}>{n} paiements</option>)}
-                  </select>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>1ère échéance</label>
+                  <input type="date" value={echStartDate || form.entry_date}
+                    onChange={e => setEchStartDate(e.target.value)} style={inputSt} />
                 </div>
                 <div>
-                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Fréquence</label>
-                  <select value={echFreq} onChange={e => setEchFreq(e.target.value as EcheancierData['freq'])} style={inputSt}>
-                    {(['mensuel','bimestriel','trimestriel','semestriel','annuel'] as const).map(f => (
-                      <option key={f} value={f}>{f.charAt(0).toUpperCase()+f.slice(1)}</option>
-                    ))}
-                  </select>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Nb d'échéances</label>
+                  <input type="number" min={1} max={60} value={echNb}
+                    onChange={e => setEchNb(Math.max(1, Math.min(60, Number(e.target.value))))}
+                    style={inputSt} />
                 </div>
-                <div style={{ gridColumn:'span 2' }}>
-                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Échéances prévues</label>
-                  <div style={{ ...inputSt, height:'auto', display:'flex', gap:6, flexWrap:'wrap' }}>
-                    {calcEcheancierDates(form.entry_date||new Date().toISOString().slice(0,10), echNb, echFreq).map((d, i) => (
-                      <span key={i} style={{ fontSize:10, color:'#60a5fa', background:'rgba(59,130,246,0.08)', padding:'2px 6px', borderRadius:4 }}>
-                        {i+1}. {fmtDate(d)}
-                      </span>
+                <div>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Délai entre chaque (jours)</label>
+                  <input type="number" min={1} max={365} value={echDelaiJours}
+                    onChange={e => setEchDelaiJours(Math.max(1, Math.min(365, Number(e.target.value))))}
+                    style={inputSt} />
+                </div>
+                <div style={{ gridColumn:'1 / -1' }}>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:6 }}>Dates d'échéances (modifiables)</label>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                    {echDates.map((d, i) => (
+                      <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                        <span style={{ fontSize:9, color:'#475569' }}>{i + 1}</span>
+                        <input type="date" value={d}
+                          onChange={e => setEchDates(prev => prev.map((x, j) => j === i ? e.target.value : x))}
+                          style={{ ...inputSt, width:130, fontSize:11, padding:'4px 6px' }} />
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -651,10 +736,10 @@ export function Saisie() {
                 return (
                   <tr key={e.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                     <td style={{ padding:'6px 8px', color:'#475569', whiteSpace:'nowrap' }}>{fmtDate(e.entry_date)}</td>
-                    <td style={{ padding:'6px 8px', fontSize:9 }}>
+                    <td style={{ padding:'6px 8px', fontSize:11 }}>
                       {e.invoice_url
-                        ? <button onClick={() => openInvoice(e.invoice_url!)} style={{ background:'none', border:'none', padding:0, color:'#3b82f6', textDecoration:'none', cursor:'pointer', font:'inherit' }}>📄 Voir</button>
-                        : <span style={{ color:'#334155' }}>—</span>}
+                        ? <button onClick={() => openInvoice(e.invoice_url!)} style={{ background:'none', border:'none', padding:0, color:'#60a5fa', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>📄 Voir</button>
+                        : <span style={{ color:'#64748b' }}>—</span>}
                     </td>
                     <td style={{ padding:'6px 8px' }}>
                       <span style={{ padding:'2px 6px', borderRadius:20, fontSize:10,
