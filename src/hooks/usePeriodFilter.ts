@@ -17,12 +17,21 @@ export function usePeriodFilter() {
     [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')]
   )
 
+  // Fallback : si rien n'est importé en N (mn vide) mais N-1 oui, on bascule sur N-1
+  // pour que les écrans CR/SIG/Bilan ne soient pas vides. Le cas typique : un comptable
+  // qui clôture 2025 en 2026 — `detectPeriod` classe le FEC en N-1 mais c'est "son" N.
+  const defaultMs = useMemo(() => {
+    if (RAW?.mn?.length) return RAW.mn
+    if (RAW?.m1?.length) return RAW.m1
+    return []
+  }, [RAW?.mn?.join(','), RAW?.m1?.join(',')])
+
   const selectedMs = useMemo(() => {
-    if (!filters.startM || !filters.endM) return RAW?.mn ?? []
+    if (!filters.startM || !filters.endM) return defaultMs
     return allMonths.filter(m =>
       monthIdx(m) >= monthIdx(filters.startM) && monthIdx(m) <= monthIdx(filters.endM)
     )
-  }, [allMonths, filters.startM, filters.endM, RAW?.mn?.join(',')])
+  }, [allMonths, filters.startM, filters.endM, defaultMs])
 
   const msSrc = useMemo(() =>
     selectedMs.map(m => (RAW?.mn ?? []).includes(m) ? 'pn' as const : 'p1' as const),
