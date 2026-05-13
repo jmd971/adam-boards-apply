@@ -6,14 +6,13 @@ import { CampagnesView } from './CampagnesView'
 import { ArticlesView } from './ArticlesView'
 import { ScenariosView } from './ScenariosView'
 import { ImportWizard } from './ImportWizard'
-import { computeRFM, type SaleTransaction } from '@/lib/rfm'
-import { fecToSaleTransactions, diagnoseFec } from '@/lib/fecSales'
+import { computeRFM, manualEntriesToTransactions, diagnoseEntries, type SaleTransaction } from '@/lib/rfm'
 
 type Source = 'factures' | 'pos'
 type SubTab = 'segments' | 'articles' | 'campagnes' | 'scenarios'
 
 export function Ventes() {
-  const RAW           = useAppStore(s => s.RAW)
+  const manualEntries = useAppStore(s => s.manualEntries)
   const filters       = useAppStore(s => s.filters)
   const selCo         = filters.selCo
 
@@ -36,16 +35,16 @@ export function Ventes() {
   }
 
   const transactions = useMemo<SaleTransaction[]>(() => {
-    if (source === 'factures') return fecToSaleTransactions(RAW, selCo)
+    if (source === 'factures') return manualEntriesToTransactions(manualEntries, selCo)
     if (source === 'pos')      return posTxs
     return []
-  }, [source, RAW, selCo, posTxs])
+  }, [source, manualEntries, selCo, posTxs])
 
   const clients = useMemo(() => computeRFM(transactions), [transactions])
 
   const diag = useMemo(
-    () => diagnoseFec(RAW, selCo),
-    [RAW, selCo]
+    () => diagnoseEntries(manualEntries, selCo),
+    [manualEntries, selCo]
   )
 
   // Écran de choix de source
@@ -117,12 +116,12 @@ export function Ventes() {
         </div>
       </div>
 
-      {/* État vide — Factures (diagnostic FEC) */}
+      {/* État vide — Factures (diagnostic) */}
       {source === 'factures' && transactions.length === 0 && (
         <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
           <span style={{ fontSize: 40 }}>📄</span>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
-            Aucune facture exploitable dans le FEC
+            Aucune facture éligible pour l'analyse clients
           </div>
 
           {/* Tableau de diagnostic */}
@@ -132,15 +131,15 @@ export function Ventes() {
             padding: '14px 18px',
           }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
-              Diagnostic — extraction depuis le FEC
+              Diagnostic
             </div>
             {[
-              { label: 'Sociétés analysées',                  value: diag.companies,         color: 'var(--text-1)' },
-              { label: 'Comptes 411xxx (clients) trouvés',    value: diag.comptes411,        color: 'var(--text-1)' },
-              { label: 'Sous-comptes par client (411xxx)',    value: diag.comptesClients,    color: diag.comptesClients > 0 ? 'var(--green)' : 'var(--text-3)' },
-              { label: 'Comptes 411 génériques',              value: diag.comptesGeneriques, color: diag.comptesGeneriques > 0 ? 'var(--amber)' : 'var(--text-3)' },
-              { label: 'Écritures débit (factures émises)',   value: diag.ecrituresDebit,    color: 'var(--text-1)' },
-              { label: 'Transactions extraites',              value: diag.transactions,      color: diag.transactions > 0 ? 'var(--green)' : 'var(--red)' },
+              { label: 'Entrées de saisie au total',         value: diag.total,         color: 'var(--text-1)' },
+              { label: 'Catégorie "Vente"',                  value: diag.ventes,        color: 'var(--text-1)' },
+              { label: 'Vente sur sociétés sélectionnées',   value: diag.ventesCo,      color: 'var(--text-1)' },
+              { label: 'Sans contrepartie (à compléter)',    value: diag.ventesSansCp,  color: diag.ventesSansCp > 0 ? 'var(--amber)' : 'var(--text-3)' },
+              { label: 'Sans date',                          value: diag.ventesSansDate,color: diag.ventesSansDate > 0 ? 'var(--amber)' : 'var(--text-3)' },
+              { label: 'Éligibles à l\'analyse',             value: diag.eligibles,     color: diag.eligibles > 0 ? 'var(--green)' : 'var(--red)' },
             ].map(({ label, value, color }) => (
               <div key={label} style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -154,14 +153,16 @@ export function Ventes() {
 
           {/* Aide contextuelle selon le diagnostic */}
           <div style={{ fontSize: 11, color: 'var(--text-3)', maxWidth: 520, textAlign: 'center', lineHeight: 1.7 }}>
-            {diag.comptes411 === 0 ? (
-              <>Aucun compte 411 (créances clients) n'a été détecté dans le FEC. Importez un FEC contenant des ventes clients via <strong style={{ color: 'var(--blue)' }}>Import</strong>.</>
-            ) : diag.comptesClients === 0 && diag.comptesGeneriques > 0 ? (
-              <>Le FEC n'utilise qu'un compte 411 générique sans sous-comptes par client. L'analyse RFM nécessite des sous-comptes par client (ex&nbsp;: <code style={{ color:'var(--blue)' }}>411DUPONT</code>) ou un FEC enrichi du compte auxiliaire (compAux).</>
-            ) : diag.ecrituresDebit === 0 ? (
-              <>Aucune facture émise (écriture débit sur compte 411) n'a été trouvée. Vérifiez que le FEC contient bien les ventes de la période.</>
+            {diag.total === 0 ? (
+              <>Aucune entrée n'est encore saisie. Commencez dans le module <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
+            ) : diag.ventes === 0 ? (
+              <>Vous avez {diag.total} entrées mais aucune n'est de catégorie <strong>Vente</strong>. Modifiez la catégorie dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
+            ) : diag.ventesCo === 0 ? (
+              <>Vos {diag.ventes} ventes ne concernent pas les sociétés sélectionnées. Ajustez le filtre Société en haut de l'écran.</>
+            ) : diag.ventesSansCp > 0 ? (
+              <>{diag.ventesSansCp} vente{diag.ventesSansCp > 1 ? 's' : ''} sur {diag.ventesCo} {diag.ventesSansCp > 1 ? "n'ont" : "n'a"} pas de <strong style={{ color: 'var(--amber)' }}>contrepartie</strong> (nom client). Ouvrez le module <strong style={{ color: 'var(--blue)' }}>Saisie</strong> et renseignez le champ "Contrepartie" pour exploiter ces ventes.</>
             ) : (
-              <>Les comptes 411 sont présents mais aucune transaction n'a pu être extraite. Vérifiez que les libellés clients sont renseignés sur les comptes 411xxx.</>
+              <>Aucune vente exploitable. Vérifiez les dates et les contreparties dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
             )}
           </div>
         </div>

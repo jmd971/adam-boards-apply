@@ -1,3 +1,5 @@
+import type { ManualEntry } from '@/types'
+
 export type RFMSegment = 'champion' | 'fidele' | 'potentiel' | 'one_shot' | 'a_risque' | 'perdu'
 
 export interface SaleTransaction {
@@ -142,6 +144,56 @@ export function computeRFM(txs: SaleTransaction[], refDate?: Date): ClientRFM[] 
   })).sort((a, b) => b.ca - a.ca)
 }
 
+export function manualEntriesToTransactions(
+  entries: ManualEntry[],
+  selCo: string[]
+): SaleTransaction[] {
+  return entries
+    .filter(e =>
+      e.category === 'Vente' &&
+      e.counterpart?.trim() &&
+      e.entry_date &&
+      (selCo.length === 0 || selCo.includes(e.company_key))
+    )
+    .map(e => ({
+      client_key:   e.counterpart!.trim().toLowerCase(),
+      client_nom:   e.counterpart!.trim(),
+      date_achat:   e.entry_date.slice(0, 10),
+      montant:      parseFloat(e.amount_ht_saisie || e.amount_ht || e.amount_ttc || '0') || 0,
+      produit:      e.label ?? undefined,
+      commande_ref: e.id,
+    }))
+}
+
+export interface VentesDiagnostic {
+  total:           number   // entrées Saisie au total
+  ventes:          number   // catégorie = Vente
+  ventesCo:        number   // Vente + sur sociétés sélectionnées
+  ventesSansCp:    number   // Vente sur sociétés sans contrepartie
+  ventesSansDate:  number   // Vente sur sociétés sans date
+  eligibles:       number   // toutes conditions OK
+}
+
+/**
+ * Diagnostique pourquoi des factures Vente ne sont pas reprises en tant que
+ * transactions exploitables (RFM, articles, scénarios). Permet de produire
+ * un état vide informatif au lieu d'un simple "rien à afficher".
+ */
+export function diagnoseEntries(entries: ManualEntry[], selCo: string[]): VentesDiagnostic {
+  const inCo = (e: ManualEntry) => selCo.length === 0 || selCo.includes(e.company_key)
+
+  const ventes   = entries.filter(e => e.category === 'Vente')
+  const ventesCo = ventes.filter(inCo)
+
+  return {
+    total:          entries.length,
+    ventes:         ventes.length,
+    ventesCo:       ventesCo.length,
+    ventesSansCp:   ventesCo.filter(e => !e.counterpart?.trim()).length,
+    ventesSansDate: ventesCo.filter(e => !e.entry_date).length,
+    eligibles:      ventesCo.filter(e => e.counterpart?.trim() && e.entry_date).length,
+  }
+}
 
 export function exportToGHL(clients: ClientRFM[], segment?: RFMSegment): void {
   const list = segment ? clients.filter(c => c.segment === segment) : clients

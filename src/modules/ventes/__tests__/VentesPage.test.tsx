@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 
-// Mock du store : RAW + filters + tenantId
+// Mock du store : on contrôle manualEntries + filters + tenantId
 const storeState = {
-  RAW: null,
+  manualEntries: [],
   filters: { selCo: ['MC'] },
   tenantId: 'tenant-1',
 }
@@ -11,13 +11,11 @@ vi.mock('@/store', () => ({
   useAppStore: (selector: (s: typeof storeState) => unknown) => selector(storeState),
 }))
 
-// Mock rfm + fecSales : on ne teste pas le calcul ici
+// Mock rfm : on ne teste pas le calcul ici
 vi.mock('@/lib/rfm', () => ({
   computeRFM: () => [],
-}))
-vi.mock('@/lib/fecSales', () => ({
-  fecToSaleTransactions: () => [],
-  diagnoseFec: () => ({ companies: 0, comptes411: 0, comptesClients: 0, comptesGeneriques: 0, ecrituresDebit: 0, transactions: 0 }),
+  manualEntriesToTransactions: () => [],
+  diagnoseEntries: () => ({ total: 0, ventes: 0, ventesCo: 0, ventesSansCp: 0, ventesSansDate: 0, eligibles: 0 }),
 }))
 
 // Stub des sous-vues pour focaliser sur le routage choisi
@@ -51,8 +49,8 @@ describe('<Ventes>', () => {
     render(<Ventes />)
     fireEvent.click(screen.getByText('Mes factures'))
 
-    // RAW vide → empty state diagnostique FEC
-    expect(screen.getByText(/Aucune facture exploitable dans le FEC/i)).toBeInTheDocument()
+    // manualEntries vide → empty state diagnostique
+    expect(screen.getByText(/Aucune facture éligible/i)).toBeInTheDocument()
     expect(screen.getByText(/Diagnostic/i)).toBeInTheDocument()
   })
 
