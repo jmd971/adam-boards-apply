@@ -4,18 +4,21 @@ import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
 import { buildRAW } from '@/lib/calc'
 import { canWrite, type Role } from '@/lib/roles'
-import type { ManualEntry } from '@/types'
+import type { ManualEntry, EcheancierData } from '@/types'
 import { useTenantId } from '@/store'
 
 const CATEGORIES = [
-  { cat: 'Vente',   subs: ['Prestation de service','Vente de marchandise','Activité annexe','Autre vente'],   acc: '706' },
-  { cat: 'Achat',   subs: ['Marchandises','Matières premières','Sous-traitance','Autre achat'],                acc: '607' },
-  { cat: 'Depense', subs: ['Loyer / Location','Abonnement logiciel','Téléphone / Internet','Assurance',
-                            'Carburant','Entretien / Réparation','Fournitures bureau','Publicité',
-                            'Déplacement / Mission','Honoraires comptable','Honoraires divers',
-                            'Formation','Services bancaires','Salaires','Charges sociales',
-                            'Impôts et taxes','Autre dépense'],                                                acc: '626' },
-]
+  { cat: 'Vente',          subs: ['Prestation de service','Vente de marchandise','Activité annexe','Autre vente'],                                        acc: '706'  },
+  { cat: 'Achat',          subs: ['Marchandises','Matières premières','Sous-traitance','Autre achat'],                                                     acc: '607'  },
+  { cat: 'Depense',        subs: ['Loyer / Location','Energie / EDF','Eau','Téléphone / Internet','Abonnement logiciel',
+                                   'Assurance','Carburant','Entretien / Réparation','Fournitures bureau',
+                                   'Repas / Restaurant','Frais de réception','Publicité','Déplacement / Mission',
+                                   'Honoraires comptable','Honoraires divers','Formation','Services bancaires',
+                                   'Cotisations professionnelles','Salaires','Charges sociales',
+                                   'Impôts et taxes','Autre dépense'],                                                                                     acc: '626'  },
+  { cat: 'Immobilisation', subs: ['Matériel informatique','Matériel bureau','Mobilier','Matériel industriel',
+                                   'Véhicule','Logiciel / Licence','Agencements / Installations','Autre immobilisation'], acc: '2181' },
+] as { cat: ManualEntry['category']; subs: string[]; acc: string }[]
 
 const OCR_PROMPT = `Tu es un expert-comptable. Analyse cette facture et retourne UNIQUEMENT un JSON valide sans backticks ni markdown.
 Champs requis:
@@ -50,6 +53,17 @@ function fmtDate(iso: string): string {
   return `${d}/${m}/${y}`
 }
 
+function calcEcheancierDates(startDate: string, nb: number, freq: EcheancierData['freq']): string[] {
+  const dates: string[] = []
+  const monthAdd = { mensuel:1, bimestriel:2, trimestriel:3, semestriel:6, annuel:12 }[freq] ?? 1
+  for (let i = 0; i < nb; i++) {
+    const d = new Date(startDate)
+    d.setMonth(d.getMonth() + i * monthAdd)
+    dates.push(d.toISOString().slice(0, 10))
+  }
+  return dates
+}
+
 export function Saisie() {
   const RAW            = useAppStore(s => s.RAW)
   const filters        = useAppStore(s => s.filters)
@@ -73,6 +87,9 @@ export function Saisie() {
   const [filterCat,  setFilterCat]  = useState<string>('Tous')
   const [sortCol,    setSortCol]    = useState<'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'>('entry_date')
   const [sortDir,    setSortDir]    = useState<'asc'|'desc'>('desc')
+  const [page,       setPage]       = useState(0)
+  const [echNb,      setEchNb]      = useState(3)
+  const [echFreq,    setEchFreq]    = useState<EcheancierData['freq']>('mensuel')
 
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
@@ -125,6 +142,12 @@ export function Saisie() {
       return 0
     })
   }, [entries, search, filterCat, sortCol, sortDir])
+
+  const PAGE_SIZE = 20
+  const pageCount = Math.ceil(displayEntries.length / PAGE_SIZE)
+  const pageEntries = displayEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  useEffect(() => { setPage(0) }, [search, filterCat])
 
   const handleSort = (col: typeof sortCol) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -344,6 +367,9 @@ export function Saisie() {
       account_num:  catConfig?.acc ?? '658',
       source:       ocrFile ? 'ocr' : 'manual',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
+      ...(form.payment_mode === 'echeancier' ? {
+        echeancier_data: { nb: echNb, freq: echFreq, dates: calcEcheancierDates(form.entry_date, echNb, echFreq) }
+      } : {}),
     }).select().single()
 
     setSaving(false)
@@ -507,9 +533,41 @@ export function Saisie() {
             <div>
               <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Mode règlement</label>
               <select value={form.payment_mode} onChange={e => setForm(f => ({...f, payment_mode:e.target.value}))} style={inputSt}>
-                {['virement','prelevement','cb','cheque','especes'].map(m => <option key={m} value={m}>{m}</option>)}
+                {['comptant','virement','prelevement','cb','cheque','especes','echeancier'].map(m => (
+                  <option key={m} value={m}>{m === 'echeancier' ? 'Paiement échelonné' : m}</option>
+                ))}
               </select>
             </div>
+
+            {/* Écheancier : nb + fréquence */}
+            {form.payment_mode === 'echeancier' && (
+              <>
+                <div>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Nb d'échéances</label>
+                  <select value={echNb} onChange={e => setEchNb(Number(e.target.value))} style={inputSt}>
+                    {[2,3,4,6,12,24,36].map(n => <option key={n} value={n}>{n} paiements</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Fréquence</label>
+                  <select value={echFreq} onChange={e => setEchFreq(e.target.value as EcheancierData['freq'])} style={inputSt}>
+                    {(['mensuel','bimestriel','trimestriel','semestriel','annuel'] as const).map(f => (
+                      <option key={f} value={f}>{f.charAt(0).toUpperCase()+f.slice(1)}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ gridColumn:'span 2' }}>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Échéances prévues</label>
+                  <div style={{ ...inputSt, height:'auto', display:'flex', gap:6, flexWrap:'wrap' }}>
+                    {calcEcheancierDates(form.entry_date||new Date().toISOString().slice(0,10), echNb, echFreq).map((d, i) => (
+                      <span key={i} style={{ fontSize:10, color:'#60a5fa', background:'rgba(59,130,246,0.08)', padding:'2px 6px', borderRadius:4 }}>
+                        {i+1}. {fmtDate(d)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
           </div>
 
@@ -560,7 +618,7 @@ export function Saisie() {
       ) : (
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-            <thead>
+            <thead style={{ position:'sticky', top:0, zIndex:2 }}>
               <tr style={{ background:'#0f172a' }}>
                 {([
                   { label:'Date',               col:'entry_date'  as const, align:'left'  },
@@ -586,7 +644,7 @@ export function Saisie() {
               </tr>
             </thead>
             <tbody>
-              {displayEntries.map(e => {
+              {pageEntries.map(e => {
                 const ht  = parseFloat(e.amount_ht||e.amount_ht_saisie||'0')||0
                 const ttc = parseFloat(e.amount_ttc||'0')||0
                 const tva = calcTvaAmount(ht, ttc)
@@ -612,13 +670,24 @@ export function Saisie() {
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f1f5f9' }}>{ht.toFixed(2)}</td>
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f59e0b' }}>{tva !== 0 ? tva.toFixed(2) : '—'}</td>
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: e.category==='Vente' ? '#10b981':'#f1f5f9' }}>{ttc.toFixed(2)}</td>
-                    <td style={{ padding:'6px 8px', color:'#334155' }}>{e.payment_mode||'—'}</td>
+                    <td style={{ padding:'6px 8px', color:'#64748b' }}>{e.payment_mode||'—'}</td>
                     <td style={{ padding:'6px 8px', color:'#8b5cf6', fontSize:9 }}>{e.source}</td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {pageCount > 1 && (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px 0', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+              <button onClick={() => setPage(0)} disabled={page === 0} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page===0?'#1e293b':'#475569', cursor: page===0?'default':'pointer', fontSize:11 }}>«</button>
+              <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page===0?'#1e293b':'#475569', cursor: page===0?'default':'pointer', fontSize:11 }}>‹</button>
+              <span style={{ fontSize:11, color:'#475569' }}>Page {page+1} / {pageCount} — {displayEntries.length} entrée{displayEntries.length>1?'s':''}</span>
+              <button onClick={() => setPage(p => Math.min(pageCount-1, p+1))} disabled={page >= pageCount-1} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page>=pageCount-1?'#1e293b':'#475569', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>›</button>
+              <button onClick={() => setPage(pageCount-1)} disabled={page >= pageCount-1} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page>=pageCount-1?'#1e293b':'#475569', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>»</button>
+            </div>
+          )}
         </div>
       )}
     </div>
