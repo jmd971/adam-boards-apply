@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAppStore } from '@/store'
 import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
@@ -63,6 +63,11 @@ export function Saisie() {
   const [ocrResult,  setOcrResult]  = useState<string | null>(null)
   const [ocrFile,    setOcrFile]    = useState<File | null>(null)
 
+  const [search,     setSearch]     = useState('')
+  const [filterCat,  setFilterCat]  = useState<string>('Tous')
+  const [sortCol,    setSortCol]    = useState<'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'>('entry_date')
+  const [sortDir,    setSortDir]    = useState<'asc'|'desc'>('desc')
+
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
     entry_date:   new Date().toISOString().slice(0, 10),
@@ -87,6 +92,39 @@ export function Saisie() {
     sb.from('manual_entries').select('*').order('entry_date', { ascending: false }).limit(50)
       .then(({ data }) => { setEntries((data ?? []) as ManualEntry[]); setLoading(false) })
   }, [])
+
+  const displayEntries = useMemo(() => {
+    let result = entries
+    if (filterCat !== 'Tous') result = result.filter(e => e.category === filterCat)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(e =>
+        (e.label || '').toLowerCase().includes(q) ||
+        (e.counterpart || '').toLowerCase().includes(q) ||
+        (e.subcategory || '').toLowerCase().includes(q) ||
+        e.entry_date.includes(q)
+      )
+    }
+    return [...result].sort((a, b) => {
+      let av: string | number, bv: string | number
+      switch (sortCol) {
+        case 'amount_ht':   av = parseFloat(a.amount_ht||a.amount_ht_saisie||'0'); bv = parseFloat(b.amount_ht||b.amount_ht_saisie||'0'); break
+        case 'amount_ttc':  av = parseFloat(a.amount_ttc||'0');  bv = parseFloat(b.amount_ttc||'0');  break
+        case 'counterpart': av = (a.counterpart||'').toLowerCase(); bv = (b.counterpart||'').toLowerCase(); break
+        default:            av = a.entry_date; bv = b.entry_date
+      }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [entries, search, filterCat, sortCol, sortDir])
+
+  const handleSort = (col: typeof sortCol) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir(col === 'entry_date' ? 'desc' : 'asc') }
+  }
+  const sortIcon = (col: typeof sortCol) =>
+    sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
 
@@ -480,6 +518,36 @@ export function Saisie() {
 
       {/* Historique */}
       <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Historique</div>
+
+      {/* Recherche + filtres */}
+      {!loading && entries.length > 0 && (
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap' }}>
+          <input
+            type="text"
+            placeholder="🔍 Rechercher (libellé, contrepartie, sous-catégorie...)"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ ...inputSt, flex:'1 1 220px', minWidth:200, maxWidth:380 }}
+          />
+          <div style={{ display:'flex', gap:4 }}>
+            {(['Tous','Vente','Achat','Depense'] as const).map(cat => {
+              const active = filterCat === cat
+              const accent = cat === 'Vente' ? '#10b981' : cat === 'Achat' ? '#ef4444' : cat === 'Depense' ? '#f59e0b' : '#60a5fa'
+              return (
+                <button key={cat} onClick={() => setFilterCat(cat)} style={{
+                  padding:'5px 10px', borderRadius:6, border: active ? `1px solid ${accent}` : '1px solid transparent',
+                  cursor:'pointer', fontSize:11, fontWeight:600, transition:'all 0.15s',
+                  background: active ? `${accent}22` : 'rgba(255,255,255,0.03)',
+                  color: active ? accent : '#475569',
+                }}>{cat}</button>
+              )
+            })}
+          </div>
+          <span style={{ fontSize:10, color:'#334155', marginLeft:4 }}>
+            {displayEntries.length} résultat{displayEntries.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
       {loading ? <Spinner size={24} /> : entries.length === 0 ? (
         <div style={{ fontSize:12, color:'#334155', textAlign:'center', padding:40 }}>Aucune saisie pour le moment.</div>
       ) : (
@@ -487,13 +555,31 @@ export function Saisie() {
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
             <thead>
               <tr style={{ background:'#0f172a' }}>
-                {['Date','Catégorie','Sous-cat. / Libellé','Contrepartie','HT €','TVA €','TTC €','Règlement','Source','Pièce'].map(h => (
-                  <th key={h} style={{ padding:'6px 8px', textAlign: h==='HT €'||h==='TVA €'||h==='TTC €' ? 'right':'left', color:'#475569', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)', whiteSpace:'nowrap' }}>{h}</th>
+                {([
+                  { label:'Date',               col:'entry_date'  as const, align:'left'  },
+                  { label:'Catégorie',           col:null,                   align:'left'  },
+                  { label:'Sous-cat. / Libellé', col:null,                   align:'left'  },
+                  { label:'Contrepartie',        col:'counterpart' as const, align:'left'  },
+                  { label:'HT €',                col:'amount_ht'   as const, align:'right' },
+                  { label:'TVA €',               col:null,                   align:'right' },
+                  { label:'TTC €',               col:'amount_ttc'  as const, align:'right' },
+                  { label:'Règlement',            col:null,                   align:'left'  },
+                  { label:'Source',               col:null,                   align:'left'  },
+                  { label:'Pièce',                col:null,                   align:'left'  },
+                ] as { label:string; col:'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'|null; align:string }[]).map(({ label, col, align }) => (
+                  <th key={label} onClick={col ? () => handleSort(col) : undefined} style={{
+                    padding:'6px 8px', textAlign: align as 'left'|'right',
+                    color: col && sortCol === col ? '#93c5fd' : '#475569',
+                    fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)',
+                    whiteSpace:'nowrap', cursor: col ? 'pointer' : 'default', userSelect:'none',
+                  }}>
+                    {label}{col ? sortIcon(col) : ''}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {entries.slice(0,40).map(e => {
+              {displayEntries.map(e => {
                 const ht  = parseFloat(e.amount_ht||e.amount_ht_saisie||'0')||0
                 const ttc = parseFloat(e.amount_ttc||'0')||0
                 const tva = calcTvaAmount(ht, ttc)
