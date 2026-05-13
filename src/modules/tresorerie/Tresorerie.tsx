@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
 import { KpiCard, EcrituresModal } from '@/components/ui'
+import { BankAccountsPanel } from './BankAccountsPanel'
+import { useBankAccounts } from './useBankAccounts'
 
 const MS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
@@ -53,6 +55,11 @@ export function Tresorerie() {
   const [expanded, setExpanded] = useState<Record<string,boolean>>({})
   const [modal,    setModal]    = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
   const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number;soldeInitial:number}>>({})
+  const { data: bank } = useBankAccounts()
+  // Solde initial du forecast : la somme des comptes bancaires saisis prime sur la
+  // valeur manuelle "Solde initial" (rétro-compat) → fallback à 0 si aucun des deux.
+  const soldeInitialPerCo = (co: string) =>
+    (bank?.sumByCompany?.[co] ?? params[co]?.soldeInitial ?? 0)
   const [secOpen,  setSecOpen]  = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
   const [showHelp, setShowHelp] = useState(false)
   const [dayMonth, setDayMonth] = useState<string>('')
@@ -125,7 +132,7 @@ export function Tresorerie() {
   }, [])
 
   const forecast = useMemo(() => {
-    let cum = selCo.reduce((s, co) => s + (getP(co).soldeInitial || 0), 0)
+    let cum = selCo.reduce((s, co) => s + soldeInitialPerCo(co), 0)
     return forecastMs.map((m,mi) => {
       let enc=0, dec=0
       for (const co of selCo) {
@@ -143,7 +150,7 @@ export function Tresorerie() {
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
-  }, [selCo.join(','), budData, params, forecastMs])
+  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany])
 
   // ── Vue journalière ────────────────────────────────────────────────────
   const dayForecast = useMemo(() => {
@@ -162,7 +169,7 @@ export function Tresorerie() {
     if (!workDays.length) return []
     const encPerDay = mData.enc / workDays.length
     const decPerDay = mData.dec / workDays.length
-    const startCum = mi > 0 ? forecast[mi-1].cum : selCo.reduce((s,co)=>s+(getP(co).soldeInitial||0),0)
+    const startCum = mi > 0 ? forecast[mi-1].cum : selCo.reduce((s,co)=>s+soldeInitialPerCo(co),0)
     let cum = startCum
     return workDays.map(dt => {
       const enc = Math.round(encPerDay)
@@ -171,7 +178,7 @@ export function Tresorerie() {
       cum += fl
       return { date: dt.toLocaleDateString('fr-FR',{weekday:'short',day:'2-digit',month:'short'}), enc, dec, fl, cum }
     })
-  }, [dayMonth, forecast, forecastMs, selCo.join(','), params])
+  }, [dayMonth, forecast, forecastMs, selCo.join(','), params, bank?.sumByCompany])
 
   if (!RAW) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:256,color:'var(--text-2)',fontSize:13}}>
@@ -269,6 +276,9 @@ export function Tresorerie() {
       {/* VUE PREVISIONNELLE */}
       {view==='prev' && (
         <div style={{padding:'16px 24px'}}>
+          {/* Comptes bancaires (somme = solde initial du prévisionnel) */}
+          <BankAccountsPanel selCo={selCo} />
+
           {/* Params */}
           <div style={{background:'var(--bg-1)',borderRadius:'var(--radius-md)',padding:16,border:'1px solid var(--border-1)',marginBottom:20}}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
