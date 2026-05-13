@@ -72,3 +72,5 @@ create policy "tenant_isolation_user_roles_select"
     or user_id = auth.uid()
     or is_superadmin()
   );
+
+
