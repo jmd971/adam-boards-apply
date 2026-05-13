@@ -60,8 +60,9 @@ export function Tresorerie() {
   // valeur manuelle "Solde initial" (rétro-compat) → fallback à 0 si aucun des deux.
   const soldeInitialPerCo = (co: string) =>
     (bank?.sumByCompany?.[co] ?? params[co]?.soldeInitial ?? 0)
-  const [secOpen,  setSecOpen]  = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
-  const [showHelp, setShowHelp] = useState(false)
+  const [secOpen,    setSecOpen]    = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
+  const [paramsOpen, setParamsOpen] = useState(true)
+  const [showHelp,   setShowHelp]   = useState(false)
   const [dayMonth, setDayMonth] = useState<string>('')
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
@@ -103,14 +104,46 @@ export function Tresorerie() {
         }
       }
     }
-    // Factures parentes ayant des échéances : on compte les échéances, pas le parent (sinon double comptage)
-    const parentIds = new Set(manualEntries.filter(e => e.parent_id).map(e => e.parent_id!))
+    // Saisies manuelles : éviter le double comptage avec le loop pn ci-dessus
+    // buildRAW fusionne les saisies dans pn → elles sont déjà dans eB/dB si leur compte est
+    // dans ENC_CATS/DEC_CATS. On ne les recompte dans eM/dM que si elles n'y sont pas.
+    // Pour les paiements échelonnés : on retire la contribution au jour de la facture (pn)
+    // et on ré-étale sur les dates d'échéance.
     for (const me of manualEntries) {
       if (!me.entry_date) continue
-      const mi = months.findIndex((m: string) => me.entry_date.startsWith(m)); if (mi < 0) continue
-      if (parentIds.has(String(me.id))) continue
       const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
-      if (me.category === 'Vente') eM[mi] += ht; else dM[mi] += ht
+      if (ht === 0) continue
+      const acc = me.account_num || '658'
+
+      if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+        // Annuler la contribution pn au mois de la facture
+        const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
+        if (mi_inv >= 0) {
+          const ec = catOf(acc, ENC_CATS)
+          const dc = catOf(acc, DEC_CATS)
+          if (ec) eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
+          if (dc) dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht)
+        }
+        // Répartir sur les dates d'échéance
+        const echDates: string[] = (me.echeancier_data as any).dates
+        const htPart = ht / echDates.length
+        for (const d of echDates) {
+          const mi_pay = months.findIndex((m: string) => d.startsWith(m))
+          if (mi_pay < 0) continue
+          if (me.category === 'Vente') eM[mi_pay] += htPart
+          else dM[mi_pay] += htPart
+        }
+      } else {
+        // Non-échelonné : déjà dans pn → ne compter dans eM/dM que si compte hors catégories
+        const inStdCat = catOf(acc, ENC_CATS) || catOf(acc, DEC_CATS)
+        if (!inStdCat) {
+          const mi = months.findIndex((m: string) => me.entry_date.startsWith(m))
+          if (mi >= 0) {
+            if (me.category === 'Vente') eM[mi] += ht
+            else dM[mi] += ht
+          }
+        }
+      }
     }
     ENC_CATS.forEach(c => { eB[c.label]=eB[c.label].map(v=>Math.round(v)); Object.values(eA[c.label]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) })
     DEC_CATS.forEach(c => { dB[c.label]=dB[c.label].map(v=>Math.round(v)); Object.values(dA[c.label]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) })
@@ -284,36 +317,44 @@ export function Tresorerie() {
         <div style={{padding:'16px 24px'}}>
           {/* Params */}
           <div style={{background:'var(--bg-1)',borderRadius:'var(--radius-md)',padding:16,border:'1px solid var(--border-1)',marginBottom:20}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:'0.8px'}}>⚙️ Paramètres</div>
-              <button onClick={()=>setShowHelp(h=>!h)} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
-                {showHelp?'▾':'▸'} Comment ça marche ?
-              </button>
-            </div>
-            {showHelp && (
-              <div style={{background:'rgba(59,130,246,0.06)',borderRadius:8,padding:'12px 14px',marginBottom:14,fontSize:11,color:'var(--text-2)',lineHeight:'1.7',border:'1px solid rgba(59,130,246,0.15)'}}>
-                <div><span style={{color:'var(--blue)',fontWeight:600}}>Délai client (j)</span> — Jours avant qu'un client règle ses factures. Ex : 45 j → les encaissements de jan. arrivent en fév. dans le prévisionnel.</div>
-                <div style={{marginTop:6}}><span style={{color:'var(--amber)',fontWeight:600}}>Délai fourn. (j)</span> — Jours avant de régler vos fournisseurs. Ex : 30 j → les achats de jan. sont décaissés en fév.</div>
-                <div style={{marginTop:6}}><span style={{color:'var(--red)',fontWeight:600}}>Remb./mois (€)</span> — Charge fixe mensuelle sortante (remboursement de prêt, crédit-bail…) déduite chaque mois.</div>
-                <div style={{marginTop:6}}><span style={{color:'var(--purple)',fontWeight:600}}>Solde initial (€)</span> — Solde bancaire de départ utilisé comme point de départ de la trésorerie cumulée.</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:paramsOpen?12:0,cursor:'pointer',userSelect:'none'}}
+              onClick={()=>setParamsOpen(o=>!o)}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:'0.8px',display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:10,color:'var(--text-3)'}}>{paramsOpen?'▾':'▸'}</span>
+                ⚙️ Paramètres
               </div>
-            )}
-            <div style={{display:'flex',gap:24,flexWrap:'wrap'}}>
-              {selCo.map(co=>(
-                <div key={co} style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
-                  <span style={{fontSize:12,fontWeight:700,color:'var(--blue)'}}>{RAW.companies[co]?.name||co}</span>
-                  {([['Délai client (j)','delaiClient'],['Délai fourn. (j)','delaiFourn'],['Remb./mois (€)','remb'],['Solde initial (€)','soldeInitial']] as [string,string][]).map(([lbl,key])=>(
-                    <div key={key} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
-                      <span style={{color:'var(--text-2)'}}>{lbl}</span>
-                      <input type="number" value={(getP(co) as any)[key]}
-                        onChange={e=>setParams(p=>({...p,[co]:{...getP(co),[key]:parseFloat(e.target.value)||0}}))}
-                        style={inputSt}/>
-                    </div>
-                  ))}
-                </div>
-              ))}
+              {paramsOpen && (
+                <button onClick={e=>{e.stopPropagation();setShowHelp(h=>!h)}} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
+                  {showHelp?'▾':'▸'} Comment ça marche ?
+                </button>
+              )}
             </div>
-            {Object.keys(budData).length===0&&<div style={{marginTop:10,fontSize:11,color:'var(--amber)'}}>⚠️ Aucun budget — générez-en un dans l'onglet Budget.</div>}
+            {paramsOpen && (<>
+              {showHelp && (
+                <div style={{background:'rgba(59,130,246,0.06)',borderRadius:8,padding:'12px 14px',marginBottom:14,fontSize:11,color:'var(--text-2)',lineHeight:'1.7',border:'1px solid rgba(59,130,246,0.15)'}}>
+                  <div><span style={{color:'var(--blue)',fontWeight:600}}>Délai client (j)</span> — Jours avant qu'un client règle ses factures. Ex : 45 j → les encaissements de jan. arrivent en fév. dans le prévisionnel.</div>
+                  <div style={{marginTop:6}}><span style={{color:'var(--amber)',fontWeight:600}}>Délai fourn. (j)</span> — Jours avant de régler vos fournisseurs. Ex : 30 j → les achats de jan. sont décaissés en fév.</div>
+                  <div style={{marginTop:6}}><span style={{color:'var(--red)',fontWeight:600}}>Remb./mois (€)</span> — Charge fixe mensuelle sortante (remboursement de prêt, crédit-bail…) déduite chaque mois.</div>
+                  <div style={{marginTop:6}}><span style={{color:'var(--purple)',fontWeight:600}}>Solde initial (€)</span> — Solde bancaire de départ utilisé comme point de départ de la trésorerie cumulée.</div>
+                </div>
+              )}
+              <div style={{display:'flex',gap:24,flexWrap:'wrap'}}>
+                {selCo.map(co=>(
+                  <div key={co} style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
+                    <span style={{fontSize:12,fontWeight:700,color:'var(--blue)'}}>{RAW.companies[co]?.name||co}</span>
+                    {([['Délai client (j)','delaiClient'],['Délai fourn. (j)','delaiFourn'],['Remb./mois (€)','remb'],['Solde initial (€)','soldeInitial']] as [string,string][]).map(([lbl,key])=>(
+                      <div key={key} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
+                        <span style={{color:'var(--text-2)'}}>{lbl}</span>
+                        <input type="number" value={(getP(co) as any)[key]}
+                          onChange={e=>setParams(p=>({...p,[co]:{...getP(co),[key]:parseFloat(e.target.value)||0}}))}
+                          style={inputSt}/>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              {Object.keys(budData).length===0&&<div style={{marginTop:10,fontSize:11,color:'var(--amber)'}}>⚠️ Aucun budget — générez-en un dans l'onglet Budget.</div>}
+            </>)}
           </div>
 
           {/* Table prévisionnel mensuel */}
@@ -449,3 +490,4 @@ export function Tresorerie() {
     </>
   )
 }
+
