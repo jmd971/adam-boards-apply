@@ -82,18 +82,26 @@ export function BankAccountsPanel({ selCo, totalLabel = 'Solde bancaire total' }
   }
 
   return (
-    <div style={{ marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(20,184,166,0.06)', border: '1px solid rgba(20,184,166,0.18)' }}>
+    <div style={{
+      marginBottom: 16, padding: '16px 20px', borderRadius: 12,
+      background: 'linear-gradient(135deg, rgba(20,184,166,0.18), rgba(13,148,136,0.12))',
+      border: '1px solid rgba(20,184,166,0.5)',
+      boxShadow: '0 2px 12px rgba(20,184,166,0.08)',
+      position: 'relative', zIndex: 1,
+    }}>
       <div onClick={() => setOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 16 }}>💳</span>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>{totalLabel}</span>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>· {accounts.length} compte{accounts.length > 1 ? 's' : ''}</span>
-        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: total < 0 ? 'var(--red)' : '#14b8a6' }}>
+          <span style={{ fontSize: 22 }}>💳</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.3px' }}>{totalLabel}</span>
+            <span style={{ fontSize: 11, color: '#94a3b8' }}>{accounts.length} compte{accounts.length > 1 ? 's' : ''} · clique pour {open ? 'replier' : 'gérer'}</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span style={{ fontSize: 22, fontWeight: 800, fontFamily: 'monospace', color: total < 0 ? 'var(--red)' : '#14b8a6' }}>
             {fmt(total)} €
           </span>
-          <span style={{ fontSize: 11, color: 'var(--text-3)' }}>{open ? '▲' : '▼'}</span>
+          <span style={{ fontSize: 14, color: 'var(--text-2)' }}>{open ? '▲' : '▼'}</span>
         </div>
       </div>
 
