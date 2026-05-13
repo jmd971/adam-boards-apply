@@ -54,7 +54,7 @@ export interface ManualEntry {
   tva_amount?: string
   tva_rate?: string
   amount_ht_saisie?: string
-  category: 'Vente' | 'Achat' | 'Depense'
+  category: 'Vente' | 'Achat' | 'Depense' | 'Immobilisation'
   subcategory: string
   label?: string
   counterpart?: string
