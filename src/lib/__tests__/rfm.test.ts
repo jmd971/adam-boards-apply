@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeRFM, manualEntriesToTransactions, type SaleTransaction } from '@/lib/rfm'
+import { computeRFM, manualEntriesToTransactions, diagnoseEntries, type SaleTransaction } from '@/lib/rfm'
 import type { ManualEntry } from '@/types'
 
 const REF_DATE = new Date('2026-05-13')
@@ -201,5 +201,42 @@ describe('manualEntriesToTransactions', () => {
     ], ['MC'])
     expect(r[0].client_key).toBe('mr dupont')
     expect(r[0].client_nom).toBe('Mr DUPONT')
+  })
+})
+
+/* ─── diagnoseEntries ────────────────────────────────────────────────────── */
+
+describe('diagnoseEntries', () => {
+  it('compte total / ventes / éligibles correctement', () => {
+    const d = diagnoseEntries([
+      entry({ id: 'a', category: 'Achat' }),
+      entry({ id: 'v1', category: 'Vente', counterpart: 'Client A' }),
+      entry({ id: 'v2', category: 'Vente', counterpart: '' }),
+      entry({ id: 'v3', category: 'Vente', counterpart: undefined }),
+    ], ['MC'])
+    expect(d.total).toBe(4)
+    expect(d.ventes).toBe(3)
+    expect(d.ventesCo).toBe(3)
+    expect(d.ventesSansCp).toBe(2)
+    expect(d.eligibles).toBe(1)
+  })
+
+  it('isole les ventes hors sociétés sélectionnées', () => {
+    const d = diagnoseEntries([
+      entry({ id: 'v1', company_key: 'MC',    counterpart: 'A' }),
+      entry({ id: 'v2', company_key: 'AUTRE', counterpart: 'B' }),
+    ], ['MC'])
+    expect(d.ventes).toBe(2)
+    expect(d.ventesCo).toBe(1)
+    expect(d.eligibles).toBe(1)
+  })
+
+  it('selCo vide = pas de filtre société', () => {
+    const d = diagnoseEntries([
+      entry({ id: 'v1', company_key: 'MC',    counterpart: 'A' }),
+      entry({ id: 'v2', company_key: 'AUTRE', counterpart: 'B' }),
+    ], [])
+    expect(d.ventesCo).toBe(2)
+    expect(d.eligibles).toBe(2)
   })
 })

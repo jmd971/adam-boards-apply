@@ -6,7 +6,7 @@ import { CampagnesView } from './CampagnesView'
 import { ArticlesView } from './ArticlesView'
 import { ScenariosView } from './ScenariosView'
 import { ImportWizard } from './ImportWizard'
-import { computeRFM, manualEntriesToTransactions, type SaleTransaction } from '@/lib/rfm'
+import { computeRFM, manualEntriesToTransactions, diagnoseEntries, type SaleTransaction } from '@/lib/rfm'
 
 type Source = 'factures' | 'pos'
 type SubTab = 'segments' | 'articles' | 'campagnes' | 'scenarios'
@@ -41,6 +41,11 @@ export function Ventes() {
   }, [source, manualEntries, selCo, posTxs])
 
   const clients = useMemo(() => computeRFM(transactions), [transactions])
+
+  const diag = useMemo(
+    () => diagnoseEntries(manualEntries, selCo),
+    [manualEntries, selCo]
+  )
 
   // Écran de choix de source
   if (!source) return <ChoixSource onSelect={handleSelectSource} />
@@ -111,14 +116,54 @@ export function Ventes() {
         </div>
       </div>
 
-      {/* État vide — Factures */}
+      {/* État vide — Factures (diagnostic) */}
       {source === 'factures' && transactions.length === 0 && (
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:320, gap:12 }}>
-          <span style={{ fontSize:40 }}>📄</span>
-          <div style={{ fontSize:13, fontWeight:600, color:'var(--text-1)' }}>Aucune facture de vente trouvée</div>
-          <div style={{ fontSize:11, color:'var(--text-3)', maxWidth:360, textAlign:'center', lineHeight:1.7 }}>
-            Saisissez des factures dans le module <strong style={{ color:'var(--blue)' }}>Saisie</strong> avec
-            la catégorie "Vente" et renseignez le nom du client dans le champ "Contrepartie".
+        <div style={{ padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <span style={{ fontSize: 40 }}>📄</span>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
+            Aucune facture éligible pour l'analyse clients
+          </div>
+
+          {/* Tableau de diagnostic */}
+          <div style={{
+            width: '100%', maxWidth: 520,
+            background: 'var(--bg-1)', borderRadius: 12, border: '1px solid var(--border-1)',
+            padding: '14px 18px',
+          }}>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+              Diagnostic
+            </div>
+            {[
+              { label: 'Entrées de saisie au total',         value: diag.total,         color: 'var(--text-1)' },
+              { label: 'Catégorie "Vente"',                  value: diag.ventes,        color: 'var(--text-1)' },
+              { label: 'Vente sur sociétés sélectionnées',   value: diag.ventesCo,      color: 'var(--text-1)' },
+              { label: 'Sans contrepartie (à compléter)',    value: diag.ventesSansCp,  color: diag.ventesSansCp > 0 ? 'var(--amber)' : 'var(--text-3)' },
+              { label: 'Sans date',                          value: diag.ventesSansDate,color: diag.ventesSansDate > 0 ? 'var(--amber)' : 'var(--text-3)' },
+              { label: 'Éligibles à l\'analyse',             value: diag.eligibles,     color: diag.eligibles > 0 ? 'var(--green)' : 'var(--red)' },
+            ].map(({ label, value, color }) => (
+              <div key={label} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '5px 0', fontSize: 12,
+              }}>
+                <span style={{ color: 'var(--text-2)' }}>{label}</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700, color }}>{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Aide contextuelle selon le diagnostic */}
+          <div style={{ fontSize: 11, color: 'var(--text-3)', maxWidth: 520, textAlign: 'center', lineHeight: 1.7 }}>
+            {diag.total === 0 ? (
+              <>Aucune entrée n'est encore saisie. Commencez dans le module <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
+            ) : diag.ventes === 0 ? (
+              <>Vous avez {diag.total} entrées mais aucune n'est de catégorie <strong>Vente</strong>. Modifiez la catégorie dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
+            ) : diag.ventesCo === 0 ? (
+              <>Vos {diag.ventes} ventes ne concernent pas les sociétés sélectionnées. Ajustez le filtre Société en haut de l'écran.</>
+            ) : diag.ventesSansCp > 0 ? (
+              <>{diag.ventesSansCp} vente{diag.ventesSansCp > 1 ? 's' : ''} sur {diag.ventesCo} {diag.ventesSansCp > 1 ? "n'ont" : "n'a"} pas de <strong style={{ color: 'var(--amber)' }}>contrepartie</strong> (nom client). Ouvrez le module <strong style={{ color: 'var(--blue)' }}>Saisie</strong> et renseignez le champ "Contrepartie" pour exploiter ces ventes.</>
+            ) : (
+              <>Aucune vente exploitable. Vérifiez les dates et les contreparties dans <strong style={{ color: 'var(--blue)' }}>Saisie</strong>.</>
+            )}
           </div>
         </div>
       )}

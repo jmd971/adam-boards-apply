@@ -15,11 +15,14 @@ vi.mock('@/store', () => ({
 vi.mock('@/lib/rfm', () => ({
   computeRFM: () => [],
   manualEntriesToTransactions: () => [],
+  diagnoseEntries: () => ({ total: 0, ventes: 0, ventesCo: 0, ventesSansCp: 0, ventesSansDate: 0, eligibles: 0 }),
 }))
 
 // Stub des sous-vues pour focaliser sur le routage choisi
 vi.mock('@/modules/ventes/SegmentsView',  () => ({ SegmentsView:  () => <div data-testid="segments" /> }))
 vi.mock('@/modules/ventes/CampagnesView', () => ({ CampagnesView: () => <div data-testid="campagnes" /> }))
+vi.mock('@/modules/ventes/ArticlesView',  () => ({ ArticlesView:  () => <div data-testid="articles" /> }))
+vi.mock('@/modules/ventes/ScenariosView', () => ({ ScenariosView: () => <div data-testid="scenarios" /> }))
 vi.mock('@/modules/ventes/ImportWizard',  () => ({ ImportWizard:  () => <div data-testid="wizard" /> }))
 
 import { Ventes } from '@/modules/ventes/VentesPage'
@@ -46,8 +49,9 @@ describe('<Ventes>', () => {
     render(<Ventes />)
     fireEvent.click(screen.getByText('Mes factures'))
 
-    // manualEntries vide → empty state
-    expect(screen.getByText(/Aucune facture de vente trouvée/i)).toBeInTheDocument()
+    // manualEntries vide → empty state diagnostique
+    expect(screen.getByText(/Aucune facture éligible/i)).toBeInTheDocument()
+    expect(screen.getByText(/Diagnostic/i)).toBeInTheDocument()
   })
 
   it('après clic sur "Fichier caisse / POS", ouvre directement l\'import wizard', () => {
