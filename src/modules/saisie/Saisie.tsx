@@ -429,7 +429,9 @@ export function Saisie() {
 
   // ── Soumission manuelle ───────────────────────────────────────────────────
   const handleSubmit = async () => {
+    const companyKeyCheck = form.company_key || filters.selCo[0] || RAW?.keys[0] || ''
     if (!form.amount_ht || !form.entry_date) return
+    if (!companyKeyCheck) { setMsg('❌ Indiquez le nom de la société'); return }
     setSaving(true)
     const ht  = parseFloat(form.amount_ht)  || 0
     const ttc = parseFloat(form.amount_ttc) || ht  // si TTC vide, TTC = HT (TVA 0)
@@ -566,9 +568,21 @@ export function Saisie() {
 
             <div>
               <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Société</label>
-              <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
-                {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name||k}</option>)}
-              </select>
+              {RAW.keys.length > 0
+                ? (
+                  <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
+                    {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name||k}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={form.company_key}
+                    onChange={e => setForm(f => ({...f, company_key: e.target.value.trim().toUpperCase().replace(/\s+/g,'_')}))}
+                    style={inputSt}
+                    placeholder="Ex : STE_COMMERCIALE"
+                  />
+                )
+              }
             </div>
 
             <div>
