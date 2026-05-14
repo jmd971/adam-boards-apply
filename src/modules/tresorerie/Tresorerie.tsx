@@ -506,7 +506,7 @@ export function Tresorerie() {
       {/* VUE REALISEE */}
       {view==='realise' && (
         <div style={{padding:'16px 24px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
             <KpiCard label="Encaissements N"     value={`${fmt(gE)} €`}      color="var(--green)"/>
             <KpiCard label="Décaissements N"     value={`${fmt(gD)} €`}      color="var(--red)"/>
             <KpiCard label="Flux net"             value={`${fmt(gE-gD)} €`}  color={(gE-gD)>=0?'var(--green)':'var(--red)'}/>
