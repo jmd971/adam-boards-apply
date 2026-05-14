@@ -33,7 +33,7 @@ export function Import() {
   const role     = useAppStore(s => s.role)
   const tenantId = useAppStore(s => s.tenantId)
   const qc       = useQueryClient()
-  const canEdit  = role === 'admin' || role === 'comptable'
+  const canEdit  = role === 'admin' || role === 'comptable' || role === 'superadmin'
 
   const [checking,  setChecking]  = useState(false)
   const [importing, setImporting] = useState(false)
