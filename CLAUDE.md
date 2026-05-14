@@ -242,3 +242,45 @@ Quand `RAW.keys.length === 0` (pas de FEC importé), le select société est vid
 ```
 
 Ne jamais remplacer par un select seul — l'utilisateur doit pouvoir saisir sans FEC.
+
+### 9. Contrainte Supabase `company_data_period_check`
+
+La table `company_data` a une contrainte CHECK sur `period` :
+```sql
+CHECK (period IN ('N', 'N-1', 'N-2'))
+```
+
+**Ne jamais** utiliser une valeur de `period` hors de ces 3 valeurs.
+**Ne jamais** ajouter un nouveau cas de période sans mettre à jour la contrainte DB.
+
+`detectPeriod()` dans `src/lib/fec.ts` retourne `'N' | 'N-1' | 'N-2'` :
+- `maxY >= cy`     → `'N'`
+- `maxY === cy-1`  → `'N-1'`
+- `maxY <= cy-2`   → `'N-2'`
+
+Si une nouvelle valeur de période est ajoutée dans le code, exécuter en SQL :
+```sql
+ALTER TABLE company_data DROP CONSTRAINT IF EXISTS company_data_period_check;
+ALTER TABLE company_data ADD CONSTRAINT company_data_period_check
+  CHECK (period IN ('N', 'N-1', 'N-2', '<nouvelle_valeur>'));
+```
+
+### 10. Parser FEC — formats de colonnes connus
+
+Le parser `src/lib/fec.ts` doit supporter ces variantes de noms de colonnes :
+
+| Colonne | Variantes reconnues |
+|---------|-------------------|
+| CompteNum | `comptenum`, `n° compte`, **`n° de compte`**, `no de compte`, `numero de compte` |
+| EcritureDate | `ecrituredate`, `date ecriture`, `date comptable`, `date` |
+| Débit | `debit`, `montant debit`, `debit eur` |
+| Crédit | `credit`, `montant credit`, `credit eur` |
+
+**Fallback compte** : exclure les valeurs à 8 chiffres (`YYYYMMDD` comme `20260101`) — c'est une date, pas un compte.
+
+**Ne jamais** réduire la liste de variantes. Toujours ajouter, jamais supprimer.
+
+Format EBP Grand Livre testé :
+```
+Code journal;Description du journal;Date;Date au format L47;N° de compte;Intitulé du compte;...;Débit;Crédit;...;Sens;...
+```
