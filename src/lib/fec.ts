@@ -366,7 +366,7 @@ export function detectCompanyName(filename: string): string {
     .trim() || 'SOCIETE'
 }
 
-export function detectPeriod(months: string[]): { period: 'N' | 'N-1'; fy: string } {
+export function detectPeriod(months: string[]): { period: 'N' | 'N-1' | 'N-2'; fy: string } {
   if (!months.length) {
     const cy = new Date().getFullYear()
     return { period: 'N', fy: String(cy) }
@@ -374,6 +374,7 @@ export function detectPeriod(months: string[]): { period: 'N' | 'N-1'; fy: strin
   const sorted = [...months].sort()
   const maxY = parseInt(sorted[sorted.length - 1].slice(0, 4))
   const cy = new Date().getFullYear()
-  if (maxY < cy) return { period: 'N-1', fy: String(maxY) }
+  if (maxY <= cy - 2) return { period: 'N-2', fy: String(maxY) }
+  if (maxY < cy)      return { period: 'N-1', fy: String(maxY) }
   return { period: 'N', fy: String(maxY) }
 }
