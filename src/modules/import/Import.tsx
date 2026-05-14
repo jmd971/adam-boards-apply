@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectCompanyName, detectPeriod, type ParseWarning } from '@/lib/fec'
+import { parseFEC, detectCompany, detectCompanyName, detectPeriod, type ParseWarning, lastFecError } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 import type { ParsedFEC } from '@/lib/fec'
@@ -57,7 +57,7 @@ export function Import() {
         const text = await file.text()
         const parsed = parseFEC(text)
         if (!parsed) {
-          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: 'Format FEC non reconnu' }])
+          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: lastFecError || 'Format FEC non reconnu' }])
           continue
         }
 
