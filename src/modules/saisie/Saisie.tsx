@@ -332,12 +332,24 @@ export function Saisie() {
       const ttc    = parseFloat(parsed.amount_ttc) || 0
       const ht     = parseFloat(parsed.amount_ht)  || 0
 
+      // Trouver la sous-catégorie prédéfinie la plus proche de la réponse OCR
+      // (le texte OCR libre n'a pas le format "(623)" → extractAcc échouerait)
+      const ocrCat   = (parsed.category || 'Depense') as ManualEntry['category']
+      const ocrSub   = (parsed.subcategory || '').toLowerCase().trim()
+      const catSubs  = CATEGORIES.find(c => c.cat === ocrCat)?.subs ?? []
+      const matchedSub = ocrSub.length >= 3
+        ? catSubs.find(s => {
+            const label = s.split('(')[0].trim().toLowerCase()
+            return label.includes(ocrSub.slice(0, 8)) || ocrSub.includes(label.slice(0, 6))
+          })
+        : undefined
+
       setOcrResult(`✅ Facture analysée : ${parsed.counterpart || ''} — HT: ${ht.toFixed(2)} € | TTC: ${ttc.toFixed(2)} € | TVA: ${calcTvaAmount(ht, ttc).toFixed(2)} €`)
       setForm(f => ({
         ...f,
         entry_date:  parsed.date || f.entry_date,
-        category:    parsed.category || f.category,
-        subcategory: parsed.subcategory || '',
+        category:    ocrCat,
+        subcategory: matchedSub || parsed.subcategory || '',
         label:       parsed.label || '',
         amount_ttc:  ttc > 0 ? String(ttc) : f.amount_ttc,
         amount_ht:   ht > 0  ? String(ht)  : f.amount_ht,
