@@ -520,12 +520,14 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.ca)} € · Éc. ${kpis && kpis.ca >= budKpis.ca ? '+' : ''}${fmt((kpis?.ca ?? 0) - budKpis.ca)} €`
             : kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined}
+          tooltip={DASH_EXPLANATIONS.ca.definition}
           onInfo={() => setActiveExpl('ca')} />
         <KpiCard label="Marge brute" value={`${fmt(kpis?.marge ?? 0)} €`} color="var(--blue)"
           trend={kpis?.evoMarge != null ? kpis.evoMarge * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.marge)} € · Éc. ${kpis && kpis.marge >= budKpis.marge ? '+' : ''}${fmt((kpis?.marge ?? 0) - budKpis.marge)} €`
             : kpis ? `${pct(kpis.txMarge)} du CA` : undefined}
+          tooltip={DASH_EXPLANATIONS.marge.definition}
           onInfo={() => setActiveExpl('marge')} />
         <KpiCard label="EBE" value={`${fmt(kpis?.ebe ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.txEbe > 0.10 ? 'var(--green)' : kpis.txEbe > 0.05 ? 'var(--amber)' : 'var(--red)'}
@@ -533,6 +535,7 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.ebe)} € · Éc. ${kpis && kpis.ebe >= budKpis.ebe ? '+' : ''}${fmt((kpis?.ebe ?? 0) - budKpis.ebe)} €`
             : kpis ? `${pct(kpis.txEbe)} du CA` : undefined}
+          tooltip={DASH_EXPLANATIONS.ebe.definition}
           onInfo={() => setActiveExpl('ebe')} />
         <KpiCard label="Résultat exploit." value={`${fmt(kpis?.re ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.re >= 0 ? 'var(--blue)' : 'var(--red)'}
@@ -540,6 +543,7 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.re)} € · Éc. ${kpis && kpis.re >= budKpis.re ? '+' : ''}${fmt((kpis?.re ?? 0) - budKpis.re)} €`
             : kpis ? `${pct(kpis.txRe)} du CA` : undefined}
+          tooltip={DASH_EXPLANATIONS.re.definition}
           onInfo={() => setActiveExpl('re')} />
       </div>
 
