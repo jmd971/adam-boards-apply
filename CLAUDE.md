@@ -226,3 +226,19 @@ tenant_id, company_key, period, data (jsonb)
 - **Styles inline** (pas de classes Tailwind custom) dans les modules — c'est volontaire
 - Formatage français : `Intl.NumberFormat('fr-FR')` ou `fmt()` de calc.ts
 - Dates : stockées en `YYYY-MM-DD`, affichées en `DD/MM/YYYY` via `fmtDate()`
+
+### 8. Saisie sans FEC — dropdown société
+
+Quand `RAW.keys.length === 0` (pas de FEC importé), le select société est vide.
+**TOUJOURS** afficher un champ texte libre dans ce cas :
+
+```tsx
+{RAW.keys.length > 0
+  ? <select value={form.company_key} ...>{RAW.keys.map(...)}</select>
+  : <input type="text" value={form.company_key}
+      onChange={e => setForm(f => ({...f, company_key: e.target.value.trim().toUpperCase().replace(/\s+/g,'_')}))}
+      placeholder="Ex : STE_COMMERCIALE" />
+}
+```
+
+Ne jamais remplacer par un select seul — l'utilisateur doit pouvoir saisir sans FEC.
