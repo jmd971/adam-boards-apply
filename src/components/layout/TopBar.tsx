@@ -61,8 +61,8 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
   }
 
   return (
-    <header style={{
-      height:54, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between',
+    <header className="topbar-inner" style={{
+      minHeight:54, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between',
       padding:'0 24px', gap:16,
       background:'rgba(6,11,20,0.96)', backdropFilter:'blur(20px)',
       borderBottom:'1px solid var(--border-0)', position:'sticky', top:0, zIndex:10,
@@ -71,14 +71,14 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
       {/* Hamburger mobile */}
       <button onClick={onMenuClick} className="mobile-menu-btn" style={{
         display:'none', alignItems:'center', justifyContent:'center',
-        width:36, height:36, borderRadius:'var(--radius-sm)',
+        width:36, height:36, minHeight:36, borderRadius:'var(--radius-sm)',
         background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)',
         color:'var(--text-1)', cursor:'pointer', flexShrink:0, fontSize:16,
       }}>☰</button>
       {/* Toggle sidebar desktop */}
       <button onClick={onSidebarToggle} className="desktop-sidebar-btn" style={{
         alignItems:'center', justifyContent:'center',
-        width:32, height:32, borderRadius:'var(--radius-sm)',
+        width:32, height:32, minHeight:32, borderRadius:'var(--radius-sm)',
         background:'rgba(255,255,255,0.04)', border:'1px solid var(--border-1)',
         color:'var(--text-2)', cursor:'pointer', flexShrink:0, fontSize:13,
         transition:'background 0.15s',
@@ -87,17 +87,17 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
       </button>
 
       {/* Titre */}
-      <div style={{ display:'flex', alignItems:'center', gap:10, flexShrink:0 }}>
-        <div style={{ width:30, height:30, borderRadius:'var(--radius-sm)', background:'rgba(59,130,246,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:10, flex:1, minWidth:0 }}>
+        <div style={{ width:30, height:30, minHeight:30, borderRadius:'var(--radius-sm)', background:'rgba(59,130,246,0.12)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15, flexShrink:0 }}>
           {meta.icon}
         </div>
-        <span style={{ fontSize:15, fontWeight:700, color:'var(--text-0)', letterSpacing:'-0.2px' }}>
+        <span style={{ fontSize:15, fontWeight:700, color:'var(--text-0)', letterSpacing:'-0.2px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>
           {meta.label}
         </span>
       </div>
 
-      {/* Filtres */}
-      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'nowrap' }}>
+      {/* Filtres — scrollables sur mobile */}
+      <div className="topbar-filters" style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'nowrap', flexShrink:0 }}>
 
         {/* Période */}
         {isAnalysis && (
