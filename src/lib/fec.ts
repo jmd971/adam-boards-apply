@@ -71,12 +71,19 @@ function detectSeparator(line: string): string {
 
 // ─── Parser principal ──────────────────────────────────────────────────────
 
+// Dernières en-têtes détectées — permet d'afficher un message d'erreur précis dans Import.tsx
+export let lastFecHeaders: string[] = []
+export let lastFecError: string = ''
+
 export function parseFEC(text: string): ParsedFEC | null {
-  const lines = text.split('\n').filter(l => l.trim())
-  if (lines.length < 2) return null
+  // Supprimer BOM UTF-8 et normaliser les fins de ligne
+  const cleaned = text.replace(/^﻿/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const lines = cleaned.split('\n').filter(l => l.trim())
+  if (lines.length < 2) { lastFecError = 'Fichier vide ou trop court (moins de 2 lignes)'; return null }
 
   const sep = detectSeparator(lines[0])
-  const headers = lines[0].split(sep).map(h => h.trim().replace(/"/g, ''))
+  const headers = lines[0].split(sep).map(h => h.trim().replace(/"/g, '').replace(/^﻿/, ''))
+  lastFecHeaders = headers
   const warnings: ParseWarning[] = []
 
   // Recherche d'en-têtes avec variantes étendues
@@ -89,20 +96,22 @@ export function parseFEC(text: string): ParsedFEC | null {
   }
 
   const ci = {
-    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte']),
-    label:         find(['comptelib', 'libelle compte', 'intitule compte', 'intitule du compte', 'nom compte']),
-    date:          find(['ecrituredate', 'date ecriture', 'date d\'ecriture', 'date comptable']),
-    debit:         find(['debit', 'montant debit']),
-    credit:        find(['credit', 'montant credit']),
-    journal:       find(['journalcode', 'journal', 'code journal']),
-    ecLib:         find(['ecriturelib', 'libelle ecriture', 'libelle de l\'ecriture']),
-    compAux:       find(['compauxnum', 'compte auxiliaire', 'num auxiliaire']),
-    piece:         find(['pieceref', 'piece', 'reference piece', 'n° piece']),
-    datePiece:     find(['piecedate', 'date piece', 'date de piece']),
-    dateLettrage:  find(['ecriturelettrage', 'ecriturelet', 'date lettrage']),
+    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte', 'numero compte', 'codegl', 'gl code', 'no compte', 'accountnumber', 'account number']),
+    label:         find(['comptelib', 'libelle compte', 'intitule compte', 'intitule du compte', 'nom compte', 'libellecompte', 'compte lib', 'accountlabel']),
+    date:          find(['ecrituredate', 'date ecriture', 'date d\'ecriture', 'date comptable', 'datecomptable', 'date_ecriture', 'datepiece', 'date piece', 'date']),
+    debit:         find(['debit', 'montant debit', 'montantdebit', 'debiteur', 'debit eur', 'mouvdebit', 'mouv debit', 'debit €']),
+    credit:        find(['credit', 'montant credit', 'montantcredit', 'crediteur', 'credit eur', 'mouvcredit', 'mouv credit', 'credit €']),
+    montant:       find(['montant', 'montant eur', 'amount', 'solde mouvement']),
+    sens:          find(['sens', 'dc', 'debit credit', 'signe']),
+    journal:       find(['journalcode', 'journal', 'code journal', 'codejournal', 'journalcode']),
+    ecLib:         find(['ecriturelib', 'libelle ecriture', 'libelle de l\'ecriture', 'libelle', 'ecriturelib', 'libellee', 'intitule ecriture']),
+    compAux:       find(['compauxnum', 'compte auxiliaire', 'num auxiliaire', 'compauxnum', 'tiers']),
+    piece:         find(['pieceref', 'piece', 'reference piece', 'n° piece', 'pieceref', 'numeropièce', 'refpiece']),
+    datePiece:     find(['piecedate', 'date piece', 'date de piece', 'datepiece']),
+    dateLettrage:  find(['ecriturelettrage', 'ecriturelet', 'date lettrage', 'datelet']),
     lettrage:      find(['lettrage', 'code lettrage']),
-    dateEcheance:  find(['date de l\'echeance', 'echeance', 'date echeance']),
-    moyenPaiement: find(['moyen de paiement', 'moyenpaiement', 'mode reglement']),
+    dateEcheance:  find(['date de l\'echeance', 'echeance', 'date echeance', 'dateecheance']),
+    moyenPaiement: find(['moyen de paiement', 'moyenpaiement', 'mode reglement', 'modepaiment']),
   }
 
   // Colonnes critiques
@@ -138,22 +147,29 @@ export function parseFEC(text: string): ParsedFEC | null {
   }
 
   if (ci.debit < 0 || ci.credit < 0) {
-    // Fallback : chercher deux colonnes numériques adjacentes en fin de ligne
-    const sampleCols = lines[1]?.split(sep).map(c => c.trim().replace(/"/g, ''))
-    if (sampleCols) {
-      for (let i = sampleCols.length - 1; i >= 1; i--) {
-        if (parseNum(sampleCols[i]) !== 0 || parseNum(sampleCols[i - 1]) !== 0) {
-          if (/^[\d\s,.-]+$/.test(sampleCols[i]) && /^[\d\s,.-]+$/.test(sampleCols[i - 1])) {
-            if (ci.debit < 0) ci.debit = i - 1
-            if (ci.credit < 0) ci.credit = i
-            warnings.push({ type: 'column', message: `Colonnes débit/crédit détectées en positions ${i}/${i + 1} ("${headers[i - 1]}"/"${headers[i]}")` })
-            break
+    // Cas 1 : colonne Montant unique avec sens (D/C)
+    if (ci.montant >= 0) {
+      ci.debit = ci.montant
+      ci.credit = ci.montant
+      warnings.push({ type: 'column', message: `Colonne Montant unique détectée ("${headers[ci.montant]}") — sens D/C utilisé` })
+    } else {
+      // Cas 2 : deux colonnes numériques adjacentes en fin de ligne
+      const sampleCols = lines[1]?.split(sep).map(c => c.trim().replace(/"/g, ''))
+      if (sampleCols) {
+        for (let i = sampleCols.length - 1; i >= 1; i--) {
+          if (parseNum(sampleCols[i]) !== 0 || parseNum(sampleCols[i - 1]) !== 0) {
+            if (/^[\d\s,.-]+$/.test(sampleCols[i]) && /^[\d\s,.-]+$/.test(sampleCols[i - 1])) {
+              if (ci.debit < 0) ci.debit = i - 1
+              if (ci.credit < 0) ci.credit = i
+              warnings.push({ type: 'column', message: `Colonnes débit/crédit détectées en positions ${i}/${i + 1} ("${headers[i - 1]}"/"${headers[i]}")` })
+              break
+            }
           }
         }
       }
+      if (ci.debit < 0) criticalMissing.push('Debit')
+      if (ci.credit < 0) criticalMissing.push('Credit')
     }
-    if (ci.debit < 0) criticalMissing.push('Debit')
-    if (ci.credit < 0) criticalMissing.push('Credit')
   }
 
   if (ci.label < 0) {
@@ -166,7 +182,7 @@ export function parseFEC(text: string): ParsedFEC | null {
 
   // Si des colonnes critiques manquent totalement, échouer
   if (criticalMissing.length > 0) {
-    warnings.push({ type: 'format', message: `Colonnes obligatoires introuvables : ${criticalMissing.join(', ')}. Vérifiez que le fichier est au format FEC.` })
+    lastFecError = `Colonnes introuvables : ${criticalMissing.join(', ')}. Colonnes détectées : ${headers.slice(0,8).join(' | ')}${headers.length > 8 ? '…' : ''}`
     return null
   }
 
