@@ -96,7 +96,7 @@ export function parseFEC(text: string): ParsedFEC | null {
   }
 
   const ci = {
-    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte', 'numero compte', 'codegl', 'gl code', 'no compte', 'accountnumber', 'account number']),
+    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte', 'n° de compte', 'no de compte', 'numero de compte', 'numero compte', 'n de compte', 'codegl', 'gl code', 'no compte', 'accountnumber', 'account number']),
     label:         find(['comptelib', 'libelle compte', 'intitule compte', 'intitule du compte', 'nom compte', 'libellecompte', 'compte lib', 'accountlabel']),
     date:          find(['ecrituredate', 'date ecriture', 'date d\'ecriture', 'date comptable', 'datecomptable', 'date_ecriture', 'datepiece', 'date piece', 'date']),
     debit:         find(['debit', 'montant debit', 'montantdebit', 'debiteur', 'debit eur', 'mouvdebit', 'mouv debit', 'debit €']),
@@ -119,9 +119,12 @@ export function parseFEC(text: string): ParsedFEC | null {
 
   if (ci.acc < 0) {
     // Fallback : première colonne numérique qui ressemble à un numéro de compte
+    // Exclure les valeurs à 8 chiffres (format date YYYYMMDD comme 20260101)
     const fallback = headers.findIndex((_, i) => {
       const sample = lines[1]?.split(sep)[i]?.trim().replace(/"/g, '')
-      return sample && /^[1-9]\d{2,}$/.test(sample)
+      if (!sample) return false
+      if (/^\d{8}$/.test(sample)) return false   // exclure dates YYYYMMDD
+      return /^[1-9]\d{2,}$/.test(sample)
     })
     if (fallback >= 0) {
       ci.acc = fallback
