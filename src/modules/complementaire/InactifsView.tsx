@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { fmt } from '@/lib/calc'
 import { SEGMENT_LABELS, SEGMENT_COLORS, type ClientRFM } from '@/lib/rfm'
 
