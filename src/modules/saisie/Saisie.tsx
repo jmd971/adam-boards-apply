@@ -211,6 +211,12 @@ export function Saisie() {
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
 
+  // Extrait le compte du libellé de sous-catégorie : "Publicité et marketing (623)" → "623"
+  const extractAcc = (sub: string, fallback: string) => {
+    const m = sub?.match(/\((\d{3,})[^)]*\)/)
+    return m ? m[1] : fallback
+  }
+
   // ── Rafraîchir le store après saisie ─────────────────────────────────────
   const refreshStore = async (newEntry: ManualEntry) => {
     const allEntries = [newEntry, ...manualEntries]
@@ -376,6 +382,10 @@ export function Saisie() {
         tva_rate:     calcTvaRate(ht, ttc),
         counterpart:  row.counterpart || row.contrepartie || '',
         payment_mode: row.payment_mode || row.reglement || 'virement',
+        account_num:  extractAcc(
+          row.subcategory || row.sous_categorie || '',
+          CATEGORIES.find(c => c.cat === (row.category || row.categorie || 'Depense'))?.acc ?? '658'
+        ),
         source:       'csv',
       })
     }
@@ -440,7 +450,7 @@ export function Saisie() {
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
       payment_date: !isEch && form.payment_date ? form.payment_date : null,
-      account_num:  catConfig?.acc ?? '658',
+      account_num:  extractAcc(form.subcategory, catConfig?.acc ?? '658'),
       source:       ocrFile ? 'ocr' : 'manual',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
       ...(isEch ? {
