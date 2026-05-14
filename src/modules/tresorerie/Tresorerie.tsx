@@ -506,7 +506,7 @@ export function Tresorerie() {
       {/* VUE REALISEE */}
       {view==='realise' && (
         <div style={{padding:'16px 24px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
+          <div className="treso-kpi-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
             <KpiCard label="Encaissements N"     value={`${fmt(gE)} €`}      color="var(--green)"/>
             <KpiCard label="Décaissements N"     value={`${fmt(gD)} €`}      color="var(--red)"/>
             <KpiCard label="Flux net"             value={`${fmt(gE-gD)} €`}  color={(gE-gD)>=0?'var(--green)':'var(--red)'}/>
@@ -514,7 +514,7 @@ export function Tresorerie() {
           </div>
           <div style={{marginBottom:10,fontSize:11,color:'var(--text-3)'}}>💡 Cliquez <span style={{color:'var(--blue)'}}>▸</span> sur une catégorie pour voir les comptes, puis sur un compte pour voir les écritures.</div>
           {treso && (
-            <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 260px)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
+            <div className="treso-table-wrap" style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 260px)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead>
                   <tr>
