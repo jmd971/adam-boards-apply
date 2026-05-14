@@ -271,6 +271,31 @@ export function Dashboard() {
     return { ca, marge, ebe, re }
   }, [showBudget, budVersionKey, budVersions, selectedMs])
 
+  // Budget simple (budData) filtré par période — visible même sans budget version
+  const budDataKpis = useMemo(() => {
+    if (!kpis || !selectedMs.length) return null
+    const monthIndices = selectedMs.map((m: string) => parseInt(m.slice(5)) - 1)
+    const budFor = (prefixes: string[], isCharge = false) => {
+      let total = 0
+      for (const co of selCo) {
+        const bco = (budData as any)[co] ?? {}
+        for (const [acc, bv] of Object.entries(bco)) {
+          if (!prefixes.some((p: string) => acc.startsWith(p))) continue
+          const b = (bv as any)?.b ?? []
+          const sign = isCharge ? 1 : -1
+          total += sign * monthIndices.reduce((s: number, idx: number) => s + (b[idx] || 0), 0)
+        }
+      }
+      return Math.round(total)
+    }
+    const caV    = budFor(CA_ACCS)
+    const margeV = caV - budFor(ACHAT_ACCS, true)
+    const ebeV   = margeV - budFor(SERV_ACCS, true) - budFor(PERS_ACCS, true)
+    const reV    = ebeV - budFor(AMORT_ACCS, true)
+    if (caV === 0 && margeV === 0 && ebeV === 0 && reV === 0) return null
+    return { ca: caV, marge: margeV, ebe: ebeV, re: reV }
+  }, [selCo.join(','), budData, selectedMs.join(','), kpis])
+
   const monthlyData = useMemo(() => {
     if (!selectedMs.length) return []
     return selectedMs.map((m: string) => {
@@ -719,19 +744,19 @@ export function Dashboard() {
         </div>
       )}
 
-      {kpis && budKpis && (
+      {kpis && (budKpis ?? budDataKpis) && (
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
           <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
             🎯 Réalisation des objectifs
           </div>
           <ObjectifsChart
-            hasBudget={!!budKpis}
+            hasBudget
             height={280}
             kpis={[
-              { label:"CA",             icon:'💰', color:'#10b981', real: kpis.ca,    bud: budKpis.ca    },
-              { label:"Marge brute",    icon:'📊', color:'#3b82f6', real: kpis.marge, bud: budKpis.marge },
-              { label:"EBE",            icon:'💹', color:'#f59e0b', real: kpis.ebe,   bud: budKpis.ebe   },
-              { label:"Rés. exploit.",  icon:'🎯', color:'#8b5cf6', real: kpis.re,    bud: budKpis.re    },
+              { label:"CA",             icon:'💰', color:'#10b981', real: kpis.ca,    bud: (budKpis ?? budDataKpis)!.ca    },
+              { label:"Marge brute",    icon:'📊', color:'#3b82f6', real: kpis.marge, bud: (budKpis ?? budDataKpis)!.marge },
+              { label:"EBE",            icon:'💹', color:'#f59e0b', real: kpis.ebe,   bud: (budKpis ?? budDataKpis)!.ebe   },
+              { label:"Rés. exploit.",  icon:'🎯', color:'#8b5cf6', real: kpis.re,    bud: (budKpis ?? budDataKpis)!.re    },
             ]}
           />
         </div>
