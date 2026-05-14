@@ -137,14 +137,9 @@
     grid-template-columns: repeat(2, 1fr) !important;
   }
 
-  /* Padding réduit sur mobile */
-  div[style*="padding:'20px 24px'"] {
-    padding: 12px 14px !important;
-  }
-
-  div[style*="padding: '20px 24px'"] {
-    padding: 12px 14px !important;
-  }
+  /* Padding réduit sur mobile — sélecteurs corrigés (React → style="padding: 20px 24px") */
+  [style*="padding: 20px 24px"] { padding: 12px 14px !important; }
+  [style*="padding: 24px"]      { padding: 14px !important; }
 
   /* Touch targets */
   button { min-height: 40px; }
@@ -157,6 +152,33 @@
     max-height: 100dvh !important;
     border-radius: 0 !important;
   }
+
+  /* ── TopBar responsive : 2 lignes sur mobile ─────────── */
+  .topbar-inner {
+    height: auto !important;
+    min-height: 54px;
+    padding: 6px 12px !important;
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .topbar-filters {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0 6px;
+    flex-shrink: 0;
+  }
+  .topbar-filters::-webkit-scrollbar { display: none; }
+
+  /* ── Pas d'overflow horizontal sur le contenu ────────── */
+  main { overflow-x: hidden; }
+
+  /* ── Tables P&L : scroll horizontal intégré ──────────── */
+  .pl-table { display: block; overflow-x: auto; }
+
+  /* ── Empêcher le zoom iOS sur focus d'un champ ───────── */
+  input, select, textarea { font-size: 16px !important; }
 }
 
 /* ── Tablette ──────────────────────────────────────── */
@@ -175,6 +197,21 @@
   .kpi-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
   .kpi-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
   .chart-grid { grid-template-columns: 1fr !important; }
+
+  /* Dashboard : padding & gap réduits */
+  .dashboard-print { padding: 12px !important; gap: 12px !important; }
+
+  /* Valeur KPI : taille réduite sur petits écrans */
+  .dashboard-print .print-kpis > div [style*="fontSize:26"],
+  .dashboard-print .print-kpis > div [style*="font-size: 26"] {
+    font-size: 20px !important;
+  }
+
+  /* Colonnes des graphiques : 1 colonne */
+  .dashboard-print .print-charts { grid-template-columns: 1fr !important; }
+
+  /* Modules : réduire le padding général */
+  main > div { padding: 12px !important; }
 }
 
 /* ════════════════════════════════════════════════════
