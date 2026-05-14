@@ -179,6 +179,17 @@
   /* ── Tables P&L : scroll horizontal intégré ──────────── */
   .pl-table { display: block; overflow-x: auto; }
 
+  /* ── Trésorerie : grille KPI 2 colonnes ──────────────── */
+  .treso-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* ── Trésorerie : tableau sans maxHeight (la page scrolle) ─ */
+  .treso-table-wrap {
+    max-height: none !important;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /* ── Empêcher le zoom iOS sur focus d'un champ ───────── */
   input, select, textarea { font-size: 16px !important; }
 }
