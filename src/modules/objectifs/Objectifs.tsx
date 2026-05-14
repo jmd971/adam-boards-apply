@@ -66,7 +66,8 @@ export function Objectifs() {
     const re     = { n: ebe.n - amort.n,     n1: ebe.n1 - amort.n1 }
     const rnet   = { n: re.n - fin.n + excep.n - is.n, n1: re.n1 - fin.n1 + excep.n1 - is.n1 }
 
-    // Budget (somme des comptes sur 12 mois pour les sociétés sélectionnées)
+    // Budget filtré sur la période sélectionnée (0=Jan … 11=Déc)
+    const monthIndices = msN.map(m => parseInt(m.slice(5)) - 1)
     const budFor = (prefixes: string[], isCharge = false) => {
       let total = 0
       for (const co of selCo) {
@@ -75,7 +76,7 @@ export function Objectifs() {
           if (!prefixes.some(p => acc.startsWith(p))) continue
           const b = (bv as any)?.b ?? []
           const sign = isCharge ? 1 : -1
-          total += sign * b.reduce((s: number, v: number) => s + (v || 0), 0)
+          total += sign * monthIndices.reduce((s: number, idx: number) => s + (b[idx] || 0), 0)
         }
       }
       return Math.round(total)
