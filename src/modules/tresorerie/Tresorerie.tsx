@@ -425,6 +425,11 @@ export function Tresorerie() {
                         {vals.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:bold?700:400,fontSize:bold?12:11,color:v<0?'var(--red)':v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>)}
                         <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700,color:tot<0?'var(--red)':col}}>{fmt(tot)}</td>
                       </tr>
+                      {isOpen&&detail.length===0&&(
+                        <tr><td colSpan={forecastMs.length+2} style={{padding:'8px 12px 8px 34px',fontSize:10,color:'var(--amber)',fontStyle:'italic'}}>
+                          Pas de données budgétaires — configurez un budget dans l'onglet Budget.
+                        </td></tr>
+                      )}
                       {isOpen&&detail.map(([acc,a])=>{
                         const dTot=a.vals.reduce((s:number,v:number)=>s+v,0)
                         const ents=!acc.startsWith('__')?mergeEntries(RAW!,selCo,'pn',acc):[]
