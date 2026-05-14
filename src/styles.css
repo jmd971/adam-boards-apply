@@ -153,6 +153,9 @@
     border-radius: 0 !important;
   }
 
+  /* ── Montants monétaires : empêcher € de passer à la ligne ─ */
+  [style*="JetBrains Mono"], [style*="monospace"], .num { white-space: nowrap !important; }
+
   /* ── TopBar responsive : 2 lignes sur mobile ─────────── */
   .topbar-inner {
     height: auto !important;
