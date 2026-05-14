@@ -127,19 +127,8 @@
     width: 100%;
   }
 
-  /* Tables : scroll horizontal */
-  table {
-    min-width: 480px;
-  }
-
-  /* KPI grids : 2 colonnes */
-  div[style*="gridTemplateColumns:\"repeat(4"] {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  /* Padding réduit sur mobile — sélecteurs corrigés (React → style="padding: 20px 24px") */
+  /* Padding réduit sur mobile — ciblé sur le pattern le plus commun uniquement */
   [style*="padding: 20px 24px"] { padding: 12px 14px !important; }
-  [style*="padding: 24px"]      { padding: 14px !important; }
 
   /* Touch targets */
   button { min-height: 40px; }
@@ -185,8 +174,7 @@
   /* ── Trésorerie : tableau sans maxHeight (la page scrolle) ─ */
   .treso-table-wrap {
     max-height: none !important;
-    overflow-x: auto;
-    overflow-y: visible;
+    overflow-y: auto !important;   /* explicite — override le style inline */
     -webkit-overflow-scrolling: touch;
   }
 
