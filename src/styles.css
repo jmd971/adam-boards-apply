@@ -176,9 +176,6 @@
   }
   .topbar-filters::-webkit-scrollbar { display: none; }
 
-  /* ── Pas d'overflow horizontal sur le contenu ────────── */
-  main { overflow-x: hidden; }
-
   /* ── Tables P&L : scroll horizontal intégré ──────────── */
   .pl-table { display: block; overflow-x: auto; }
 
