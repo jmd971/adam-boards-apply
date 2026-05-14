@@ -91,7 +91,7 @@ export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onI
       </div>
 
       {/* Valeur */}
-      <div style={{ fontSize:26, fontWeight:800, color, letterSpacing:'-0.5px', fontFamily:'JetBrains Mono, monospace', lineHeight:1.1 }}>
+      <div style={{ fontSize:26, fontWeight:800, color, letterSpacing:'-0.5px', fontFamily:'JetBrains Mono, monospace', lineHeight:1.1, whiteSpace:'nowrap' }}>
         {value}
       </div>
 
