@@ -341,3 +341,110 @@ Toute autre catégorie (`Achat`, `Depense`, `Immobilisation`) va dans `dec`.
 1. Saisir une facture **Achat** 1200€ TTC, mode `echeancier`, 3 mensualités → onglet Trésorerie / Prévisionnel : Décaissements montre +400 sur 3 mois ; déplier "Décaissements" affiche la sous-ligne avec le libellé
 2. Saisir une facture **Vente** 900€ TTC, mode `virement`, `payment_date` futur → Encaissements montre +900 sur le mois du payment_date
 3. Si `entry_date` est dans un mois FEC : la saisie doit apparaître **dans le Réalisé**, pas dans le Prévisionnel — pas de double comptage
+
+### 12. Import FEC (manuel ou via portail dépôt) — parcours complet
+
+> **INVARIANT** : ce parcours est figé. Toute modification doit préserver les 7 règles ci-dessous.
+
+**Deux points d'entrée, un seul pipeline** :
+1. **Import manuel** : `src/modules/import/Import.tsx` — drag & drop dans la zone N, N-1 ou N-2
+2. **Portail dépôt client** : `src/modules/depot/DepotPublic.tsx` (upload anonyme via token) → `Depot.tsx` (intégration par le comptable)
+
+Les deux finissent dans la même UPSERT vers `company_data`.
+
+**Parsing** — `parseFEC(text)` dans `src/lib/fec.ts` retourne `{ plData, bilanData, months, entryCount, clientData, veEntries, warnings, skippedLines }`. Voir règles #5 et #10 pour les variantes de colonnes et formats supportés.
+
+**Détection de période** — `detectPeriod(months)` retourne `{ period: 'N'|'N-1'|'N-2', fy }` :
+```typescript
+const maxY = parseInt(sorted[sorted.length - 1].slice(0, 4))
+const cy   = new Date().getFullYear()
+if (maxY <= cy - 2) return { period: 'N-2', fy: String(maxY) }
+if (maxY < cy)      return { period: 'N-1', fy: String(maxY) }
+return { period: 'N', fy: String(maxY) }
+```
+**Ne JAMAIS** changer les bornes sans mettre à jour la contrainte SQL (`company_data_period_check`) — voir règle #9.
+
+**Garde anti-FEC trop ancien** (`Import.tsx`) :
+```typescript
+if (fyNum < cy - 2) { /* rejeter avec message d'erreur explicite */ }
+```
+La borne `cy - 2` DOIT rester alignée avec `detectPeriod` ci-dessus. Si tu change l'un, change l'autre — sinon un fichier N-3 (ex: FEC 2023 en 2026) sera accepté par l'import mais mal classé.
+
+**Override période par la dropzone** — l'utilisateur peut forcer la période en déposant dans la zone N, N-1 ou N-2 :
+```typescript
+const { period, fy } = fp
+  ? { period: fp.period as 'N' | 'N-1' | 'N-2', fy: detectPeriod(parsed.months).fy }
+  : detectPeriod(parsed.months)
+```
+`fy` vient toujours de `detectPeriod` (jamais override) car il dépend des dates réelles du fichier.
+
+**Détection du nom de société** — DEUX fonctions distinctes :
+- `detectCompany(filename)` → `company_key` (technique, ex: `"FEC_SCI_TOURIZK_2025"`) — sert d'identifiant tenant-scoped
+- `detectCompanyName(filename)` → `company_name` (affichage, ex: `"SCI TOURIZK"`) — préfixe `FEC` et année retirés
+
+`buildRAW` (calc.ts) lit prioritairement `company_name` puis fallback sur `company_key` pour l'affichage.
+
+**UPSERT Supabase** — colonnes exactes (Import.tsx et Depot.tsx, intégration) :
+```typescript
+sb.from('company_data').upsert({
+  tenant_id,            // RLS obligatoire
+  company_key,          // FEC_SCI_TOURIZK_2025
+  company_name,         // SCI TOURIZK (nullable, mais à remplir)
+  period,               // 'N' | 'N-1' | 'N-2'
+  fiscal_year,          // '2024' | '2025' | '2026'
+  pl_data,              // jsonb
+  bilan_data,           // jsonb
+  months_covered,       // ⚠ ARRAY text — PAS 'months'
+  entry_count,
+  source,               // 'manual' | 'depot'
+  client_data,          // jsonb
+  ve_entries,           // jsonb
+}, { onConflict: 'tenant_id,company_key,period' })
+```
+
+**Pièges récurrents** :
+- ⚠ La colonne s'appelle `months_covered` (ARRAY), PAS `months`. Une upsert avec `months:` retourne `Could not find the 'months' column of 'company_data' in the schema cache`.
+- ⚠ `onConflict` doit inclure `tenant_id` sinon une autre société d'un autre tenant avec même `company_key` sera écrasée.
+- ⚠ Si le schéma Supabase est modifié, exécuter `notify pgrst, 'reload schema'` pour rafraîchir le cache PostgREST.
+
+**Pipeline buildRAW → modules** — `buildRAW` (calc.ts) parcourt `companyData` et route :
+```typescript
+const plField = row.period === 'N' ? 'pn' : row.period === 'N-1' ? 'p1' : 'p2'
+const bField  = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
+```
+- `pl_data` → `companies[co][plField]` (compte de résultat)
+- `bilan_data` → `companies[co][bField]` (bilan)
+- `client_data` / `ve_entries` → `cdN`/`cdN1`, `veN`/`veN1` uniquement (pas de variante N-2 pour l'instant)
+
+**Modules consommateurs et support N-2** :
+| Module | Source | N-2 supporté ? |
+|--------|--------|---------------|
+| CR (Compte de résultat) | `pn` / `p1` via `msSrc` | ✅ via `msSrc='p2'` |
+| SIG | idem | ✅ |
+| Équilibre | idem | ✅ |
+| Ratios | idem | ✅ |
+| Bilan | `bn` / `b1` / `b2` via `computeBilan` | ✅ (calcul ; UI utilise n et n1) |
+| Trésorerie | `pn` (réalisé), forecast (prévisionnel) | Partiel (réalisé sur mois FEC) |
+| Dashboard KPI principaux | `pn` / `p1` hardcodé (`computeKpis`) | ❌ pas de fallback si pas de N |
+| Dashboard "3 ans" | `pn` / `p1` / `p2` (`computeKpisPeriod`) | ✅ |
+
+**Cache invalidation** — après UPSERT, **toujours** invalider la query TanStack :
+```typescript
+queryClient.invalidateQueries({ queryKey: ['companyData'] })
+```
+Sans cette invalidation, `useCompanyData` continuera à servir l'ancien snapshot pendant 5 min (staleTime).
+
+**Initialisation des filtres** — `useCompanyData` cascade N → N-1 → N-2 si N vide :
+```typescript
+if (raw.mn.length > 0)      setFilters({ startM: raw.mn[0], endM: raw.mn.at(-1) })
+else if (raw.m1.length > 0) setFilters({ startM: raw.m1[0], endM: raw.m1.at(-1) })
+else if (raw.m2.length > 0) setFilters({ startM: raw.m2[0], endM: raw.m2.at(-1) })
+```
+
+**Vérification anti-régression** — après toute modif touchant le pipeline d'import :
+1. Importer un FEC de l'année courante (`N=cy`) → doit apparaître dans CR, SIG, Bilan, Trésorerie / Réalisé pour les mois du fichier
+2. Importer un FEC `cy-1` → période détectée N-1, visible dans la colonne N-1 des modules d'analyse
+3. Importer un FEC `cy-2` → période détectée N-2, visible dans `msSrc='p2'` sur CR/SIG/Equilibre
+4. Importer un FEC `cy-3` → **doit être rejeté** avec message d'erreur explicite
+5. Importer le même fichier 2 fois → upsert (pas de doublon), même `company_data.id` (ou updated_at modifié)
+6. Importer un fichier nommé `FEC SCI TOURIZK 2025.txt` → `company_key = FEC_SCI_TOURIZK_2025`, `company_name = SCI TOURIZK`
