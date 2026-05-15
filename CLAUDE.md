@@ -284,3 +284,60 @@ Format EBP Grand Livre testé :
 ```
 Code journal;Description du journal;Date;Date au format L47;N° de compte;Intitulé du compte;...;Débit;Crédit;...;Sens;...
 ```
+
+### 11. Saisies manuelles (factures Achat / Vente / Dépense) — parcours complet
+
+> **INVARIANT** : ce parcours est figé. Toute modification doit préserver les 5 règles ci-dessous.
+
+**Stockage** — `src/modules/saisie/Saisie.tsx` insère **UNE SEULE ligne** par facture dans `manual_entries`, même avec échéancier. Les colonnes critiques :
+- `entry_date` : date de la facture (YYYY-MM-DD)
+- `category` : `'Vente' | 'Achat' | 'Depense' | 'Immobilisation'`
+- `account_num` : extrait via `extractAcc(sub, fallback)` depuis le libellé sous-catégorie
+- `payment_mode` : `'echeancier' | 'comptant' | 'virement' | ...`
+- `payment_date` : date du règlement (si non-échéancier)
+- `echeancier_data` : `{ nb, freq, dates: [YYYY-MM-DD] }` (si échéancier)
+- `tenant_id` : obligatoire (RLS)
+
+**Les champs `parent_id` et `source: 'echeance'` existent dans le type mais ne sont JAMAIS créés.** Ils sont réservés pour un usage futur. Le filtre `me.source !== 'echeance'` dans `Saisie.tsx` et `calc.ts` est une pré-caution — ne JAMAIS le retirer.
+
+**Pipeline P&L** — `buildRAW` (calc.ts) classifie chaque saisie en `pn` / `p1` / `p2` selon le mois de `entry_date` :
+```typescript
+// Priorité : N > N-1 > N-2, basée sur l'appartenance aux mois FEC déjà chargés
+const inN  = allMsN.has(mMonth)
+const inN1 = allMsN1.has(mMonth)
+const inN2 = allMsN2.has(mMonth)
+const plField = inN ? 'pn' : inN1 ? 'p1' : inN2 ? 'p2' : 'pn'
+```
+**Ne JAMAIS** simplifier en `isN1 ? 'p1' : 'pn'` — ça oublierait `p2`.
+
+**Pipeline Trésorerie** — `Tresorerie.tsx` traite deux vues :
+
+| Vue | Source | Comportement |
+|-----|--------|--------------|
+| **Réalisé** | Mois ∈ FEC (`RAW.mn`) | Lit les saisies via `pn` (déjà mergées). Si `payment_mode === 'echeancier'` : annule la contribution `pn` du mois facture, étale `ht/nb_échéances` sur les dates. Si `payment_date` ponctuel : déplace le flux de `entry_date` vers `payment_date`. |
+| **Prévisionnel** | Mois ∉ FEC (futur) | Pour chaque saisie : si échéancier, ajoute `ht/nb` sur chaque date d'échéance ; si payment_date, ajoute le HT sur ce mois. Ventes → `enc`, autres → `dec`. |
+
+**Invariant double comptage** (Tresorerie.tsx ~ligne 183, 200) :
+```typescript
+const realisedMonthsSet = new Set(months)  // months = RAW.mn filtré
+if (!realisedMonthsSet.has(m)) {            // SKIP les mois déjà comptés en réalisé
+  // ... ajouter les saisies manuelles
+}
+```
+Sans cette garde, les échéances tombant sur un mois FEC sont comptées 2 fois (une fois via `pn`, une fois via le forecast).
+
+**Invariant symétrie forecast / forecastDetail** (Tresorerie.tsx ~ligne 181 vs 228) :
+- `forecast` (totaux mensuels) ET `forecastDetail` (lignes dépliables par compte) DOIVENT appliquer **la même logique** sur les manual entries : même filtre `realisedMonthsSet`, même calcul échéancier / payment_date, même mapping catégorie → enc/dec.
+- Sinon : les totaux incluent les saisies mais le détail est vide → confusion utilisateur.
+- Le label de détail des saisies est `"<label||counterpart||subcategory> — <entry_date>"`, clé `__me_${me.id}`.
+
+**Mapping catégorie → flux** (identique dans forecast et forecastDetail) :
+```typescript
+const bucket = me.category === 'Vente' ? enc : dec
+```
+Toute autre catégorie (`Achat`, `Depense`, `Immobilisation`) va dans `dec`.
+
+**Vérification anti-régression** — après toute modif touchant Saisie ou Trésorerie :
+1. Saisir une facture **Achat** 1200€ TTC, mode `echeancier`, 3 mensualités → onglet Trésorerie / Prévisionnel : Décaissements montre +400 sur 3 mois ; déplier "Décaissements" affiche la sous-ligne avec le libellé
+2. Saisir une facture **Vente** 900€ TTC, mode `virement`, `payment_date` futur → Encaissements montre +900 sur le mois du payment_date
+3. Si `entry_date` est dans un mois FEC : la saisie doit apparaître **dans le Réalisé**, pas dans le Prévisionnel — pas de double comptage
