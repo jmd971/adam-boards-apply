@@ -120,13 +120,21 @@ export function Tresorerie() {
       const acc = me.account_num || '658'
 
       if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
-        // Annuler la contribution pn (HT) au mois de la facture
+        // Annuler la contribution pn (HT) au mois de la facture, à la fois sur le total
+        // catégorie (eB) ET sur le sous-compte (eA) — sinon le sous-compte affiche encore
+        // le montant alors que la facture a été ré-étalée via les échéances.
         const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
         if (mi_inv >= 0) {
           const ec = catOf(acc, ENC_CATS)
           const dc = catOf(acc, DEC_CATS)
-          if (ec) eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
-          if (dc) dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht)
+          if (ec) {
+            eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
+            if (eA[ec][acc]) eA[ec][acc].vals[mi_inv] = Math.max(0, eA[ec][acc].vals[mi_inv] - ht)
+          }
+          if (dc) {
+            dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht)
+            if (dA[dc][acc]) dA[dc][acc].vals[mi_inv] = Math.max(0, dA[dc][acc].vals[mi_inv] - ht)
+          }
         }
         // Répartir TTC sur les dates d'échéance. Si echeancier_data.amounts est défini,
         // utiliser le montant par échéance — sinon, étalement équitable (ttc / nb).
@@ -147,13 +155,28 @@ export function Tresorerie() {
         // (la facture est déjà dans pn au mois entry_date → on déplace le montant vers mi_pay).
         const inStdCat = catOf(acc, ENC_CATS) || catOf(acc, DEC_CATS)
         if (inStdCat && me.payment_date) {
+          // Déplacer la contribution du mois facture au mois paiement, à la fois sur la
+          // catégorie (eB) et le sous-compte (eA), sinon le sous-compte continue d'afficher
+          // au mois facture.
           const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
           const mi_pay = months.findIndex((m: string) => (me.payment_date as string).startsWith(m))
           if (mi_inv >= 0 && mi_pay >= 0 && mi_inv !== mi_pay) {
             const ec = catOf(acc, ENC_CATS)
             const dc = catOf(acc, DEC_CATS)
-            if (ec) { eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht); eB[ec][mi_pay] += ht }
-            if (dc) { dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht); dB[dc][mi_pay] += ht }
+            if (ec) {
+              eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht); eB[ec][mi_pay] += ht
+              if (eA[ec][acc]) {
+                eA[ec][acc].vals[mi_inv] = Math.max(0, eA[ec][acc].vals[mi_inv] - ht)
+                eA[ec][acc].vals[mi_pay] += ht
+              }
+            }
+            if (dc) {
+              dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht); dB[dc][mi_pay] += ht
+              if (dA[dc][acc]) {
+                dA[dc][acc].vals[mi_inv] = Math.max(0, dA[dc][acc].vals[mi_inv] - ht)
+                dA[dc][acc].vals[mi_pay] += ht
+              }
+            }
           }
         } else if (!inStdCat) {
           // Hors catégories standard : compter dans eM/dM (cash flow réel = TTC) au mois de paiement (ou de facture)
