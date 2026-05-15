@@ -333,6 +333,41 @@ Sans cette garde, les échéances tombant sur un mois FEC sont comptées 2 fois 
 - Sinon : les totaux incluent les saisies mais le détail est vide → confusion utilisateur.
 - Le label de détail des saisies est `"<label||counterpart||subcategory> — <entry_date>"`, clé `__me_${me.id}`.
 
+**Invariant Trésorerie réalisé — eA et eB synchronisés** (Tresorerie.tsx ~ligne 122-160) :
+Lors de l'annulation `pn` au mois facture (échéancier) ou du déplacement `entry_date → payment_date`, **toujours** mettre à jour `eA[cat][acc].vals[mi]` (sous-compte) EN MÊME TEMPS que `eB[cat][mi]` (total catégorie). Sinon : la catégorie affiche 0 mais le sous-compte affiche encore le montant → impression de doublement visuel.
+```typescript
+if (ec) {
+  eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
+  if (eA[ec][acc]) eA[ec][acc].vals[mi_inv] = Math.max(0, eA[ec][acc].vals[mi_inv] - ht)
+}
+```
+Idem pour `dB` / `dA` côté décaissements. S'applique aux DEUX endroits : annulation échéancier ET déplacement payment_date.
+
+**Invariant distribution échéances → sous-cat du compte** (Tresorerie.tsx ~ligne 131-153) :
+Pour une saisie échéancier dont le `account_num` tombe dans une catégorie standard (ENC_CATS / DEC_CATS), distribuer chaque part dans `eA[cat][acc]` ET `eB[cat]` au mois d'échéance — PAS dans `eM/dM`. Sinon le sous-compte est invisible et le montant atterrit dans la ligne anonyme "Saisies manuelles".
+```typescript
+const ecEch = catOf(acc, ENC_CATS)
+if (me.category === 'Vente' && ecEch) {
+  if (!eA[ecEch][acc]) eA[ecEch][acc] = { vals: ..., label: lbl }
+  eA[ecEch][acc].vals[mi_pay] += part
+  eB[ecEch][mi_pay] += part
+} else { /* fallback eM/dM si compte hors cat standard */ }
+```
+**Garantie zéro régression sur totaux** : `tE = sum(eB) + eM` et `tD = sum(dB) + dM`. Le montant qui passe de `eM` à `eB[cat]` ne change pas la somme — seul l'affichage par compte gagne en précision.
+
+**Édition et suppression de saisies** (Saisie.tsx) :
+- `editingId: string | null` : id de la saisie en cours d'édition (null = nouvelle saisie)
+- `confirmDelete: string | null` : id de la saisie pour laquelle confirmation de suppression demandée
+- `handleEditFacture(e)` : charge la saisie dans `form`, scroll en haut, met `editingId` à l'id
+- `handleCancelEdit()` : sort du mode édition, reset le formulaire (PAS toucher echeancier)
+- `handleDeleteFacture(id)` : DELETE sur `manual_entries` avec filtre `parent_id` (enfants) puis `id` ; rebuild RAW pour propagation à tous les modules ; invalide le cache TanStack
+- `handleSubmit` doit faire UPDATE si `editingId` est défini, INSERT sinon. En mode édition, remplacer l'entrée dans le store (`.map`), pas la prepend (`[new, ...]`) — sinon doublon dans l'historique
+- Bouton submit change : "+ Ajouter" (bleu) → "💾 Enregistrer modifications" (orange/rouge) en mode édition, bouton "Annuler" à côté
+- En mode lecture seule (`isReadOnly` = role viewer), les boutons ✏️ et 🗑 sont visibles mais désactivés
+
+**Bilan N-2** (`src/lib/bilan.ts`) :
+`computeSide()` accepte `'bn' | 'b1' | 'b2'` et `computeBilan()` retourne `{ n, n1, n2 }`. L'UI Bilan utilise actuellement `n` et `n1` ; `n2` est calculé pour usage futur (colonne N-2 dans le tableau). Ne JAMAIS retirer le calcul `n2` même si l'UI ne l'affiche pas.
+
 **Mapping catégorie → flux** (identique dans forecast et forecastDetail) :
 ```typescript
 const bucket = me.category === 'Vente' ? enc : dec
@@ -344,6 +379,8 @@ Toute autre catégorie (`Achat`, `Depense`, `Immobilisation`) va dans `dec`.
 2. Saisir une facture **Vente** 900€ TTC, mode `virement`, `payment_date` futur → Encaissements montre +900 sur le mois du payment_date
 3. Si `entry_date` est dans un mois FEC : la saisie doit apparaître **dans le Réalisé**, pas dans le Prévisionnel — pas de double comptage
 4. Saisir une facture **Achat** 1200€ TTC (1000€ HT + 200 TVA) avec 3 échéances **personnalisées** 600€ / 300€ / 300€ TTC → onglet Trésorerie : voir 600 sur mois 1, 300 sur mois 2-3 (PAS 400 partout, PAS 333). Si on retire `amounts` du jsonb, étalement équitable `1200/3=400` doit revenir automatiquement (sur la base TTC, pas HT)
+5. Saisir une facture **Vente** sur compte 713 (Locations) avec échéancier en mars : déplier "Autres produits" dans Réalisé → voir 713 avec le montant à chaque mois d'échéance (PAS dans la ligne "Saisies manuelles"). La catégorie "Autres produits" doit aussi totaliser ces mêmes montants
+6. Cliquer ✏️ sur une saisie existante → formulaire rempli, bouton devient "💾 Enregistrer modifications", "Annuler" disponible. Cliquer 🗑 → confirmation 2 clics, suppression met à jour Trésorerie / CR / SIG immédiatement
 
 ### 12. Import FEC (manuel ou via portail dépôt) — parcours complet
 
