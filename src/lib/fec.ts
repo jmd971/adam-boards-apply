@@ -374,7 +374,10 @@ export function detectPeriod(months: string[]): { period: 'N' | 'N-1' | 'N-2'; f
   const sorted = [...months].sort()
   const maxY = parseInt(sorted[sorted.length - 1].slice(0, 4))
   const cy = new Date().getFullYear()
-  if (maxY <= cy - 2) return { period: 'N-2', fy: String(maxY) }
+  // N-2 uniquement si le fichier a 3 ans ou plus d'ancienneté.
+  // Avec cy-2 (ancienne règle), un FEC 2024 importé en 2026 tombait en N-2
+  // au lieu de N-1, rendant invisible toute comparaison N / N-1.
+  if (maxY <= cy - 3) return { period: 'N-2', fy: String(maxY) }
   if (maxY < cy)      return { period: 'N-1', fy: String(maxY) }
   return { period: 'N', fy: String(maxY) }
 }
