@@ -208,17 +208,17 @@ export function Saisie() {
 
   // Auto-recalcule les montants équitables tant que l'utilisateur n'a pas saisi de répartition custom.
   // Dès qu'il édite un montant manuellement, on stoppe l'auto-calcul (echAmountsDirty=true).
+  // Base : TTC (cash flow réel = TTC, pas HT).
   useEffect(() => {
-    const ht = parseFloat(form.amount_ht || '0') || 0
+    const ttc = parseFloat(form.amount_ttc || '0') || 0
     if (!echDates.length) { setEchAmounts([]); return }
     if (echAmountsDirty && echAmounts.length === echDates.length) return
-    // Équitable, arrondi au centime, dernier montant ajusté pour matcher exactement le HT
-    const part = Math.round((ht / echDates.length) * 100) / 100
+    const part = Math.round((ttc / echDates.length) * 100) / 100
     const arr = Array(echDates.length).fill(part)
     const sum = part * echDates.length
-    if (sum !== ht) arr[arr.length - 1] = Math.round((ht - part * (echDates.length - 1)) * 100) / 100
+    if (sum !== ttc) arr[arr.length - 1] = Math.round((ttc - part * (echDates.length - 1)) * 100) / 100
     setEchAmounts(arr)
-  }, [echDates.length, form.amount_ht, echAmountsDirty])
+  }, [echDates.length, form.amount_ttc, echAmountsDirty])
 
   const handleSort = (col: typeof sortCol) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -739,13 +739,13 @@ export function Saisie() {
                     ))}
                   </div>
                   {(() => {
-                    const ht = parseFloat(form.amount_ht || '0') || 0
+                    const ttc = parseFloat(form.amount_ttc || '0') || 0
                     const sum = echAmounts.reduce((s, v) => s + v, 0)
-                    const diff = Math.round((sum - ht) * 100) / 100
-                    if (!ht || !echAmounts.length) return null
+                    const diff = Math.round((sum - ttc) * 100) / 100
+                    if (!ttc || !echAmounts.length) return null
                     return (
                       <div style={{ fontSize:10, marginTop:6, color: Math.abs(diff) < 0.01 ? '#10b981' : '#f59e0b' }}>
-                        Total échéances : {sum.toFixed(2)} € / HT facture : {ht.toFixed(2)} €
+                        Total échéances : {sum.toFixed(2)} € TTC / TTC facture : {ttc.toFixed(2)} €
                         {Math.abs(diff) >= 0.01 && <span> — écart {diff > 0 ? '+' : ''}{diff.toFixed(2)} €</span>}
                       </div>
                     )

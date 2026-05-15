@@ -112,12 +112,15 @@ export function Tresorerie() {
     // et on ré-étale sur les dates d'échéance.
     for (const me of manualEntries) {
       if (!me.entry_date) continue
-      const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
-      if (ht === 0) continue
+      // Cash flow réel = TTC (ce qu'on paie/reçoit). HT n'est utilisé que pour
+      // annuler la contribution pn (qui stocke le HT depuis buildRAW).
+      const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+      const ttc = parseFloat(me.amount_ttc || '0') || ht
+      if (ttc === 0) continue
       const acc = me.account_num || '658'
 
       if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
-        // Annuler la contribution pn au mois de la facture
+        // Annuler la contribution pn (HT) au mois de la facture
         const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
         if (mi_inv >= 0) {
           const ec = catOf(acc, ENC_CATS)
@@ -125,11 +128,11 @@ export function Tresorerie() {
           if (ec) eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
           if (dc) dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht)
         }
-        // Répartir sur les dates d'échéance. Si echeancier_data.amounts est défini,
-        // utiliser le montant par échéance — sinon, étalement équitable (ht / nb).
+        // Répartir TTC sur les dates d'échéance. Si echeancier_data.amounts est défini,
+        // utiliser le montant par échéance — sinon, étalement équitable (ttc / nb).
         const echDates: string[] = (me.echeancier_data as any).dates
         const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
-        const equalPart = ht / echDates.length
+        const equalPart = ttc / echDates.length
         for (let idx = 0; idx < echDates.length; idx++) {
           const d = echDates[idx]
           const part = echAmounts?.[idx] ?? equalPart
@@ -153,12 +156,12 @@ export function Tresorerie() {
             if (dc) { dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht); dB[dc][mi_pay] += ht }
           }
         } else if (!inStdCat) {
-          // Hors catégories standard : compter dans eM/dM au mois de paiement (ou de facture)
+          // Hors catégories standard : compter dans eM/dM (cash flow réel = TTC) au mois de paiement (ou de facture)
           const effDate = me.payment_date || me.entry_date
           const mi = months.findIndex((m: string) => effDate.startsWith(m))
           if (mi >= 0) {
-            if (me.category === 'Vente') eM[mi] += ht
-            else dM[mi] += ht
+            if (me.category === 'Vente') eM[mi] += ttc
+            else dM[mi] += ttc
           }
         }
       }
@@ -204,12 +207,14 @@ export function Tresorerie() {
       if (!realisedMonthsSet.has(m)) {
         for (const me of manualEntries) {
           if (!selCo.includes(me.company_key)) continue
-          const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
-          if (ht === 0) continue
+          // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
+          const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+          const ttc = parseFloat(me.amount_ttc || '0') || ht
+          if (ttc === 0) continue
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
             const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
-            const equalPart = ht / echDates.length
+            const equalPart = ttc / echDates.length
             for (let idx = 0; idx < echDates.length; idx++) {
               const d = echDates[idx]
               if (d.startsWith(m)) {
@@ -219,9 +224,9 @@ export function Tresorerie() {
               }
             }
           } else if (me.payment_date?.startsWith(m)) {
-            // Paiement ponctuel avec date de règlement dans ce mois
-            if (me.category === 'Vente') enc += ht
-            else dec += ht
+            // Paiement ponctuel avec date de règlement dans ce mois — cash flow TTC
+            if (me.category === 'Vente') enc += ttc
+            else dec += ttc
           }
         }
       }
@@ -268,14 +273,16 @@ export function Tresorerie() {
       if (!realisedMonthsSet.has(m)) {
         for (const me of manualEntries) {
           if (!selCo.includes(me.company_key)) continue
-          const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
-          if (ht === 0) continue
+          // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
+          const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+          const ttc = parseFloat(me.amount_ttc || '0') || ht
+          if (ttc === 0) continue
           const key = `__me_${me.id}`
           const label = `${me.label || me.counterpart || me.subcategory || 'Saisie'} — ${me.entry_date}`
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
             const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
-            const equalPart = ht / echDates.length
+            const equalPart = ttc / echDates.length
             for (let idx = 0; idx < echDates.length; idx++) {
               const d = echDates[idx]
               if (d.startsWith(m)) {
@@ -288,7 +295,7 @@ export function Tresorerie() {
           } else if (me.payment_date?.startsWith(m)) {
             const bucket = me.category === 'Vente' ? enc : dec
             if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
-            bucket[key].vals[mi] += ht
+            bucket[key].vals[mi] += ttc
           }
         }
       }
