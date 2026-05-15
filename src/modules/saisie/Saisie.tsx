@@ -133,6 +133,9 @@ export function Saisie() {
   const [echDelaiJours, setEchDelaiJours] = useState(30)
   const [echStartDate,  setEchStartDate]  = useState('')
   const [echDates,      setEchDates]      = useState<string[]>([])
+  // Édition / suppression de saisies existantes
+  const [editingId,     setEditingId]     = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
@@ -223,6 +226,54 @@ export function Saisie() {
   const handleSort = (col: typeof sortCol) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortCol(col); setSortDir(col === 'entry_date' ? 'desc' : 'asc') }
+  }
+
+  // ── Édition d'une saisie : charger dans le formulaire ───────────────────
+  const handleEditFacture = (e: ManualEntry) => {
+    setEditingId(String(e.id))
+    setForm({
+      company_key:  e.company_key || filters.selCo[0] || '',
+      entry_date:   e.entry_date || new Date().toISOString().slice(0, 10),
+      category:     e.category,
+      subcategory:  e.subcategory || '',
+      label:        e.label || '',
+      amount_ttc:   e.amount_ttc || '',
+      amount_ht:    e.amount_ht || e.amount_ht_saisie || '',
+      counterpart:  e.counterpart || '',
+      payment_mode: e.payment_mode || 'virement',
+      payment_date: e.payment_date || '',
+    })
+    setMode('manual')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setMsg('✏️ Modification en cours — éditez puis cliquez Enregistrer')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setMsg(null)
+  }
+
+  // ── Suppression d'une saisie (et ses échéances/amortissements liés) ─────
+  const handleDeleteFacture = async (id: string) => {
+    if (!tenantId) return
+    setSaving(true)
+    // Supprimer les enfants (parent_id) puis la facture elle-même
+    await sb.from('manual_entries').delete().eq('parent_id', id)
+    const { error } = await sb.from('manual_entries').delete().eq('id', id)
+    if (error) { setSaving(false); setMsg('❌ ' + error.message); return }
+
+    // Mettre à jour le store + rebuild RAW pour que tous les modules se mettent à jour
+    const newEntries = manualEntries.filter(en => String(en.id) !== id && (en as any).parent_id !== id)
+    setManualEntries(newEntries)
+    const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+    const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+    if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, newEntries))
+
+    setSaving(false)
+    setConfirmDelete(null)
+    setMsg('✅ Facture supprimée')
+    setTimeout(() => setMsg(null), 3000)
   }
   const sortIcon = (col: typeof sortCol) =>
     sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
@@ -467,7 +518,7 @@ export function Saisie() {
 
     const companyKey = form.company_key || filters.selCo[0] || RAW?.keys[0] || ''
 
-    const { data, error } = await sb.from('manual_entries').insert({
+    const payload = {
       tenant_id:    tenantId,
       company_key:  companyKey,
       entry_date:   form.entry_date,
@@ -483,7 +534,7 @@ export function Saisie() {
       payment_mode: form.payment_mode,
       payment_date: !isEch && form.payment_date ? form.payment_date : null,
       account_num:  extractAcc(form.subcategory, catConfig?.acc ?? '658'),
-      source:       ocrFile ? 'ocr' : 'manual',
+      source:       (editingId ? 'manual' : (ocrFile ? 'ocr' : 'manual')) as 'manual' | 'ocr',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
       ...(isEch ? {
         echeancier_data: {
@@ -496,18 +547,35 @@ export function Saisie() {
               ? { amounts: echAmounts }
               : {}),
         },
-      } : {}),
-    }).select().single()
+      } : { echeancier_data: null }),
+    }
+
+    const { data, error } = editingId
+      ? await sb.from('manual_entries').update(payload).eq('id', editingId).select().single()
+      : await sb.from('manual_entries').insert(payload).select().single()
 
     setSaving(false)
     if (error) { setMsg('❌ ' + error.message); return }
 
     const newEntry = data as ManualEntry
-    setMsg('✅ Entrée ajoutée — mise à jour des tableaux en cours...')
+    const wasEditing = !!editingId
+    setMsg(wasEditing ? '✅ Facture modifiée — mise à jour des tableaux en cours...' : '✅ Entrée ajoutée — mise à jour des tableaux en cours...')
 
-    // Rafraîchir tous les onglets
-    await refreshStore(newEntry)
-    setMsg('✅ Entrée ajoutée et tableaux mis à jour')
+    if (wasEditing) {
+      // Remplacer dans le store (pas de prepend, sinon doublon)
+      const updated = manualEntries.map(en => String(en.id) === editingId ? newEntry : en)
+      setManualEntries(updated)
+      if (tenantId) {
+        const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+        const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+        if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, updated))
+      }
+    } else {
+      await refreshStore(newEntry)
+    }
+
+    setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
+    setEditingId(null)
     setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setEchDates([])
     setEchAmounts([])
@@ -758,9 +826,19 @@ export function Saisie() {
 
           <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:14 }}>
             <button onClick={handleSubmit} disabled={saving || !form.amount_ht || isReadOnly}
-              style={{ padding:'8px 20px', borderRadius:8, background:'linear-gradient(135deg,#3b82f6,#6366f1)', border:'none', color:'#fff', fontSize:12, fontWeight:600, cursor: saving||!form.amount_ht ? 'not-allowed':'pointer', opacity: saving||!form.amount_ht ? 0.6:1 }}>
-              {saving ? 'Enregistrement...' : '+ Ajouter'}
+              style={{ padding:'8px 20px', borderRadius:8,
+                background: editingId ? 'linear-gradient(135deg,#f59e0b,#ef4444)' : 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                border:'none', color:'#fff', fontSize:12, fontWeight:600,
+                cursor: saving||!form.amount_ht ? 'not-allowed':'pointer',
+                opacity: saving||!form.amount_ht ? 0.6:1 }}>
+              {saving ? 'Enregistrement...' : (editingId ? '💾 Enregistrer modifications' : '+ Ajouter')}
             </button>
+            {editingId && (
+              <button onClick={handleCancelEdit} disabled={saving}
+                style={{ padding:'8px 16px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize:12, fontWeight:500, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                Annuler
+              </button>
+            )}
             {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444' }}>{msg}</span>}
           </div>
         </div>
@@ -818,6 +896,7 @@ export function Saisie() {
                   { label:'TTC €',               col:'amount_ttc'  as const, align:'right' },
                   { label:'Règlement',            col:null,                   align:'left'  },
                   { label:'Source',               col:null,                   align:'left'  },
+                  { label:'Actions',              col:null,                   align:'center'  },
                 ] as { label:string; col:'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'|null; align:string }[]).map(({ label, col, align }) => (
                   <th key={label} onClick={col ? () => handleSort(col) : undefined} style={{
                     padding:'6px 8px', textAlign: align as 'left'|'right',
@@ -869,6 +948,33 @@ export function Saisie() {
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: e.category==='Vente' ? '#10b981':'#f1f5f9' }}>{ttc.toFixed(2)}</td>
                     <td style={{ padding:'6px 8px', color:'#64748b' }}>{e.payment_mode||'—'}</td>
                     <td style={{ padding:'6px 8px', color:'#8b5cf6', fontSize:9 }}>{e.source}</td>
+                    <td style={{ padding:'6px 8px', fontSize:10, whiteSpace:'nowrap', textAlign:'center' }}>
+                      {confirmDelete === String(e.id) ? (
+                        <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                          <button onClick={() => handleDeleteFacture(String(e.id))} disabled={isReadOnly || saving}
+                            style={{ padding:'3px 8px', borderRadius:5, border:'none', background:'#ef4444', color:'#fff', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                            ✓ Confirmer
+                          </button>
+                          <button onClick={() => setConfirmDelete(null)}
+                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#94a3b8', fontSize:10, cursor:'pointer', fontFamily:'inherit' }}>
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                          <button onClick={() => handleEditFacture(e)} disabled={isReadOnly}
+                            title="Modifier"
+                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)', color:'#60a5fa', fontSize:11, cursor: isReadOnly ? 'not-allowed' : 'pointer', fontFamily:'inherit' }}>
+                            ✏️
+                          </button>
+                          <button onClick={() => setConfirmDelete(String(e.id))} disabled={isReadOnly}
+                            title="Supprimer"
+                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#f87171', fontSize:11, cursor: isReadOnly ? 'not-allowed' : 'pointer', fontFamily:'inherit' }}>
+                            🗑
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 )
               })}
