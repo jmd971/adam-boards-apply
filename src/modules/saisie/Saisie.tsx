@@ -532,7 +532,7 @@ export function Saisie() {
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
 
   return (
-    <div style={{ padding:'16px 24px', maxWidth:920 }}>
+    <div style={{ padding:'16px 24px' }}>
 
       {isReadOnly && (
         <div style={{ padding:'8px 14px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', color:'#f59e0b', fontSize:11, fontWeight:600, marginBottom:16 }}>
