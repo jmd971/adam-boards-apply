@@ -73,6 +73,8 @@ export interface EcheancierData {
   freq?: 'mensuel' | 'bimestriel' | 'trimestriel' | 'semestriel' | 'annuel'
   delai_jours?: number
   dates: string[]
+  /** Montants HT par échéance. Si absent → étalement équitable (ht / nb). */
+  amounts?: number[]
 }
 
 // ─── FEC / Comptabilité ────────────────────────────────────────────────────

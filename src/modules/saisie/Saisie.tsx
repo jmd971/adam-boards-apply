@@ -133,6 +133,10 @@ export function Saisie() {
   const [echDelaiJours, setEchDelaiJours] = useState(30)
   const [echStartDate,  setEchStartDate]  = useState('')
   const [echDates,      setEchDates]      = useState<string[]>([])
+  // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
+  // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
+  const [echAmounts,    setEchAmounts]    = useState<number[]>([])
+  const [echAmountsDirty, setEchAmountsDirty] = useState(false)
 
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
@@ -201,6 +205,20 @@ export function Saisie() {
     if (!start) return
     setEchDates(calcEcheancierDates(start, echNb, echDelaiJours))
   }, [echStartDate, echNb, echDelaiJours, form.entry_date])
+
+  // Auto-recalcule les montants équitables tant que l'utilisateur n'a pas saisi de répartition custom.
+  // Dès qu'il édite un montant manuellement, on stoppe l'auto-calcul (echAmountsDirty=true).
+  useEffect(() => {
+    const ht = parseFloat(form.amount_ht || '0') || 0
+    if (!echDates.length) { setEchAmounts([]); return }
+    if (echAmountsDirty && echAmounts.length === echDates.length) return
+    // Équitable, arrondi au centime, dernier montant ajusté pour matcher exactement le HT
+    const part = Math.round((ht / echDates.length) * 100) / 100
+    const arr = Array(echDates.length).fill(part)
+    const sum = part * echDates.length
+    if (sum !== ht) arr[arr.length - 1] = Math.round((ht - part * (echDates.length - 1)) * 100) / 100
+    setEchAmounts(arr)
+  }, [echDates.length, form.amount_ht, echAmountsDirty])
 
   const handleSort = (col: typeof sortCol) => {
     if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -468,7 +486,16 @@ export function Saisie() {
       source:       ocrFile ? 'ocr' : 'manual',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
       ...(isEch ? {
-        echeancier_data: { nb: echNb, delai_jours: echDelaiJours, dates }
+        echeancier_data: {
+          nb: echNb,
+          delai_jours: echDelaiJours,
+          dates,
+          // amounts uniquement si l'utilisateur a personnalisé. Sinon on laisse
+          // Trésorerie répartir équitablement (rétro-compatible avec saisies anciennes).
+          ...(echAmountsDirty && echAmounts.length === dates.length
+              ? { amounts: echAmounts }
+              : {}),
+        },
       } : {}),
     }).select().single()
 
@@ -483,6 +510,8 @@ export function Saisie() {
     setMsg('✅ Entrée ajoutée et tableaux mis à jour')
     setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setEchDates([])
+    setEchAmounts([])
+    setEchAmountsDirty(false)
     setOcrFile(null)
     setTimeout(() => setMsg(null), 3000)
   }
@@ -682,17 +711,45 @@ export function Saisie() {
                     style={inputSt} />
                 </div>
                 <div style={{ gridColumn:'1 / -1' }}>
-                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:6 }}>Dates d'échéances (modifiables)</label>
-                  <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8' }}>Échéances (date et montant modifiables)</label>
+                    {echAmountsDirty && (
+                      <button type="button" onClick={() => setEchAmountsDirty(false)}
+                        style={{ background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)',
+                          borderRadius:6, padding:'3px 10px', fontSize:10, cursor:'pointer' }}>
+                        Répartir équitablement
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'flex-end' }}>
                     {echDates.map((d, i) => (
                       <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
-                        <span style={{ fontSize:9, color:'#475569' }}>{i + 1}</span>
+                        <span style={{ fontSize:9, color:'#475569' }}>Échéance {i + 1}</span>
                         <input type="date" value={d}
                           onChange={e => setEchDates(prev => prev.map((x, j) => j === i ? e.target.value : x))}
                           style={{ ...inputSt, width:130, fontSize:11, padding:'4px 6px' }} />
+                        <input type="number" step="0.01" min={0} value={echAmounts[i] ?? 0}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value) || 0
+                            setEchAmounts(prev => prev.map((x, j) => j === i ? v : x))
+                            setEchAmountsDirty(true)
+                          }}
+                          style={{ ...inputSt, width:130, fontSize:11, padding:'4px 6px', textAlign:'right' }} />
                       </div>
                     ))}
                   </div>
+                  {(() => {
+                    const ht = parseFloat(form.amount_ht || '0') || 0
+                    const sum = echAmounts.reduce((s, v) => s + v, 0)
+                    const diff = Math.round((sum - ht) * 100) / 100
+                    if (!ht || !echAmounts.length) return null
+                    return (
+                      <div style={{ fontSize:10, marginTop:6, color: Math.abs(diff) < 0.01 ? '#10b981' : '#f59e0b' }}>
+                        Total échéances : {sum.toFixed(2)} € / HT facture : {ht.toFixed(2)} €
+                        {Math.abs(diff) >= 0.01 && <span> — écart {diff > 0 ? '+' : ''}{diff.toFixed(2)} €</span>}
+                      </div>
+                    )
+                  })()}
                 </div>
               </>
             )}

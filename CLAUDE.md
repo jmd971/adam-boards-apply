@@ -295,7 +295,7 @@ Code journal;Description du journal;Date;Date au format L47;N° de compte;Intitu
 - `account_num` : extrait via `extractAcc(sub, fallback)` depuis le libellé sous-catégorie
 - `payment_mode` : `'echeancier' | 'comptant' | 'virement' | ...`
 - `payment_date` : date du règlement (si non-échéancier)
-- `echeancier_data` : `{ nb, freq, dates: [YYYY-MM-DD] }` (si échéancier)
+- `echeancier_data` : `{ nb, freq, dates: [YYYY-MM-DD], amounts?: [number] }` (si échéancier). `amounts` optionnel : permet de définir un montant par échéance (ex: premier versement plus gros). Si absent, étalement équitable `ht / nb`. La somme des `amounts` n'est pas forcée d'égaler `ht` (avertissement UI uniquement)
 - `tenant_id` : obligatoire (RLS)
 
 **Les champs `parent_id` et `source: 'echeance'` existent dans le type mais ne sont JAMAIS créés.** Ils sont réservés pour un usage futur. Le filtre `me.source !== 'echeance'` dans `Saisie.tsx` et `calc.ts` est une pré-caution — ne JAMAIS le retirer.
@@ -315,7 +315,7 @@ const plField = inN ? 'pn' : inN1 ? 'p1' : inN2 ? 'p2' : 'pn'
 | Vue | Source | Comportement |
 |-----|--------|--------------|
 | **Réalisé** | Mois ∈ FEC (`RAW.mn`) | Lit les saisies via `pn` (déjà mergées). Si `payment_mode === 'echeancier'` : annule la contribution `pn` du mois facture, étale `ht/nb_échéances` sur les dates. Si `payment_date` ponctuel : déplace le flux de `entry_date` vers `payment_date`. |
-| **Prévisionnel** | Mois ∉ FEC (futur) | Pour chaque saisie : si échéancier, ajoute `ht/nb` sur chaque date d'échéance ; si payment_date, ajoute le HT sur ce mois. Ventes → `enc`, autres → `dec`. |
+| **Prévisionnel** | Mois ∉ FEC (futur) | Pour chaque saisie : si échéancier, ajoute `amounts[i]` (ou `ht/nb` si `amounts` absent) sur chaque date d'échéance ; si payment_date, ajoute le HT sur ce mois. Ventes → `enc`, autres → `dec`. |
 
 **Invariant double comptage** (Tresorerie.tsx ~ligne 183, 200) :
 ```typescript
@@ -341,6 +341,7 @@ Toute autre catégorie (`Achat`, `Depense`, `Immobilisation`) va dans `dec`.
 1. Saisir une facture **Achat** 1200€ TTC, mode `echeancier`, 3 mensualités → onglet Trésorerie / Prévisionnel : Décaissements montre +400 sur 3 mois ; déplier "Décaissements" affiche la sous-ligne avec le libellé
 2. Saisir une facture **Vente** 900€ TTC, mode `virement`, `payment_date` futur → Encaissements montre +900 sur le mois du payment_date
 3. Si `entry_date` est dans un mois FEC : la saisie doit apparaître **dans le Réalisé**, pas dans le Prévisionnel — pas de double comptage
+4. Saisir une facture **Achat** 1000€ HT avec 3 échéances **personnalisées** 500€ / 250€ / 250€ → onglet Trésorerie : voir 500 sur mois 1, 250 sur mois 2-3 (PAS 333,33 partout). Si on retire `amounts` du jsonb, étalement équitable doit revenir automatiquement
 
 ### 12. Import FEC (manuel ou via portail dépôt) — parcours complet
 

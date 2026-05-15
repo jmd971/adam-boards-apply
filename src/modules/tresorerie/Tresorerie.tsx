@@ -125,14 +125,18 @@ export function Tresorerie() {
           if (ec) eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
           if (dc) dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht)
         }
-        // Répartir sur les dates d'échéance
+        // Répartir sur les dates d'échéance. Si echeancier_data.amounts est défini,
+        // utiliser le montant par échéance — sinon, étalement équitable (ht / nb).
         const echDates: string[] = (me.echeancier_data as any).dates
-        const htPart = ht / echDates.length
-        for (const d of echDates) {
+        const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
+        const equalPart = ht / echDates.length
+        for (let idx = 0; idx < echDates.length; idx++) {
+          const d = echDates[idx]
+          const part = echAmounts?.[idx] ?? equalPart
           const mi_pay = months.findIndex((m: string) => d.startsWith(m))
           if (mi_pay < 0) continue
-          if (me.category === 'Vente') eM[mi_pay] += htPart
-          else dM[mi_pay] += htPart
+          if (me.category === 'Vente') eM[mi_pay] += part
+          else dM[mi_pay] += part
         }
       } else {
         // Non-échelonné.
@@ -204,11 +208,14 @@ export function Tresorerie() {
           if (ht === 0) continue
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
-            const htPart = ht / echDates.length
-            for (const d of echDates) {
+            const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
+            const equalPart = ht / echDates.length
+            for (let idx = 0; idx < echDates.length; idx++) {
+              const d = echDates[idx]
               if (d.startsWith(m)) {
-                if (me.category === 'Vente') enc += htPart
-                else dec += htPart
+                const part = echAmounts?.[idx] ?? equalPart
+                if (me.category === 'Vente') enc += part
+                else dec += part
               }
             }
           } else if (me.payment_date?.startsWith(m)) {
@@ -267,12 +274,15 @@ export function Tresorerie() {
           const label = `${me.label || me.counterpart || me.subcategory || 'Saisie'} — ${me.entry_date}`
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
-            const htPart = ht / echDates.length
-            for (const d of echDates) {
+            const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
+            const equalPart = ht / echDates.length
+            for (let idx = 0; idx < echDates.length; idx++) {
+              const d = echDates[idx]
               if (d.startsWith(m)) {
+                const part = echAmounts?.[idx] ?? equalPart
                 const bucket = me.category === 'Vente' ? enc : dec
                 if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
-                bucket[key].vals[mi] += htPart
+                bucket[key].vals[mi] += part
               }
             }
           } else if (me.payment_date?.startsWith(m)) {
