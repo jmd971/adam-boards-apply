@@ -135,10 +135,23 @@ export function Tresorerie() {
           else dM[mi_pay] += htPart
         }
       } else {
-        // Non-échelonné : déjà dans pn → ne compter dans eM/dM que si compte hors catégories
+        // Non-échelonné.
+        // Si payment_date défini → utiliser le mois de paiement pour l'impact trésorerie
+        // (la facture est déjà dans pn au mois entry_date → on déplace le montant vers mi_pay).
         const inStdCat = catOf(acc, ENC_CATS) || catOf(acc, DEC_CATS)
-        if (!inStdCat) {
-          const mi = months.findIndex((m: string) => me.entry_date.startsWith(m))
+        if (inStdCat && me.payment_date) {
+          const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
+          const mi_pay = months.findIndex((m: string) => (me.payment_date as string).startsWith(m))
+          if (mi_inv >= 0 && mi_pay >= 0 && mi_inv !== mi_pay) {
+            const ec = catOf(acc, ENC_CATS)
+            const dc = catOf(acc, DEC_CATS)
+            if (ec) { eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht); eB[ec][mi_pay] += ht }
+            if (dc) { dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht); dB[dc][mi_pay] += ht }
+          }
+        } else if (!inStdCat) {
+          // Hors catégories standard : compter dans eM/dM au mois de paiement (ou de facture)
+          const effDate = me.payment_date || me.entry_date
+          const mi = months.findIndex((m: string) => effDate.startsWith(m))
           if (mi >= 0) {
             if (me.category === 'Vente') eM[mi] += ht
             else dM[mi] += ht
@@ -166,6 +179,8 @@ export function Tresorerie() {
   }, [])
 
   const forecast = useMemo(() => {
+    // Mois déjà présents dans le réalisé → ne pas les compter en double dans le prévisionnel
+    const realisedMonthsSet = new Set(months)
     let cum = selCo.reduce((s, co) => s + soldeInitialPerCo(co), 0)
     return forecastMs.map((m,mi) => {
       let enc=0, dec=0
@@ -180,11 +195,34 @@ export function Tresorerie() {
         }
         dec+=p.remb
       }
+      // Saisies manuelles : échéanciers et paiements ponctuels tombant ce mois prévisionnel
+      // Uniquement les mois qui ne sont PAS déjà dans le réalisé (évite le double comptage).
+      if (!realisedMonthsSet.has(m)) {
+        for (const me of manualEntries) {
+          if (!selCo.includes(me.company_key)) continue
+          const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+          if (ht === 0) continue
+          if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+            const echDates: string[] = (me.echeancier_data as any).dates
+            const htPart = ht / echDates.length
+            for (const d of echDates) {
+              if (d.startsWith(m)) {
+                if (me.category === 'Vente') enc += htPart
+                else dec += htPart
+              }
+            }
+          } else if (me.payment_date?.startsWith(m)) {
+            // Paiement ponctuel avec date de règlement dans ce mois
+            if (me.category === 'Vente') enc += ht
+            else dec += ht
+          }
+        }
+      }
       enc=Math.round(enc); dec=Math.round(dec)
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
-  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany])
+  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
 
   // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
   const forecastDetail = useMemo(() => {
