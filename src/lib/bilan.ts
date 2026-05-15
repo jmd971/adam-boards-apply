@@ -17,7 +17,7 @@ export interface BilanSide {
   clientTop: [string, number][]
 }
 
-export interface BilanResult { n: BilanSide; n1: BilanSide }
+export interface BilanResult { n: BilanSide; n1: BilanSide; n2: BilanSide }
 
 function emptyBilan(): BilanSide {
   return { immos:0, stocks:0, clients:0, tresoActif:0, autresActif:0, totalActif:0,
@@ -25,7 +25,7 @@ function emptyBilan(): BilanSide {
            fournTop:[], clientTop:[] }
 }
 
-function computeSide(RAW: RAWData, keys: string[], field: 'bn' | 'b1'): BilanSide {
+function computeSide(RAW: RAWData, keys: string[], field: 'bn' | 'b1' | 'b2'): BilanSide {
   const b = emptyBilan()
   const fournMap: Record<string, number> = {}
   const clientMap: Record<string, number> = {}
@@ -60,5 +60,9 @@ function computeSide(RAW: RAWData, keys: string[], field: 'bn' | 'b1'): BilanSid
 }
 
 export function computeBilan(RAW: RAWData, keys: string[]): BilanResult {
-  return { n: computeSide(RAW, keys, 'bn'), n1: computeSide(RAW, keys, 'b1') }
+  return {
+    n:  computeSide(RAW, keys, 'bn'),
+    n1: computeSide(RAW, keys, 'b1'),
+    n2: computeSide(RAW, keys, 'b2'),
+  }
 }

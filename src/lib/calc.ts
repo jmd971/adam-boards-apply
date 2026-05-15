@@ -114,12 +114,19 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
     if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
     const mMonth = mDate.slice(0, 7)
-    // Use exact set membership: only treat as N-1 if the month is already in N-1 FEC data
-    // (and not also in N FEC data). Range-based check incorrectly classifies current-period
-    // entries as N-1 when the FEC N-1 import spans many years.
-    const isN1 = allMsN1.has(mMonth) && !allMsN.has(mMonth)
-    const plField = isN1 ? 'p1' : 'pn'
-    if (isN1) allMsN1.add(mMonth); else allMsN.add(mMonth)
+    // Classifier par appartenance exacte aux mois FEC. Priorité : N > N-1 > N-2.
+    // (Range-based check classait à tort les écritures courantes en N-1 quand le FEC N-1
+    //  couvrait plusieurs années.)
+    const inN  = allMsN.has(mMonth)
+    const inN1 = allMsN1.has(mMonth)
+    const inN2 = allMsN2.has(mMonth)
+    const plField: 'pn' | 'p1' | 'p2' =
+      inN ? 'pn' :
+      inN1 ? 'p1' :
+      inN2 ? 'p2' : 'pn'
+    if (plField === 'p2') allMsN2.add(mMonth)
+    else if (plField === 'p1') allMsN1.add(mMonth)
+    else allMsN.add(mMonth)
     const acc = me.account_num || '658', ht = parseFloat(me.amount_ht || me.amount_ht_saisie || '0') || 0
     if (ht === 0) continue
     const isCat7 = acc[0] === '7', debit = isCat7 ? 0 : ht, credit = isCat7 ? ht : 0
