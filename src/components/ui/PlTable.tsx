@@ -8,7 +8,7 @@ interface PlTableProps {
   RAW: RAWData
   selCo: string[]
   selectedMs: string[]
-  msSrc?: Array<'pn' | 'p1' | 'bud'>
+  msSrc?: Array<'pn' | 'p1' | 'p2' | 'bud'>
   showMonths: boolean
   showN1Full: boolean
   showBudget: boolean
