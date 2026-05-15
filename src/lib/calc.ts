@@ -23,7 +23,7 @@ export const monthIdx = (m: string): number => {
   return parseInt(y) * 12 + parseInt(mo)
 }
 
-export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: string, months: string[]): [number, number][] {
+export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p2', acc: string, months: string[]): [number, number][] {
   return months.map(m => {
     let d = 0, c = 0
     for (const co of keys) { const v = RAW.companies[co]?.[field]?.[acc]?.mo?.[m]; if (v) { d += v[0]; c += v[1] } }
@@ -31,13 +31,13 @@ export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: s
   })
 }
 
-export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string) {
+export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p2' | 'bn' | 'b1', acc: string) {
   const entries: [string, string, number, number, string, number][] = []
   for (const co of keys) { const acct = RAW.companies[co]?.[field]?.[acc]; if (acct?.e) entries.push(...acct.e as typeof entries) }
   return entries.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''))
 }
 
-export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string): string {
+export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p2' | 'bn' | 'b1', acc: string): string {
   for (const co of keys) {
     const src = RAW.companies[co]?.[field] as any
     if (!src) continue
@@ -53,9 +53,9 @@ export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'b
 export const sumArr = (arr: number[]): number => arr.reduce((s, v) => s + v, 0)
 export const solde  = (adj: [number, number][], isCharge: boolean): number[] => adj.map(([d, c]) => isCharge ? d - c : c - d)
 
-export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'bud'>, acc: string, _excludeOD: boolean): [number, number][] {
+export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, acc: string, _excludeOD: boolean): [number, number][] {
   return selectedMs.map((m, i) => {
-    const field = msSrc[i] === 'p1' ? 'p1' : 'pn'
+    const field: 'pn' | 'p1' | 'p2' = msSrc[i] === 'p2' ? 'p2' : msSrc[i] === 'p1' ? 'p1' : 'pn'
     let d = 0, c = 0
     for (const co of keys) {
       const src = RAW.companies[co]?.[field] as any
@@ -132,7 +132,7 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
   return { companies, mn: [...allMsN].sort(), m1: [...allMsN1].sort(), m2: [...allMsN2].sort(), keys: allKeys }
 }
 
-export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {
+export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {
   const result: PlData = {}
   for (const row of struct) {
     if (row.sep || row.header || !row.accs) continue
