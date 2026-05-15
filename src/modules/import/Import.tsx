@@ -66,6 +66,16 @@ export function Import() {
           ? { period: fp.period as 'N' | 'N-1' | 'N-2', fy: detectPeriod(parsed.months).fy }
           : detectPeriod(parsed.months)
 
+        // Rejeter les FEC trop anciens (N-3 et au-delà — ex : 2023 en 2026).
+        // Seules N, N-1 et N-2 sont supportés.
+        const fyNum = parseInt(fy)
+        const cy = new Date().getFullYear()
+        if (fyNum < cy - 2) {
+          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0,
+            error: `FEC ${fy} trop ancien — seules les années N (${cy}), N-1 (${cy-1}) et N-2 (${cy-2}) sont importables.` }])
+          continue
+        }
+
         const { data } = await sb.from('company_data')
           .select('company_key')
           .eq('tenant_id', tenantId)
