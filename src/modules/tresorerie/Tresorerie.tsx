@@ -138,16 +138,32 @@ export function Tresorerie() {
         }
         // Répartir TTC sur les dates d'échéance. Si echeancier_data.amounts est défini,
         // utiliser le montant par échéance — sinon, étalement équitable (ttc / nb).
+        // Si l'acc tombe dans une catégorie standard (ENC_CATS/DEC_CATS), on distribue
+        // dans cette catégorie (eA + eB) pour que le sous-compte affiche les échéances
+        // mois par mois. Sinon, fallback dans eM/dM ("Saisies manuelles").
         const echDates: string[] = (me.echeancier_data as any).dates
         const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
         const equalPart = ttc / echDates.length
+        const ecEch = catOf(acc, ENC_CATS)
+        const dcEch = catOf(acc, DEC_CATS)
+        const lbl   = me.subcategory || me.label || acc
         for (let idx = 0; idx < echDates.length; idx++) {
           const d = echDates[idx]
           const part = echAmounts?.[idx] ?? equalPart
           const mi_pay = months.findIndex((m: string) => d.startsWith(m))
           if (mi_pay < 0) continue
-          if (me.category === 'Vente') eM[mi_pay] += part
-          else dM[mi_pay] += part
+          if (me.category === 'Vente' && ecEch) {
+            if (!eA[ecEch][acc]) eA[ecEch][acc] = { vals: Array(months.length).fill(0), label: lbl }
+            eA[ecEch][acc].vals[mi_pay] += part
+            eB[ecEch][mi_pay] += part
+          } else if (me.category !== 'Vente' && dcEch) {
+            if (!dA[dcEch][acc]) dA[dcEch][acc] = { vals: Array(months.length).fill(0), label: lbl }
+            dA[dcEch][acc].vals[mi_pay] += part
+            dB[dcEch][mi_pay] += part
+          } else {
+            if (me.category === 'Vente') eM[mi_pay] += part
+            else dM[mi_pay] += part
+          }
         }
       } else {
         // Non-échelonné.
