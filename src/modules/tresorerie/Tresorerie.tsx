@@ -228,7 +228,9 @@ export function Tresorerie() {
   const forecastDetail = useMemo(() => {
     const enc: Record<string, { label:string; vals:number[] }> = {}
     const dec: Record<string, { label:string; vals:number[] }> = {}
+    const realisedMonthsSet = new Set(months)
     for (let mi = 0; mi < forecastMs.length; mi++) {
+      const m = forecastMs[mi]
       for (const co of selCo) {
         const bd = (budData as any)[co] ?? {}, p = getP(co)
         const dC = Math.max(0, Math.round(p.delaiClient/30))
@@ -254,9 +256,35 @@ export function Tresorerie() {
           dec[k].vals[mi] += Math.round(p.remb)
         }
       }
+      // Saisies manuelles (échéanciers + paiements ponctuels) : même filtre que les totaux
+      // → uniquement les mois hors réalisé, pour éviter le double comptage.
+      if (!realisedMonthsSet.has(m)) {
+        for (const me of manualEntries) {
+          if (!selCo.includes(me.company_key)) continue
+          const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+          if (ht === 0) continue
+          const key = `__me_${me.id}`
+          const label = `${me.label || me.counterpart || me.subcategory || 'Saisie'} — ${me.entry_date}`
+          if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+            const echDates: string[] = (me.echeancier_data as any).dates
+            const htPart = ht / echDates.length
+            for (const d of echDates) {
+              if (d.startsWith(m)) {
+                const bucket = me.category === 'Vente' ? enc : dec
+                if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+                bucket[key].vals[mi] += htPart
+              }
+            }
+          } else if (me.payment_date?.startsWith(m)) {
+            const bucket = me.category === 'Vente' ? enc : dec
+            if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+            bucket[key].vals[mi] += ht
+          }
+        }
+      }
     }
     return { enc, dec }
-  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany])
+  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
 
   // ── Vue journalière ────────────────────────────────────────────────────
   const dayForecast = useMemo(() => {
