@@ -109,7 +109,7 @@ export function Equilibre() {
       <div className="px-2">
         <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={selCo} selectedMs={selectedMs} msSrc={msSrc}
           showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={ventes}
-          budData={budData as any}
+          budData={budData as any /* requis : rend les sous-comptes budget (cf CLAUDE.md règle 19) */}
           collapsible
           onOpenModal={(title, entries, _, cumN, cumN1) => setModal({title, entries, cumN, cumN1})} />
       </div>
