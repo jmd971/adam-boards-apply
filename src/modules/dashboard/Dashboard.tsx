@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
+import { useEffectiveBudData } from '@/hooks/useEffectiveBudData'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -219,7 +220,7 @@ export function Dashboard() {
   const RAW         = useAppStore(s => s.RAW)
   const filters     = useAppStore(s => s.filters)
   const budVersions = useAppStore(s => s.budVersions)
-  const budData       = useAppStore(s => s.budData)
+  const budData       = useEffectiveBudData()
   const setFilters  = useAppStore(s => s.setFilters)
   const printRef    = useRef<HTMLDivElement>(null)
   const [showThresholdConfig, setShowThresholdConfig] = useState(false)
