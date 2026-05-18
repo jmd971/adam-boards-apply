@@ -612,3 +612,57 @@ Vérification anti-régression :
 2. Trésorerie → Réalisé → déplier la catégorie → la sous-ligne doit afficher `623 Publicité et marketing (623)`, **pas** le libellé de la facture
 3. Trésorerie → Prévisionnel → déplier Encaissements/Décaissements → idem
 4. Tester avec un écheancier multi-mois ET avec une facture dont `entry_date` est en N-1 mais `payment_date` en N
+
+---
+
+### 17. Budget — calcul dans `sumByPrefixes` (EQ)
+
+**Bug corrigé 2026-05-18** : dans `calc.ts`, le bloc EQ exploitation (`sumByPrefixes`) renvoyait `budTotal: 0` et `budMonths` vide. Conséquence : dans Équilibre, la colonne Budget s'affichait mais les montants étaient toujours `—`.
+
+**JAMAIS** :
+```typescript
+return { ..., budMonths, budTotal: 0, accs: [] } as PlCalcRow  // ❌ budget jamais calculé pour EQ
+```
+
+**TOUJOURS** : agréger le budget par préfixes en miroir du cumul réel, avec la même convention de signe que le chemin principal (`budSign = type === 'charge' ? 1 : -1`) :
+```typescript
+const budSign = type === 'charge' ? 1 : -1
+for (const co of selCo) {
+  const bd = budData[co] ?? {}
+  for (const [acc, bv] of Object.entries(bd)) {
+    if (!prefixes.some(p => acc.startsWith(p))) continue
+    const b = (bv as any)?.b ?? []
+    for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0) * budSign
+  }
+}
+const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
+```
+
+Les agrégats `marge_eq` et `resultat_eq` sont calculés via `add()` qui propage automatiquement `budTotal` / `budMonths` une fois les rangées source remplies.
+
+---
+
+### 18. Sélecteur de version budget — source unique dans la TopBar
+
+**Refonte 2026-05-18** : le sélecteur de version de budget est désormais dans la **TopBar globale** (visible quand le toggle Budget est actif). Il écrit dans `filters.budVersionKey` (format `"company_key|||version_name"`).
+
+**Toutes les pages d'analyse qui consomment `budData`** doivent appeler le hook `useEffectiveBudData()` au lieu de lire `budData` directement dans le store. Ce hook applique automatiquement la version sélectionnée (override de `budData[co]` pour la société/version choisie, fallback sur la version active sinon).
+
+**JAMAIS** :
+```typescript
+const budData = useAppStore(s => s.budData)  // ❌ ignore le sélecteur TopBar
+```
+
+**TOUJOURS** :
+```typescript
+import { useEffectiveBudData } from '@/hooks/useEffectiveBudData'
+const budData = useEffectiveBudData()  // ✅ respecte filters.budVersionKey
+```
+
+Pages concernées (à maintenir cohérentes) : `Equilibre.tsx`, `CompteResultat.tsx`, `Sig.tsx`, `Dashboard.tsx` (pour `budDataKpis`). Le Dashboard garde son propre sélecteur local pour rétro-compat — il partage le même `filters.budVersionKey` que la TopBar, donc les deux restent synchronisés.
+
+Vérification anti-régression :
+1. Créer 2 versions de budget pour la même société (page Budget)
+2. Activer le toggle Budget dans la TopBar → le dropdown doit apparaître à côté
+3. Basculer entre `— Version active —` et les autres versions → la colonne Budget de **CR, SIG, Équilibre** doit changer en conséquence
+4. Idem pour les KPIs budget du Dashboard
