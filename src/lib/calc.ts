@@ -231,7 +231,18 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           }
         }
       }
-      return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: 0, accs: [] } as PlCalcRow
+      // Budget : agrégation par préfixes (parallèle au cumul réel ci-dessus)
+      const budSign = type === 'charge' ? 1 : -1
+      for (const co of selCo) {
+        const bd = budData[co] ?? {}
+        for (const [acc, bv] of Object.entries(bd)) {
+          if (!prefixes.some(p => acc.startsWith(p))) continue
+          const b = (bv as any)?.b ?? []
+          for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0) * budSign
+        }
+      }
+      const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
+      return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal, accs: [] } as PlCalcRow
     }
     result['tot_ventes'] = sumByPrefixes(['7'], 'produit')
     result['tot_achats'] = sumByPrefixes(['60'], 'charge')
