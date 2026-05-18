@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { ObjectifsChart } from '@/components/ui'
 import { useAppStore } from '@/store'
 import { fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
+import { useCompanyObjectives, useCompanyObjectiveMutations } from '@/hooks/useCompanyObjectives'
 
 // Groupes de comptes pour chaque KPI
 const ACCS = {
@@ -41,6 +42,56 @@ export function Objectifs() {
   const budData = useAppStore(s => s.budData)
 
   const { RAW, selCo, selectedMs: msN, allMsN1Same: msN1 } = usePeriodFilter()
+
+  const { data: objData } = useCompanyObjectives()
+  const { upsert } = useCompanyObjectiveMutations()
+  const objByCompany = objData?.byCompany ?? {}
+
+  // Édition inline : { [company_key]: { rate: string, amount: string } }
+  const [edits, setEdits] = useState<Record<string, { rate: string; amount: string }>>({})
+  const [savingCo, setSavingCo] = useState<string | null>(null)
+  const [objOpen,  setObjOpen]  = useState(true)
+
+  // Initialise les champs édités quand objData arrive (ou change)
+  useEffect(() => {
+    const init: Record<string, { rate: string; amount: string }> = {}
+    for (const co of selCo) {
+      const o = objByCompany[co]
+      init[co] = {
+        rate:   o?.target_margin_rate   != null ? String(o.target_margin_rate)   : '',
+        amount: o?.target_margin_amount != null ? String(o.target_margin_amount) : '',
+      }
+    }
+    setEdits(init)
+  }, [selCo.join(','), objData])
+
+  const saveObjective = async (co: string) => {
+    const e = edits[co]; if (!e) return
+    setSavingCo(co)
+    try {
+      const rateNum   = e.rate.trim()   === '' ? null : parseFloat(e.rate.replace(',', '.'))
+      const amountNum = e.amount.trim() === '' ? null : parseFloat(e.amount.replace(',', '.'))
+      await upsert(co, { target_margin_rate: rateNum, target_margin_amount: amountNum })
+    } catch (err) {
+      console.error('[objectifs] upsert error:', err)
+    } finally {
+      setSavingCo(null)
+    }
+  }
+
+  // Marge brute réelle par société (sur la période sélectionnée)
+  const perCompanyMarge = useMemo(() => {
+    if (!RAW || !msN.length) return {}
+    const r: Record<string, { ca: number; achats: number; marge: number; rate: number }> = {}
+    for (const co of selCo) {
+      const ca     = sumAccs(RAW, [co], 'pn', msN, ACCS.ca)
+      const achats = sumAccs(RAW, [co], 'pn', msN, ACCS.achats, true)
+      const marge  = ca - achats
+      const rate   = ca > 0 ? (marge / ca) * 100 : 0
+      r[co] = { ca, achats, marge, rate }
+    }
+    return r
+  }, [RAW, selCo.join(','), msN.join(',')])
 
   // Calcul des valeurs N, N-1 et budget
   const kpiData = useMemo(() => {
@@ -132,6 +183,101 @@ export function Objectifs() {
           {msN[0] || '—'} → {msN[msN.length-1] || '—'}
         </span>
         <span>({nbMonths} mois · {selCo.length} société{selCo.length > 1 ? 's' : ''})</span>
+      </div>
+
+      {/* 🎯 Objectifs de marge par société (éditable + suivi) */}
+      <div style={{ background:'#0f172a', borderRadius:12, border:'1px solid rgba(255,255,255,0.07)', marginBottom:24, overflow:'hidden' }}>
+        <div onClick={() => setObjOpen(o => !o)}
+          style={{ padding:'14px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', userSelect:'none', borderBottom: objOpen ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+            <span style={{ fontSize:10, color:'#475569' }}>{objOpen ? '▾' : '▸'}</span>
+            <span style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.7px' }}>
+              🎯 Objectifs de marge par société
+            </span>
+          </div>
+          <span style={{ fontSize:10, color:'#475569' }}>
+            Taux cible (% marge / CA) + montant cible (€ pour la période)
+          </span>
+        </div>
+
+        {objOpen && (
+          <div style={{ overflowX:'auto' }}>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+              <thead>
+                <tr style={{ background:'rgba(255,255,255,0.02)' }}>
+                  <th style={{ textAlign:'left',  padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}>Société</th>
+                  <th style={{ textAlign:'right', padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}>Taux cible (%)</th>
+                  <th style={{ textAlign:'right', padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}>Marge cible (€)</th>
+                  <th style={{ textAlign:'right', padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}>Marge réelle (€)</th>
+                  <th style={{ textAlign:'right', padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}>Taux réel (%)</th>
+                  <th style={{ textAlign:'right', padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}>Écart taux (pts)</th>
+                  <th style={{ textAlign:'right', padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}>% atteint (€)</th>
+                  <th style={{ textAlign:'center', padding:'10px 14px', color:'var(--text-2)', fontWeight:600, fontSize:10, textTransform:'uppercase', letterSpacing:'0.5px' }}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {selCo.map(co => {
+                  const real     = perCompanyMarge[co] ?? { ca:0, achats:0, marge:0, rate:0 }
+                  const obj      = objByCompany[co]
+                  const tgtRate  = obj?.target_margin_rate
+                  const tgtAmt   = obj?.target_margin_amount
+                  const ed       = edits[co] ?? { rate:'', amount:'' }
+                  const deltaPts = tgtRate != null ? real.rate - Number(tgtRate) : null
+                  const pctAmt   = tgtAmt != null && Number(tgtAmt) !== 0 ? Math.round((real.marge / Number(tgtAmt)) * 100) : null
+                  const inputSt: React.CSSProperties = {
+                    background:'#1e293b', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6,
+                    color:'var(--text-0)', padding:'5px 8px', fontSize:11, width:90,
+                    textAlign:'right', fontFamily:'monospace', outline:'none',
+                  }
+                  return (
+                    <tr key={co} style={{ borderTop:'1px solid rgba(255,255,255,0.04)' }}>
+                      <td style={{ padding:'8px 14px', color:'var(--text-0)', fontWeight:600 }}>
+                        {RAW.companies[co]?.name || co}
+                      </td>
+                      <td style={{ padding:'8px 14px', textAlign:'right' }}>
+                        <input type="number" step="0.1" min="0" max="100" placeholder="—"
+                          value={ed.rate}
+                          onChange={e => setEdits(p => ({ ...p, [co]: { ...ed, rate: e.target.value } }))}
+                          style={inputSt} />
+                      </td>
+                      <td style={{ padding:'8px 14px', textAlign:'right' }}>
+                        <input type="number" step="100" placeholder="—"
+                          value={ed.amount}
+                          onChange={e => setEdits(p => ({ ...p, [co]: { ...ed, amount: e.target.value } }))}
+                          style={{ ...inputSt, width:110 }} />
+                      </td>
+                      <td style={{ padding:'8px 14px', textAlign:'right', fontFamily:'monospace', color: real.marge < 0 ? '#ef4444' : 'var(--text-1)' }}>
+                        {fmt(real.marge)} €
+                      </td>
+                      <td style={{ padding:'8px 14px', textAlign:'right', fontFamily:'monospace', color: real.rate < 0 ? '#ef4444' : 'var(--text-1)' }}>
+                        {real.ca > 0 ? `${real.rate.toFixed(1)} %` : '—'}
+                      </td>
+                      <td style={{ padding:'8px 14px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
+                        color: deltaPts == null ? '#475569' : deltaPts >= 0 ? '#10b981' : '#ef4444' }}>
+                        {deltaPts != null ? `${deltaPts >= 0 ? '+' : ''}${deltaPts.toFixed(1)} pts` : '—'}
+                      </td>
+                      <td style={{ padding:'8px 14px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
+                        color: pctAmt == null ? '#475569' : pctAmt >= 100 ? '#10b981' : pctAmt >= 75 ? '#f59e0b' : '#ef4444' }}>
+                        {pctAmt != null ? `${pctAmt} %` : '—'}
+                      </td>
+                      <td style={{ padding:'8px 14px', textAlign:'center' }}>
+                        <button onClick={() => saveObjective(co)} disabled={savingCo === co}
+                          style={{
+                            padding:'5px 12px', borderRadius:6, fontSize:11, fontWeight:600,
+                            background: savingCo === co ? 'rgba(255,255,255,0.05)' : 'rgba(59,130,246,0.18)',
+                            color: savingCo === co ? '#64748b' : '#93c5fd',
+                            border:'1px solid rgba(59,130,246,0.3)', cursor: savingCo === co ? 'wait' : 'pointer',
+                          }}>
+                          {savingCo === co ? '…' : 'Enregistrer'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
