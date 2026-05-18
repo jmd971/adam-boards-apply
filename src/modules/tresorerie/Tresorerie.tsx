@@ -318,8 +318,8 @@ export function Tresorerie() {
           const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
           const ttc = parseFloat(me.amount_ttc || '0') || ht
           if (ttc === 0) continue
-          const key = `__me_${me.id}`
-          const label = `${me.label || me.counterpart || me.subcategory || 'Saisie'} — ${me.entry_date}`
+          const key = me.account_num || '658'
+          const label = me.subcategory || key
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
             const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
