@@ -111,18 +111,18 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
               <>
                 <select value={filters.startM} onChange={e => setFilters({ startM: e.target.value })} style={selSt}>
                   {allMonths.map(m => {
-                    const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
+                    const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m), inN2 = RAW?.m2?.includes(m)
                     return <option key={m} value={m} style={{ background:'#0d1424' }}>
-                      {monthLabel(m)}{inN?' ·N':inN1?' ·N-1':''}
+                      {monthLabel(m)}{inN?' ·N':inN1?' ·N-1':inN2?' ·N-2':''}
                     </option>
                   })}
                 </select>
                 <span style={{ color:'var(--text-3)', fontSize:12 }}>→</span>
                 <select value={filters.endM} onChange={e => setFilters({ endM: e.target.value })} style={selSt}>
                   {allMonths.filter(m => monthIdx(m) >= monthIdx(filters.startM)).map(m => {
-                    const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
+                    const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m), inN2 = RAW?.m2?.includes(m)
                     return <option key={m} value={m} style={{ background:'#0d1424' }}>
-                      {monthLabel(m)}{inN?' ·N':inN1?' ·N-1':''}
+                      {monthLabel(m)}{inN?' ·N':inN1?' ·N-1':inN2?' ·N-2':''}
                     </option>
                   })}
                 </select>
