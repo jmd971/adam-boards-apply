@@ -140,6 +140,7 @@ export function Sig() {
           struct={SIG} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
           showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
+          budData={budData as any}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
           maxHeight="calc(100vh - 200px)"
           cumulRowKey="rnet"
