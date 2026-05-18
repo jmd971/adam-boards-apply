@@ -32,7 +32,6 @@ interface TopBarProps {
 export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollapsed }: TopBarProps) {
   const tab        = useAppStore(s => s.tab)
   const filters    = useAppStore(s => s.filters)
-  const RAW        = useAppStore(s => s.RAW)
   const setFilters = useAppStore(s => s.setFilters)
 
   const meta       = TAB_META[tab] || { label: tab, icon: '📊' }
