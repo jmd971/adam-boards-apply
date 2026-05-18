@@ -20,7 +20,7 @@ const TAB_META: Record<string, { label: string; icon: string }> = {
 }
 
 const PL_TABS       = ['cr','sig','equilibre']
-const ANALYSIS_TABS = ['dashboard','cr','sig','equilibre','objectifs','bilan','ratios','budget']
+const ANALYSIS_TABS = ['dashboard','cr','sig','equilibre','objectifs','bilan','ratios','budget','tresorerie']
 
 interface TopBarProps {
   allMonths: string[]
@@ -42,7 +42,7 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
   const selSt: React.CSSProperties = {
     background:'transparent', border:'none', color:'var(--text-0)',
     fontSize:12, fontWeight:500, cursor:'pointer', outline:'none', fontFamily:'inherit',
-    padding:'2px 0',
+    padding:'4px 8px', minWidth:'140px',
   }
 
   const Toggle = ({ label, k }: { label: string; k: 'showMonths' | 'showN1Full' | 'excludeOD' | 'showBudget' }) => {

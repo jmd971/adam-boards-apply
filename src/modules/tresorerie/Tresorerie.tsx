@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { KpiCard, EcrituresModal } from '@/components/ui'
 import { BankAccountsPanel } from './BankAccountsPanel'
 import { useBankAccounts } from './useBankAccounts'
@@ -50,6 +51,7 @@ export function Tresorerie() {
   const filters       = useAppStore(s => s.filters)
   const manualEntries = useAppStore(s => s.manualEntries)
   const budData       = useAppStore(s => s.budData)
+  const { selectedMs } = usePeriodFilter()
 
   const [view,     setView]     = useState<'realise'|'prev'>('realise')
   const [expanded, setExpanded] = useState<Record<string,boolean>>({})
@@ -67,7 +69,7 @@ export function Tresorerie() {
   const [dayMonth, setDayMonth] = useState<string>('')
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
-  const months = RAW?.mn ?? []
+  const months = selectedMs
 
   const getP = (co: string) => params[co] ?? { delaiClient:45, delaiFourn:30, remb:0, soldeInitial:0 }
 
