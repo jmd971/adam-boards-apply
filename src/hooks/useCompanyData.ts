@@ -79,9 +79,14 @@ export function useCompanyData() {
     if (raw.keys.length > 0) {
       setFilters({ selCo: raw.keys, budCo: raw.keys[0] ?? '' })
     }
-    const allMs = [...raw.mn, ...raw.m1, ...raw.m2].sort()
-    if (allMs.length > 0) {
-      setFilters({ startM: allMs[0], endM: allMs[allMs.length - 1] })
+    if (raw.mn.length > 0) {
+      setFilters({ startM: raw.mn[0], endM: raw.mn[raw.mn.length - 1] })
+    } else if (raw.m1.length > 0) {
+      // Pas de données N → fallback sur N-1
+      setFilters({ startM: raw.m1[0], endM: raw.m1[raw.m1.length - 1] })
+    } else if (raw.m2.length > 0) {
+      // Pas de N ni N-1 → fallback sur N-2 (ex : seul FEC 2024 importé en 2026)
+      setFilters({ startM: raw.m2[0], endM: raw.m2[raw.m2.length - 1] })
     }
 
     setDataLoading(false)
