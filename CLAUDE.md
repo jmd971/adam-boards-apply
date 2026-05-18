@@ -676,3 +676,31 @@ Vérification anti-régression :
 2. Activer le toggle Budget dans la TopBar → le dropdown doit apparaître à côté
 3. Basculer entre `— Version active —` et les autres versions → la colonne Budget de **CR, SIG, Équilibre** doit changer en conséquence
 4. Idem pour les KPIs budget du Dashboard
+
+---
+
+### 19. PlTable — propager `budData` pour le rendu des sous-comptes
+
+**Bug corrigé 2026-05-18** : `PlTable` rend deux niveaux de budget :
+- **Lignes de section** (`tot_ventes`, `ca_v`, `serv_ext`…) → consomme `plCalc[row.id].budTotal` (calculé en amont dans `computePlCalc`)
+- **Lignes de détail par sous-compte** (lorsqu'une section est dépliée) → appelle `getBudget(selCo, budData, acc, ...)` directement → **nécessite la prop `budData`**
+
+Sans la prop, le fallback `accBudget = 0` rend `—` sur toutes les sous-lignes alors que le total de section affiche correctement.
+
+**JAMAIS** :
+```tsx
+<PlTable ... showBudget={filters.showBudget} /* budData manquant */ />  // ❌ sous-comptes vides
+```
+
+**TOUJOURS** :
+```tsx
+const budData = useEffectiveBudData()
+<PlTable ... showBudget={filters.showBudget} budData={budData as any} />  // ✅ sous-comptes peuplés
+```
+
+Pages concernées : `Equilibre.tsx`, `CompteResultat.tsx`, `Sig.tsx` (et toute future page utilisant `PlTable` avec `showBudget`).
+
+Vérification anti-régression :
+1. Activer le toggle Budget dans la TopBar
+2. Sur CR / SIG / Équilibre : déplier une section avec sous-comptes (ex : "Prestations de services" → `706`, `7060000000`)
+3. La colonne Budget des sous-comptes doit afficher un montant (`—` uniquement si le compte n'est pas dans le budget actif)
