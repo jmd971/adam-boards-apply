@@ -98,9 +98,30 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
       const plField = row.period === 'N' ? 'pn' : row.period === 'N-1' ? 'p1' : 'p2'
       const bField  = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
       const msSet   = row.period === 'N' ? allMsN : row.period === 'N-1' ? allMsN1 : allMsN2
+      const cy      = new Date().getFullYear()
       for (const [acc, acct] of Object.entries(row.pl_data ?? {})) {
-        companies[co][plField][acc] = acct as any
-        for (const m of Object.keys((acct as any).mo ?? {})) msSet.add(m)
+        if (row.period === 'N') {
+          // FEC multi-années tagué N : reclasser chaque mois par année calendaire.
+          // Ex : FEC Jan 2025–Mai 2026 → mois 2025 vont en p1/allMsN1, mois 2026 en pn/allMsN.
+          const src = acct as any
+          for (const [m, v] of Object.entries(src.mo ?? {} as Record<string, unknown>)) {
+            const yr = parseInt(m.slice(0, 4))
+            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
+            const ms = yr >= cy ? allMsN : yr === cy - 1 ? allMsN1 : allMsN2
+            ms.add(m)
+            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+            ;(companies[co][f][acc] as any).mo[m] = v
+          }
+          for (const e of (src.e ?? [])) {
+            const yr = parseInt((e[0] as string || '').slice(0, 4)) || cy
+            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
+            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+            ;(companies[co][f][acc] as any).e.push(e)
+          }
+        } else {
+          companies[co][plField][acc] = acct as any
+          for (const m of Object.keys((acct as any).mo ?? {})) msSet.add(m)
+        }
       }
       for (const [acc, acct] of Object.entries(row.bilan_data ?? {})) companies[co][bField][acc] = acct as any
       if (row.period === 'N') { companies[co].cdN = row.client_data ?? {}; companies[co].veN = row.ve_entries ?? [] }
