@@ -148,7 +148,7 @@ export function Tresorerie() {
         const equalPart = ttc / echDates.length
         const ecEch = catOf(acc, ENC_CATS)
         const dcEch = catOf(acc, DEC_CATS)
-        const lbl   = me.subcategory || me.label || acc
+        const lbl   = me.subcategory || acc
         for (let idx = 0; idx < echDates.length; idx++) {
           const d = echDates[idx]
           const part = echAmounts?.[idx] ?? equalPart
