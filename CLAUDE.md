@@ -547,3 +547,68 @@ const fyN2 = RAW.m2?.[RAW.m2.length - 1]?.slice(0, 4) ?? 'N-2'
 ```
 
 Symptôme du bug : tableau "Tendance N vs N-1" affiche `2025 | 2025` au lieu de `2026 | 2025`.
+
+---
+
+### 15. Équilibre — toggle Budget câblé au filtre global
+
+**Bug corrigé 2026-05-18** : dans `Equilibre.tsx`, la prop `showBudget` passée à `PlTable` doit être branchée sur `filters.showBudget` (le toggle Budget de la TopBar), exactement comme dans `CompteResultat.tsx` et `SIG.tsx`.
+
+**JAMAIS** :
+```tsx
+<PlTable ... showBudget={false} ... />  // ❌ toggle TopBar ignoré
+```
+
+**TOUJOURS** :
+```tsx
+<PlTable ... showBudget={filters.showBudget} ... />  // ✅ cohérent avec CR / SIG
+```
+
+Vérification anti-régression : activer le toggle Budget dans la TopBar et confirmer que la colonne Budget apparaît dans **toutes** les pages d'analyse P&L (CR, SIG, Équilibre).
+
+---
+
+### 16. Trésorerie — libellé des sous-catégories (réalisé ET prévisionnel)
+
+**Bug corrigé 2026-05-18** : les sous-catégories de Trésorerie (lignes dépliables sous chaque catégorie d'encaissement / décaissement) doivent afficher le **numéro de compte** (`me.account_num`) avec, en libellé, la **sous-catégorie de saisie** (`me.subcategory`). **JAMAIS** le libellé de la facture (`me.label`) qui change à chaque saisie.
+
+#### A. Réalisé — fallback du `lbl` pour les écheanciers
+Dans `Tresorerie.tsx`, useMemo `treso`, branche écheancier (~ligne 151) :
+
+**JAMAIS** :
+```typescript
+const lbl = me.subcategory || me.label || acc  // ❌ tombe sur libellé facture si subcategory vide
+```
+
+**TOUJOURS** :
+```typescript
+const lbl = me.subcategory || acc  // ✅ fallback = numéro de compte
+```
+
+Cas déclencheur : facture émise en N-1 (rangée dans `p1` par `buildRAW`) avec écheancier dont les paiements tombent en N → le compte n'existe pas encore dans `pn` ni dans `eA[ec]`, donc créé par la branche écheancier avec ce `lbl`.
+
+#### B. Prévisionnel — clé et label dans `forecastDetail`
+Dans `Tresorerie.tsx`, useMemo `forecastDetail`, boucle `manualEntries` (~ligne 321) :
+
+**JAMAIS** :
+```typescript
+const key = `__me_${me.id}`                                          // ❌ une ligne par facture
+const label = `${me.label || me.counterpart || ...} — ${me.entry_date}`  // ❌ libellé facture
+```
+
+**TOUJOURS** :
+```typescript
+const key = me.account_num || '658'   // ✅ regroupe par numéro de compte (comme le réalisé)
+const label = me.subcategory || key   // ✅ sous-catégorie ou compte, jamais libellé facture
+```
+
+Conséquences attendues :
+- Les saisies de même compte s'agrègent sur une seule ligne (cohérent avec la vue budget)
+- La fonction de rendu `!acc.startsWith('__') && <span>{acc}</span>` affiche désormais le numéro de compte en monospace (avant : caché par le préfixe `__me_`)
+- `mergeEntries(RAW, selCo, 'pn', acc)` peut retrouver les écritures pour afficher le badge "X éc."
+
+Vérification anti-régression :
+1. Saisir une facture (Achat ou Vente) via la page Saisie avec un compte standard (ex : 623)
+2. Trésorerie → Réalisé → déplier la catégorie → la sous-ligne doit afficher `623 Publicité et marketing (623)`, **pas** le libellé de la facture
+3. Trésorerie → Prévisionnel → déplier Encaissements/Décaissements → idem
+4. Tester avec un écheancier multi-mois ET avec une facture dont `entry_date` est en N-1 mais `payment_date` en N
