@@ -420,9 +420,9 @@ export function Dashboard() {
     const kN  = computeKpisPeriod(RAW, selCo, 'pn', RAW.mn ?? [])
     const kN1 = computeKpisPeriod(RAW, selCo, 'p1', RAW.m1 ?? [])
     const kN2 = hasN2 ? computeKpisPeriod(RAW, selCo, 'p2', RAW.m2 ?? []) : null
-    const fyN  = RAW.mn?.[0]?.slice(0, 4) ?? 'N'
-    const fyN1 = RAW.m1?.[0]?.slice(0, 4) ?? 'N-1'
-    const fyN2 = RAW.m2?.[0]?.slice(0, 4) ?? 'N-2'
+    const fyN  = RAW.mn?.[RAW.mn.length - 1]?.slice(0, 4) ?? 'N'
+    const fyN1 = RAW.m1?.[RAW.m1.length - 1]?.slice(0, 4) ?? 'N-1'
+    const fyN2 = RAW.m2?.[RAW.m2.length - 1]?.slice(0, 4) ?? 'N-2'
     const metrics = [
       { key: "Chiffre d'affaires", N: kN.ca,    N1: kN1.ca,    N2: kN2?.ca },
       { key: 'Marge brute',        N: kN.marge,  N1: kN1.marge,  N2: kN2?.marge },
