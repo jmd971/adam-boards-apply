@@ -52,10 +52,26 @@ Supabase (company_data + budget + manual_entries)
 
 ### buildRAW — invariants critiques
 
-- Fusionne `company_data` FEC + `manual_entries` dans `pn` (comptes du plan comptable)
+- Fusionne `company_data` FEC + `manual_entries` dans `pn`/`p1`/`p2` selon l'**année calendaire réelle** de chaque mois
 - **Ignore les entries avec `company_key` vide** (`if (!mco) continue`)
-- Calcule `RAW.mn` = union de tous les mois couverts (utilisé par `usePeriodFilter`)
-- Les mois des manual_entries sont ajoutés à `allMsN` → apparaissent dans `mn`
+- `RAW.mn` = mois de l'année cy, `RAW.m1` = cy-1, `RAW.m2` = cy-2 (basé sur l'année du mois, pas le champ `period` stocké)
+- Les mois des manual_entries sont classés par appartenance exacte aux sets allMsN/allMsN1/allMsN2
+
+**FEC multi-années — bug corrigé 2026-05-18** : Un FEC N couvrant plusieurs années (ex: Jan 2025 → Mai 2026) doit être reclassé par année calendaire dans `buildRAW`. **JAMAIS** mettre tous les mois d'un FEC `period='N'` dans `pn` sans vérifier leur année :
+```typescript
+// calc.ts — boucle pl_data pour les lignes period='N'
+const cy = new Date().getFullYear()
+for (const [m, v] of Object.entries(src.mo ?? {})) {
+  const yr = parseInt(m.slice(0, 4))
+  const f: 'pn'|'p1'|'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
+  const ms = yr >= cy ? allMsN : yr === cy - 1 ? allMsN1 : allMsN2
+  ms.add(m)
+  if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+  ;(companies[co][f][acc] as any).mo[m] = v
+}
+// Les lignes period='N-1' et 'N-2' restent dans leur field stocké (non reclassées)
+```
+Sans cette règle : `RAW.mn` = 17 mois au lieu de 5 → EBE/RE faux, comparaison N-1 vide, page Vérification affiche N=17 mois.
 
 ### Filtre de période — invariant critique
 
@@ -488,3 +504,46 @@ else if (raw.m2.length > 0) setFilters({ startM: raw.m2[0], endM: raw.m2.at(-1) 
 4. Importer un FEC `cy-3` → **doit être rejeté** avec message d'erreur explicite
 5. Importer le même fichier 2 fois → upsert (pas de doublon), même `company_data.id` (ou updated_at modifié)
 6. Importer un fichier nommé `FEC SCI TOURIZK 2025.txt` → `company_key = FEC_SCI_TOURIZK_2025`, `company_name = SCI TOURIZK`
+7. **FEC multi-années** (ex: FEC 2025+2026 importé en zone N) → page Vérification : Mois N = mois cy uniquement, Mois N-1 = mois cy-1. **NE PAS** voir 17 mois en N.
+
+---
+
+### 13. TopBar — tags ·N / ·N-1 / ·N-2 dans le sélecteur de période
+
+**Bug corrigé 2026-05-18** : les tags dans le dropdown de période (startM / endM) doivent être basés sur l'**année calendaire du mois**, pas sur l'appartenance aux sets `RAW.mn` / `RAW.m1` / `RAW.m2`.
+
+**JAMAIS** :
+```typescript
+const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
+{monthLabel(m)}{inN?' ·N':inN1?' ·N-1':''}  // ❌ faux si FEC multi-années (tout dans mn)
+```
+
+**TOUJOURS** :
+```typescript
+const yr = parseInt(m.slice(0, 4)), cy = new Date().getFullYear()
+const tag = yr === cy ? ' ·N' : yr === cy - 1 ? ' ·N-1' : yr <= cy - 2 ? ' ·N-2' : ''
+{monthLabel(m)}{tag}  // ✅ basé sur l'année réelle
+```
+
+Conséquence : `RAW` n'est plus lu dans `TopBar` — supprimer `const RAW = useAppStore(s => s.RAW)` pour éviter l'erreur TS6133.
+
+---
+
+### 14. Dashboard — étiquettes d'année fyN / fyN1 / fyN2
+
+**Bug corrigé 2026-05-18** : dans `Dashboard.tsx`, `computeKpisPeriod` retourne `{ fyN, fyN1, fyN2 }` utilisées comme en-têtes du tableau "Tendance N vs N-1". Ces labels doivent utiliser le **dernier** mois de chaque set (le plus récent), jamais le premier.
+
+**JAMAIS** :
+```typescript
+const fyN  = RAW.mn?.[0]?.slice(0, 4) ?? 'N'    // ❌ retourne la plus ancienne année si FEC multi-années
+const fyN1 = RAW.m1?.[0]?.slice(0, 4) ?? 'N-1'
+```
+
+**TOUJOURS** :
+```typescript
+const fyN  = RAW.mn?.[RAW.mn.length - 1]?.slice(0, 4) ?? 'N'    // ✅ dernière année = la plus récente
+const fyN1 = RAW.m1?.[RAW.m1.length - 1]?.slice(0, 4) ?? 'N-1'
+const fyN2 = RAW.m2?.[RAW.m2.length - 1]?.slice(0, 4) ?? 'N-2'
+```
+
+Symptôme du bug : tableau "Tendance N vs N-1" affiche `2025 | 2025` au lieu de `2026 | 2025`.
