@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import { useAppStore } from '@/store'
 import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
 import { EQ } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
+import { useEffectiveBudData } from '@/hooks/useEffectiveBudData'
 import { exportPlCalcXlsx, printModule } from '@/lib/export'
 import {
   BarChart, Bar,
@@ -28,7 +28,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function Equilibre() {
   const printRef = useRef<HTMLDivElement>(null)
-  const budData = useAppStore(s => s.budData)
+  const budData = useEffectiveBudData()
   const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
 
   const { RAW, filters, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
