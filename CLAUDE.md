@@ -225,6 +225,16 @@ source ('manual'|'fec'), client_data, ve_entries
 tenant_id, company_key, period, data (jsonb)
 ```
 
+### `company_objectives`
+```
+id, tenant_id, company_key,
+target_margin_rate (numeric % 0-100),
+target_margin_amount (numeric €),
+notes, created_at, updated_at
+unique(tenant_id, company_key)
+```
+Migration : `supabase/migrations/010_company_objectives.sql` — à exécuter manuellement dans Supabase Studio si pas déjà fait. Hook : [useCompanyObjectives.ts](src/hooks/useCompanyObjectives.ts).
+
 ---
 
 ## Build — erreurs TypeScript courantes
