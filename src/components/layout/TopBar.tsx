@@ -30,9 +30,10 @@ interface TopBarProps {
 }
 
 export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollapsed }: TopBarProps) {
-  const tab        = useAppStore(s => s.tab)
-  const filters    = useAppStore(s => s.filters)
-  const setFilters = useAppStore(s => s.setFilters)
+  const tab         = useAppStore(s => s.tab)
+  const filters     = useAppStore(s => s.filters)
+  const setFilters  = useAppStore(s => s.setFilters)
+  const budVersions = useAppStore(s => s.budVersions)
 
   const meta       = TAB_META[tab] || { label: tab, icon: '📊' }
   const isAnalysis = ANALYSIS_TABS.includes(tab)
@@ -144,6 +145,26 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
         )}
         {isAnalysis && (
           <Toggle label="Budget" k="showBudget" />
+        )}
+        {isAnalysis && filters.showBudget && budVersions.length > 0 && (
+          <select
+            value={filters.budVersionKey}
+            onChange={e => setFilters({ budVersionKey: e.target.value })}
+            title="Version de budget appliquée à toutes les pages d'analyse"
+            style={{
+              padding:'5px 8px', borderRadius:6, border:'1px solid var(--border-1)',
+              background:'var(--bg-0)', color:'var(--text-1)', fontSize:11,
+              cursor:'pointer', fontFamily:'inherit', outline:'none', maxWidth:200,
+            }}>
+            <option value="">— Version active —</option>
+            {budVersions.map(v => (
+              <option key={`${v.company_key}|||${v.version_name}`}
+                      value={`${v.company_key}|||${v.version_name}`}
+                      style={{ background:'#0d1424' }}>
+                {v.company_key} — {v.version_name}
+              </option>
+            ))}
+          </select>
         )}
       </div>
     </header>
