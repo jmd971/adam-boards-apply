@@ -704,3 +704,37 @@ Vérification anti-régression :
 1. Activer le toggle Budget dans la TopBar
 2. Sur CR / SIG / Équilibre : déplier une section avec sous-comptes (ex : "Prestations de services" → `706`, `7060000000`)
 3. La colonne Budget des sous-comptes doit afficher un montant (`—` uniquement si le compte n'est pas dans le budget actif)
+
+---
+
+### 20. Budget — comptes manuels hors FEC (préfixe vs lookup exact)
+
+**Bug corrigé 2026-05-19** : la page Budget propose **"+ Ajouter un compte"** pour créer un compte hors FEC (ex : `6280001 Cotisation CCI`). Pour que ce compte apparaisse dans les totaux de section de CR / SIG / Équilibre :
+
+#### A. `getBudget` est en lookup exact, **insuffisant pour les sections**
+Le sumByPrefixes du bloc EQ et le main loop de `computePlCalc` doivent utiliser **`getBudgetByPrefixes`** (calc.ts) qui agrège tous les comptes du budget dont la clé commence par un préfixe de `row.accs`. Sans ça, un compte budget `6280001` ne remonte jamais dans la ligne "Cotisations professionnelles" (accs=['628']).
+
+**JAMAIS** dans `computePlCalc` main loop :
+```typescript
+for (const acc of accs) {
+  getBudget(selCo, budData, acc, ...).forEach(...)  // ❌ rate les sous-codes/comptes manuels
+}
+```
+
+**TOUJOURS** :
+```typescript
+getBudgetByPrefixes(selCo, budData, accs, ...).forEach((v, i) => { budMonths[i] += v * budSignRow })
+for (const acc of accs) { /* cumulN/cumulN1S inchangés */ }
+```
+
+`getBudget` (lookup exact) reste utilisé **uniquement** pour le rendu d'une sous-ligne précise dans `PlTable` (ligne `acc='7060000000'` ne doit pas être agrégée à elle-même via préfixe — sinon double-comptage si un compte plus court existe aussi).
+
+#### B. `PlTable` doit aussi itérer les comptes budget-only pour les sous-lignes
+Le code qui construit `plAccs` (les sous-lignes d'une section) ne lisait que `RAW.companies[co].pn` et `.p1` (comptes FEC). Un compte ajouté manuellement dans le Budget mais absent du FEC n'apparaissait donc pas comme sous-ligne.
+
+**TOUJOURS** ajouter une seconde boucle sur les clés de `budData[co]` avec le même filtre par préfixe. Et garder la sous-ligne même si `val == 0 && allEnts.length === 0`, à condition que `hasBudget === true`.
+
+Vérification anti-régression :
+1. Budget → "Ajouter un compte" → `6280001` "Cotisation CCI" type Charge → saisir des montants → Sauvegarder
+2. CR / SIG / Équilibre + toggle Budget actif → ligne "Cotisations professionnelles" (628) doit inclure le montant de `6280001` dans la colonne Budget
+3. Déplier cette section → la sous-ligne `6280001 Cotisation CCI` doit apparaître avec son budget (et `—` en Cumul N car pas dans le FEC)
