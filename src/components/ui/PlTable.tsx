@@ -242,6 +242,16 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               }
             }
           }
+          // Inclure aussi les comptes présents uniquement dans le budget (ajout manuel
+          // depuis la page Budget) — sinon ils n'apparaîtraient pas comme sous-ligne.
+          if (budData) {
+            const bd = (budData as any)[co] ?? {}
+            for (const k of Object.keys(bd)) {
+              if (!seen.has(k) && uniqueAccs.some(p => k.startsWith(p))) {
+                seen.add(k); plAccs.push(k)
+              }
+            }
+          }
         }
         plAccs.sort()
 
@@ -269,9 +279,23 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               const tag = field === 'pn' ? 'N' : 'N-1'
               allEnts.push(...mergeEntries(RAW, [co], field, acc).map((e: any) => [...e, tag]))
             }
+            // Si le compte n'a ni val FEC ni écritures, prendre son label depuis le budget
+            // pour les comptes ajoutés manuellement.
+            if (!fecLabel && budData) {
+              const bdLbl = ((budData as any)[co] ?? {})[acc]?.l
+              if (bdLbl) fecLabel = bdLbl
+            }
           }
 
-          if (Math.abs(val) < 0.5 && allEnts.length === 0) continue
+          // Garder la sous-ligne si elle a un budget (compte manuel hors FEC), même sans val/écritures.
+          let hasBudget = false
+          if (budData) {
+            for (const co of selCo) {
+              const b = ((budData as any)[co] ?? {})[acc]?.b
+              if (Array.isArray(b) && b.some((v: number) => Math.abs(v) > 0.5)) { hasBudget = true; break }
+            }
+          }
+          if (Math.abs(val) < 0.5 && allEnts.length === 0 && !hasBudget) continue
 
           const lbl = labelFor(acc, fecLabel || undefined)
 
