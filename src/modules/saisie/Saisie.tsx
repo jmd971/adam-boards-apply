@@ -286,6 +286,36 @@ export function Saisie() {
     return m ? m[1] : fallback
   }
 
+  // Suggestion auto de sous-catégorie d'après l'historique des saisies (même catégorie,
+  // tiers ou libellé similaire). Vide si l'utilisateur a déjà choisi ou si pas d'indice.
+  const suggestedSub = useMemo(() => {
+    if (form.subcategory) return null
+    const lbl = (form.label || '').toLowerCase().trim()
+    const cpt = (form.counterpart || '').toLowerCase().trim()
+    if (!lbl && !cpt) return null
+    const subs = catConfig?.subs ?? []
+    const scores: Record<string, number> = {}
+    for (const e of manualEntries) {
+      if (e.category !== form.category || !e.subcategory) continue
+      if (!subs.includes(e.subcategory)) continue
+      const eLbl = (e.label || '').toLowerCase()
+      const eCpt = (e.counterpart || '').toLowerCase()
+      let score = 0
+      // Tiers identique ou inclusion → forte confiance
+      if (cpt && eCpt && (cpt === eCpt || (cpt.length >= 3 && eCpt.includes(cpt)) || (eCpt.length >= 3 && cpt.includes(eCpt)))) score += 5
+      // Tokens du libellé (>= 3 caractères)
+      if (lbl) {
+        const tokens = lbl.split(/\s+/).filter(t => t.length >= 3)
+        for (const t of tokens) {
+          if (eLbl.includes(t) || eCpt.includes(t)) score += 1
+        }
+      }
+      if (score > 0) scores[e.subcategory] = (scores[e.subcategory] || 0) + score
+    }
+    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+    return sorted.length > 0 ? sorted[0][0] : null
+  }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig])
+
   // ── Rafraîchir le store après saisie ─────────────────────────────────────
   const refreshStore = async (newEntry: ManualEntry) => {
     const allEntries = [newEntry, ...manualEntries]
@@ -698,8 +728,18 @@ export function Saisie() {
               <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Sous-catégorie</label>
               <select value={form.subcategory} onChange={e => setForm(f => ({...f, subcategory:e.target.value}))} style={inputSt}>
                 <option value="">— Choisir —</option>
-                {catConfig?.subs.map(s => <option key={s} value={s}>{s}</option>)}
+                {[...(catConfig?.subs ?? [])].sort((a, b) => a.localeCompare(b, 'fr')).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              {suggestedSub && suggestedSub !== form.subcategory && (
+                <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6 }}>
+                  <span>💡 Suggestion (à partir d'autres saisies) :</span>
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, subcategory: suggestedSub }))}
+                    style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
+                    {suggestedSub}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>
