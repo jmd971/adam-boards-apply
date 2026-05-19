@@ -54,7 +54,7 @@ export interface ManualEntry {
   tva_amount?: string
   tva_rate?: string
   amount_ht_saisie?: string
-  category: 'Vente' | 'Achat' | 'Depense'
+  category: 'Vente' | 'Achat' | 'Depense' | 'Immobilisation'
   subcategory: string
   label?: string
   counterpart?: string
@@ -70,8 +70,11 @@ export interface ManualEntry {
 
 export interface EcheancierData {
   nb: number
-  freq: 'mensuel' | 'bimestriel' | 'trimestriel' | 'semestriel' | 'annuel'
+  freq?: 'mensuel' | 'bimestriel' | 'trimestriel' | 'semestriel' | 'annuel'
+  delai_jours?: number
   dates: string[]
+  /** Montants HT par échéance. Si absent → étalement équitable (ht / nb). */
+  amounts?: number[]
 }
 
 // ─── FEC / Comptabilité ────────────────────────────────────────────────────

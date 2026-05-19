@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectCompanyName, detectPeriod, type ParseWarning } from '@/lib/fec'
+import { parseFEC, detectCompany, detectCompanyName, detectPeriod, type ParseWarning, lastFecError } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 import type { ParsedFEC } from '@/lib/fec'
@@ -33,7 +33,7 @@ export function Import() {
   const role     = useAppStore(s => s.role)
   const tenantId = useAppStore(s => s.tenantId)
   const qc       = useQueryClient()
-  const canEdit  = role === 'admin' || role === 'comptable'
+  const canEdit  = role === 'admin' || role === 'comptable' || role === 'superadmin'
 
   const [checking,  setChecking]  = useState(false)
   const [importing, setImporting] = useState(false)
@@ -57,7 +57,7 @@ export function Import() {
         const text = await file.text()
         const parsed = parseFEC(text)
         if (!parsed) {
-          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: 'Format FEC non reconnu' }])
+          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: lastFecError || 'Format FEC non reconnu' }])
           continue
         }
 
@@ -65,6 +65,16 @@ export function Import() {
         const { period, fy } = fp
           ? { period: fp.period as 'N' | 'N-1' | 'N-2', fy: detectPeriod(parsed.months).fy }
           : detectPeriod(parsed.months)
+
+        // Rejeter les FEC trop anciens (N-3 et au-delà — ex : 2023 en 2026).
+        // Seules N, N-1 et N-2 sont supportés.
+        const fyNum = parseInt(fy)
+        const cy = new Date().getFullYear()
+        if (fyNum < cy - 2) {
+          setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0,
+            error: `FEC ${fy} trop ancien — seules les années N (${cy}), N-1 (${cy-1}) et N-2 (${cy-2}) sont importables.` }])
+          continue
+        }
 
         const { data } = await sb.from('company_data')
           .select('company_key')

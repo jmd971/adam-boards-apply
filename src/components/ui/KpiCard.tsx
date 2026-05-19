@@ -1,3 +1,5 @@
+import { useState } from 'react'
+
 const STAG_THRESHOLD = 2 // < 2% = stagnation
 
 function TrendBadge({ trend }: { trend: number }) {
@@ -47,18 +49,23 @@ interface KpiCardProps {
   trend?: number   // % de variation N vs N-1
   icon?: string
   onInfo?: () => void
+  tooltip?: string  // texte affiché au survol
 }
 
-export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onInfo }: KpiCardProps) {
+export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onInfo, tooltip }: KpiCardProps) {
+  const [showTip, setShowTip] = useState(false)
   return (
-    <div style={{
-      background: 'var(--bg-1)',
-      borderRadius: 'var(--radius-lg)',
-      padding: '18px 20px',
-      border: '1px solid var(--border-1)',
-      display: 'flex', flexDirection: 'column', gap: 6,
-      position: 'relative', overflow: 'hidden',
-    }}>
+    <div
+      onMouseEnter={() => tooltip && setShowTip(true)}
+      onMouseLeave={() => setShowTip(false)}
+      style={{
+        background: 'var(--bg-1)',
+        borderRadius: 'var(--radius-lg)',
+        padding: '18px 20px',
+        border: '1px solid var(--border-1)',
+        display: 'flex', flexDirection: 'column', gap: 6,
+        position: 'relative', overflow: 'visible',
+      }}>
       {/* Accent bar top */}
       <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background: color, opacity: 0.6, borderRadius:'var(--radius-lg) var(--radius-lg) 0 0' }} />
 
@@ -84,12 +91,25 @@ export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onI
       </div>
 
       {/* Valeur */}
-      <div style={{ fontSize:26, fontWeight:800, color, letterSpacing:'-0.5px', fontFamily:'JetBrains Mono, monospace', lineHeight:1.1 }}>
+      <div style={{ fontSize:26, fontWeight:800, color, letterSpacing:'-0.5px', fontFamily:'JetBrains Mono, monospace', lineHeight:1.1, whiteSpace:'nowrap' }}>
         {value}
       </div>
 
       {/* Sous-titre */}
       {sub && <div style={{ fontSize:11, color:'var(--text-2)' }}>{sub}</div>}
+
+      {/* Tooltip survol */}
+      {tooltip && showTip && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 8px)', left:'50%', transform:'translateX(-50%)',
+          background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8,
+          padding:'10px 14px', fontSize:11, color:'#94a3b8', lineHeight:1.6,
+          maxWidth:260, zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
+          pointerEvents:'none', whiteSpace:'normal',
+        }}>
+          {tooltip}
+        </div>
+      )}
     </div>
   )
 }

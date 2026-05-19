@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import { useAppStore } from '@/store'
 import { PlTable, EcrituresModal, KpiCard, ExportBar } from '@/components/ui'
 import { CR } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
+import { useEffectiveBudData } from '@/hooks/useEffectiveBudData'
 import { exportPlCalcXlsx, exportPlCalcCsv, printModule } from '@/lib/export'
 import {
   BarChart, Bar, LineChart, Line,
@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export function CompteResultat() {
   const printRef = useRef<HTMLDivElement>(null)
-  const budData = useAppStore(s => s.budData)
+  const budData = useEffectiveBudData()
   const [modal, setModal] = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
 
   const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
@@ -137,6 +137,7 @@ export function CompteResultat() {
           struct={CR} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
           showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
+          budData={budData as any}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
           maxHeight="calc(100vh - 200px)"
           cumulRowKey="rnet_cr"

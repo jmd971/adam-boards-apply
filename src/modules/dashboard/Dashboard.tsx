@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useAppStore } from '@/store'
+import { useEffectiveBudData } from '@/hooks/useEffectiveBudData'
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
@@ -219,7 +220,7 @@ export function Dashboard() {
   const RAW         = useAppStore(s => s.RAW)
   const filters     = useAppStore(s => s.filters)
   const budVersions = useAppStore(s => s.budVersions)
-  const budData       = useAppStore(s => s.budData)
+  const budData       = useEffectiveBudData()
   const setFilters  = useAppStore(s => s.setFilters)
   const printRef    = useRef<HTMLDivElement>(null)
   const [showThresholdConfig, setShowThresholdConfig] = useState(false)
@@ -270,6 +271,31 @@ export function Dashboard() {
     const re    = ebe - amrt
     return { ca, marge, ebe, re }
   }, [showBudget, budVersionKey, budVersions, selectedMs])
+
+  // Budget simple (budData) filtré par période — visible même sans budget version
+  const budDataKpis = useMemo(() => {
+    if (!kpis || !selectedMs.length) return null
+    const monthIndices = selectedMs.map((m: string) => parseInt(m.slice(5)) - 1)
+    const budFor = (prefixes: string[], isCharge = false) => {
+      let total = 0
+      for (const co of selCo) {
+        const bco = (budData as any)[co] ?? {}
+        for (const [acc, bv] of Object.entries(bco)) {
+          if (!prefixes.some((p: string) => acc.startsWith(p))) continue
+          const b = (bv as any)?.b ?? []
+          const sign = isCharge ? 1 : -1
+          total += sign * monthIndices.reduce((s: number, idx: number) => s + (b[idx] || 0), 0)
+        }
+      }
+      return Math.round(total)
+    }
+    const caV    = budFor(CA_ACCS)
+    const margeV = caV - budFor(ACHAT_ACCS, true)
+    const ebeV   = margeV - budFor(SERV_ACCS, true) - budFor(PERS_ACCS, true)
+    const reV    = ebeV - budFor(AMORT_ACCS, true)
+    if (caV === 0 && margeV === 0 && ebeV === 0 && reV === 0) return null
+    return { ca: caV, marge: margeV, ebe: ebeV, re: reV }
+  }, [selCo.join(','), budData, selectedMs.join(','), kpis])
 
   const monthlyData = useMemo(() => {
     if (!selectedMs.length) return []
@@ -395,9 +421,9 @@ export function Dashboard() {
     const kN  = computeKpisPeriod(RAW, selCo, 'pn', RAW.mn ?? [])
     const kN1 = computeKpisPeriod(RAW, selCo, 'p1', RAW.m1 ?? [])
     const kN2 = hasN2 ? computeKpisPeriod(RAW, selCo, 'p2', RAW.m2 ?? []) : null
-    const fyN  = RAW.mn?.[0]?.slice(0, 4) ?? 'N'
-    const fyN1 = RAW.m1?.[0]?.slice(0, 4) ?? 'N-1'
-    const fyN2 = RAW.m2?.[0]?.slice(0, 4) ?? 'N-2'
+    const fyN  = RAW.mn?.[RAW.mn.length - 1]?.slice(0, 4) ?? 'N'
+    const fyN1 = RAW.m1?.[RAW.m1.length - 1]?.slice(0, 4) ?? 'N-1'
+    const fyN2 = RAW.m2?.[RAW.m2.length - 1]?.slice(0, 4) ?? 'N-2'
     const metrics = [
       { key: "Chiffre d'affaires", N: kN.ca,    N1: kN1.ca,    N2: kN2?.ca },
       { key: 'Marge brute',        N: kN.marge,  N1: kN1.marge,  N2: kN2?.marge },
@@ -520,12 +546,14 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.ca)} € · Éc. ${kpis && kpis.ca >= budKpis.ca ? '+' : ''}${fmt((kpis?.ca ?? 0) - budKpis.ca)} €`
             : kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined}
+          tooltip={DASH_EXPLANATIONS.ca.definition}
           onInfo={() => setActiveExpl('ca')} />
         <KpiCard label="Marge brute" value={`${fmt(kpis?.marge ?? 0)} €`} color="var(--blue)"
           trend={kpis?.evoMarge != null ? kpis.evoMarge * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.marge)} € · Éc. ${kpis && kpis.marge >= budKpis.marge ? '+' : ''}${fmt((kpis?.marge ?? 0) - budKpis.marge)} €`
             : kpis ? `${pct(kpis.txMarge)} du CA` : undefined}
+          tooltip={DASH_EXPLANATIONS.marge.definition}
           onInfo={() => setActiveExpl('marge')} />
         <KpiCard label="EBE" value={`${fmt(kpis?.ebe ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.txEbe > 0.10 ? 'var(--green)' : kpis.txEbe > 0.05 ? 'var(--amber)' : 'var(--red)'}
@@ -533,6 +561,7 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.ebe)} € · Éc. ${kpis && kpis.ebe >= budKpis.ebe ? '+' : ''}${fmt((kpis?.ebe ?? 0) - budKpis.ebe)} €`
             : kpis ? `${pct(kpis.txEbe)} du CA` : undefined}
+          tooltip={DASH_EXPLANATIONS.ebe.definition}
           onInfo={() => setActiveExpl('ebe')} />
         <KpiCard label="Résultat exploit." value={`${fmt(kpis?.re ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.re >= 0 ? 'var(--blue)' : 'var(--red)'}
@@ -540,6 +569,7 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.re)} € · Éc. ${kpis && kpis.re >= budKpis.re ? '+' : ''}${fmt((kpis?.re ?? 0) - budKpis.re)} €`
             : kpis ? `${pct(kpis.txRe)} du CA` : undefined}
+          tooltip={DASH_EXPLANATIONS.re.definition}
           onInfo={() => setActiveExpl('re')} />
       </div>
 
@@ -715,19 +745,19 @@ export function Dashboard() {
         </div>
       )}
 
-      {kpis && budKpis && (
+      {kpis && (budKpis ?? budDataKpis) && (
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
           <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
             🎯 Réalisation des objectifs
           </div>
           <ObjectifsChart
-            hasBudget={!!budKpis}
+            hasBudget
             height={280}
             kpis={[
-              { label:"CA",             icon:'💰', color:'#10b981', real: kpis.ca,    bud: budKpis.ca    },
-              { label:"Marge brute",    icon:'📊', color:'#3b82f6', real: kpis.marge, bud: budKpis.marge },
-              { label:"EBE",            icon:'💹', color:'#f59e0b', real: kpis.ebe,   bud: budKpis.ebe   },
-              { label:"Rés. exploit.",  icon:'🎯', color:'#8b5cf6', real: kpis.re,    bud: budKpis.re    },
+              { label:"CA",             icon:'💰', color:'#10b981', real: kpis.ca,    bud: (budKpis ?? budDataKpis)!.ca    },
+              { label:"Marge brute",    icon:'📊', color:'#3b82f6', real: kpis.marge, bud: (budKpis ?? budDataKpis)!.marge },
+              { label:"EBE",            icon:'💹', color:'#f59e0b', real: kpis.ebe,   bud: (budKpis ?? budDataKpis)!.ebe   },
+              { label:"Rés. exploit.",  icon:'🎯', color:'#8b5cf6', real: kpis.re,    bud: (budKpis ?? budDataKpis)!.re    },
             ]}
           />
         </div>

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { KpiCard, EcrituresModal } from '@/components/ui'
 import { BankAccountsPanel } from './BankAccountsPanel'
 import { useBankAccounts } from './useBankAccounts'
@@ -50,6 +51,7 @@ export function Tresorerie() {
   const filters       = useAppStore(s => s.filters)
   const manualEntries = useAppStore(s => s.manualEntries)
   const budData       = useAppStore(s => s.budData)
+  const { selectedMs } = usePeriodFilter()
 
   const [view,     setView]     = useState<'realise'|'prev'>('realise')
   const [expanded, setExpanded] = useState<Record<string,boolean>>({})
@@ -60,12 +62,14 @@ export function Tresorerie() {
   // valeur manuelle "Solde initial" (rétro-compat) → fallback à 0 si aucun des deux.
   const soldeInitialPerCo = (co: string) =>
     (bank?.sumByCompany?.[co] ?? params[co]?.soldeInitial ?? 0)
-  const [secOpen,  setSecOpen]  = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
-  const [showHelp, setShowHelp] = useState(false)
+  const [secOpen,     setSecOpen]     = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
+  const [paramsOpen,  setParamsOpen]  = useState(true)
+  const [prevRowOpen, setPrevRowOpen] = useState<Record<string,boolean>>({})
+  const [showHelp,    setShowHelp]    = useState(false)
   const [dayMonth, setDayMonth] = useState<string>('')
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
-  const months = RAW?.mn ?? []
+  const months = selectedMs
 
   const getP = (co: string) => params[co] ?? { delaiClient:45, delaiFourn:30, remb:0, soldeInitial:0 }
 
@@ -103,14 +107,105 @@ export function Tresorerie() {
         }
       }
     }
-    // Factures parentes ayant des échéances : on compte les échéances, pas le parent (sinon double comptage)
-    const parentIds = new Set(manualEntries.filter(e => e.parent_id).map(e => e.parent_id!))
+    // Saisies manuelles : éviter le double comptage avec le loop pn ci-dessus
+    // buildRAW fusionne les saisies dans pn → elles sont déjà dans eB/dB si leur compte est
+    // dans ENC_CATS/DEC_CATS. On ne les recompte dans eM/dM que si elles n'y sont pas.
+    // Pour les paiements échelonnés : on retire la contribution au jour de la facture (pn)
+    // et on ré-étale sur les dates d'échéance.
     for (const me of manualEntries) {
       if (!me.entry_date) continue
-      const mi = months.findIndex((m: string) => me.entry_date.startsWith(m)); if (mi < 0) continue
-      if (parentIds.has(String(me.id))) continue
-      const ht = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
-      if (me.category === 'Vente') eM[mi] += ht; else dM[mi] += ht
+      // Cash flow réel = TTC (ce qu'on paie/reçoit). HT n'est utilisé que pour
+      // annuler la contribution pn (qui stocke le HT depuis buildRAW).
+      const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+      const ttc = parseFloat(me.amount_ttc || '0') || ht
+      if (ttc === 0) continue
+      const acc = me.account_num || '658'
+
+      if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+        // Annuler la contribution pn (HT) au mois de la facture, à la fois sur le total
+        // catégorie (eB) ET sur le sous-compte (eA) — sinon le sous-compte affiche encore
+        // le montant alors que la facture a été ré-étalée via les échéances.
+        const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
+        if (mi_inv >= 0) {
+          const ec = catOf(acc, ENC_CATS)
+          const dc = catOf(acc, DEC_CATS)
+          if (ec) {
+            eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
+            if (eA[ec][acc]) eA[ec][acc].vals[mi_inv] = Math.max(0, eA[ec][acc].vals[mi_inv] - ht)
+          }
+          if (dc) {
+            dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht)
+            if (dA[dc][acc]) dA[dc][acc].vals[mi_inv] = Math.max(0, dA[dc][acc].vals[mi_inv] - ht)
+          }
+        }
+        // Répartir TTC sur les dates d'échéance. Si echeancier_data.amounts est défini,
+        // utiliser le montant par échéance — sinon, étalement équitable (ttc / nb).
+        // Si l'acc tombe dans une catégorie standard (ENC_CATS/DEC_CATS), on distribue
+        // dans cette catégorie (eA + eB) pour que le sous-compte affiche les échéances
+        // mois par mois. Sinon, fallback dans eM/dM ("Saisies manuelles").
+        const echDates: string[] = (me.echeancier_data as any).dates
+        const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
+        const equalPart = ttc / echDates.length
+        const ecEch = catOf(acc, ENC_CATS)
+        const dcEch = catOf(acc, DEC_CATS)
+        const lbl   = me.subcategory || acc
+        for (let idx = 0; idx < echDates.length; idx++) {
+          const d = echDates[idx]
+          const part = echAmounts?.[idx] ?? equalPart
+          const mi_pay = months.findIndex((m: string) => d.startsWith(m))
+          if (mi_pay < 0) continue
+          if (me.category === 'Vente' && ecEch) {
+            if (!eA[ecEch][acc]) eA[ecEch][acc] = { vals: Array(months.length).fill(0), label: lbl }
+            eA[ecEch][acc].vals[mi_pay] += part
+            eB[ecEch][mi_pay] += part
+          } else if (me.category !== 'Vente' && dcEch) {
+            if (!dA[dcEch][acc]) dA[dcEch][acc] = { vals: Array(months.length).fill(0), label: lbl }
+            dA[dcEch][acc].vals[mi_pay] += part
+            dB[dcEch][mi_pay] += part
+          } else {
+            if (me.category === 'Vente') eM[mi_pay] += part
+            else dM[mi_pay] += part
+          }
+        }
+      } else {
+        // Non-échelonné.
+        // Si payment_date défini → utiliser le mois de paiement pour l'impact trésorerie
+        // (la facture est déjà dans pn au mois entry_date → on déplace le montant vers mi_pay).
+        const inStdCat = catOf(acc, ENC_CATS) || catOf(acc, DEC_CATS)
+        if (inStdCat && me.payment_date) {
+          // Déplacer la contribution du mois facture au mois paiement, à la fois sur la
+          // catégorie (eB) et le sous-compte (eA), sinon le sous-compte continue d'afficher
+          // au mois facture.
+          const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
+          const mi_pay = months.findIndex((m: string) => (me.payment_date as string).startsWith(m))
+          if (mi_inv >= 0 && mi_pay >= 0 && mi_inv !== mi_pay) {
+            const ec = catOf(acc, ENC_CATS)
+            const dc = catOf(acc, DEC_CATS)
+            if (ec) {
+              eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht); eB[ec][mi_pay] += ht
+              if (eA[ec][acc]) {
+                eA[ec][acc].vals[mi_inv] = Math.max(0, eA[ec][acc].vals[mi_inv] - ht)
+                eA[ec][acc].vals[mi_pay] += ht
+              }
+            }
+            if (dc) {
+              dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht); dB[dc][mi_pay] += ht
+              if (dA[dc][acc]) {
+                dA[dc][acc].vals[mi_inv] = Math.max(0, dA[dc][acc].vals[mi_inv] - ht)
+                dA[dc][acc].vals[mi_pay] += ht
+              }
+            }
+          }
+        } else if (!inStdCat) {
+          // Hors catégories standard : compter dans eM/dM (cash flow réel = TTC) au mois de paiement (ou de facture)
+          const effDate = me.payment_date || me.entry_date
+          const mi = months.findIndex((m: string) => effDate.startsWith(m))
+          if (mi >= 0) {
+            if (me.category === 'Vente') eM[mi] += ttc
+            else dM[mi] += ttc
+          }
+        }
+      }
     }
     ENC_CATS.forEach(c => { eB[c.label]=eB[c.label].map(v=>Math.round(v)); Object.values(eA[c.label]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) })
     DEC_CATS.forEach(c => { dB[c.label]=dB[c.label].map(v=>Math.round(v)); Object.values(dA[c.label]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) })
@@ -132,6 +227,8 @@ export function Tresorerie() {
   }, [])
 
   const forecast = useMemo(() => {
+    // Mois déjà présents dans le réalisé → ne pas les compter en double dans le prévisionnel
+    const realisedMonthsSet = new Set(months)
     let cum = selCo.reduce((s, co) => s + soldeInitialPerCo(co), 0)
     return forecastMs.map((m,mi) => {
       let enc=0, dec=0
@@ -146,11 +243,106 @@ export function Tresorerie() {
         }
         dec+=p.remb
       }
+      // Saisies manuelles : échéanciers et paiements ponctuels tombant ce mois prévisionnel
+      // Uniquement les mois qui ne sont PAS déjà dans le réalisé (évite le double comptage).
+      if (!realisedMonthsSet.has(m)) {
+        for (const me of manualEntries) {
+          if (!selCo.includes(me.company_key)) continue
+          // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
+          const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+          const ttc = parseFloat(me.amount_ttc || '0') || ht
+          if (ttc === 0) continue
+          if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+            const echDates: string[] = (me.echeancier_data as any).dates
+            const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
+            const equalPart = ttc / echDates.length
+            for (let idx = 0; idx < echDates.length; idx++) {
+              const d = echDates[idx]
+              if (d.startsWith(m)) {
+                const part = echAmounts?.[idx] ?? equalPart
+                if (me.category === 'Vente') enc += part
+                else dec += part
+              }
+            }
+          } else if (me.payment_date?.startsWith(m)) {
+            // Paiement ponctuel avec date de règlement dans ce mois — cash flow TTC
+            if (me.category === 'Vente') enc += ttc
+            else dec += ttc
+          }
+        }
+      }
       enc=Math.round(enc); dec=Math.round(dec)
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
-  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany])
+  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+
+  // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
+  const forecastDetail = useMemo(() => {
+    const enc: Record<string, { label:string; vals:number[] }> = {}
+    const dec: Record<string, { label:string; vals:number[] }> = {}
+    const realisedMonthsSet = new Set(months)
+    for (let mi = 0; mi < forecastMs.length; mi++) {
+      const m = forecastMs[mi]
+      for (const co of selCo) {
+        const bd = (budData as any)[co] ?? {}, p = getP(co)
+        const dC = Math.max(0, Math.round(p.delaiClient/30))
+        const dF = Math.max(0, Math.round(p.delaiFourn/30))
+        const fiC = fiscalIndex(monthShift(forecastMs[mi], -dC))
+        const fiF = fiscalIndex(monthShift(forecastMs[mi], -dF))
+        for (const [acc, bv] of Object.entries(bd)) {
+          const b = (bv as any).b ?? [], t = (bv as any).t, l = (bv as any).l || acc
+          if (t === 'p') {
+            const v = Math.round(b[fiC] || 0)
+            if (!enc[acc]) enc[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            enc[acc].vals[mi] += v
+          }
+          if (t === 'c') {
+            const v = Math.round(b[fiF] || 0)
+            if (!dec[acc]) dec[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            dec[acc].vals[mi] += v
+          }
+        }
+        if (p.remb > 0) {
+          const k = `__remb_${co}`
+          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW?.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0) }
+          dec[k].vals[mi] += Math.round(p.remb)
+        }
+      }
+      // Saisies manuelles (échéanciers + paiements ponctuels) : même filtre que les totaux
+      // → uniquement les mois hors réalisé, pour éviter le double comptage.
+      if (!realisedMonthsSet.has(m)) {
+        for (const me of manualEntries) {
+          if (!selCo.includes(me.company_key)) continue
+          // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
+          const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
+          const ttc = parseFloat(me.amount_ttc || '0') || ht
+          if (ttc === 0) continue
+          const key = me.account_num || '658'
+          const label = me.subcategory || key
+          if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+            const echDates: string[] = (me.echeancier_data as any).dates
+            const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
+            const equalPart = ttc / echDates.length
+            for (let idx = 0; idx < echDates.length; idx++) {
+              const d = echDates[idx]
+              if (d.startsWith(m)) {
+                const part = echAmounts?.[idx] ?? equalPart
+                const bucket = me.category === 'Vente' ? enc : dec
+                if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+                bucket[key].vals[mi] += part
+              }
+            }
+          } else if (me.payment_date?.startsWith(m)) {
+            const bucket = me.category === 'Vente' ? enc : dec
+            if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+            bucket[key].vals[mi] += ttc
+          }
+        }
+      }
+    }
+    return { enc, dec }
+  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
 
   // ── Vue journalière ────────────────────────────────────────────────────
   const dayForecast = useMemo(() => {
@@ -284,36 +476,44 @@ export function Tresorerie() {
         <div style={{padding:'16px 24px'}}>
           {/* Params */}
           <div style={{background:'var(--bg-1)',borderRadius:'var(--radius-md)',padding:16,border:'1px solid var(--border-1)',marginBottom:20}}>
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:'0.8px'}}>⚙️ Paramètres</div>
-              <button onClick={()=>setShowHelp(h=>!h)} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
-                {showHelp?'▾':'▸'} Comment ça marche ?
-              </button>
-            </div>
-            {showHelp && (
-              <div style={{background:'rgba(59,130,246,0.06)',borderRadius:8,padding:'12px 14px',marginBottom:14,fontSize:11,color:'var(--text-2)',lineHeight:'1.7',border:'1px solid rgba(59,130,246,0.15)'}}>
-                <div><span style={{color:'var(--blue)',fontWeight:600}}>Délai client (j)</span> — Jours avant qu'un client règle ses factures. Ex : 45 j → les encaissements de jan. arrivent en fév. dans le prévisionnel.</div>
-                <div style={{marginTop:6}}><span style={{color:'var(--amber)',fontWeight:600}}>Délai fourn. (j)</span> — Jours avant de régler vos fournisseurs. Ex : 30 j → les achats de jan. sont décaissés en fév.</div>
-                <div style={{marginTop:6}}><span style={{color:'var(--red)',fontWeight:600}}>Remb./mois (€)</span> — Charge fixe mensuelle sortante (remboursement de prêt, crédit-bail…) déduite chaque mois.</div>
-                <div style={{marginTop:6}}><span style={{color:'var(--purple)',fontWeight:600}}>Solde initial (€)</span> — Solde bancaire de départ utilisé comme point de départ de la trésorerie cumulée.</div>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:paramsOpen?12:0,cursor:'pointer',userSelect:'none'}}
+              onClick={()=>setParamsOpen(o=>!o)}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',letterSpacing:'0.8px',display:'flex',alignItems:'center',gap:6}}>
+                <span style={{fontSize:10,color:'var(--text-3)'}}>{paramsOpen?'▾':'▸'}</span>
+                ⚙️ Paramètres
               </div>
-            )}
-            <div style={{display:'flex',gap:24,flexWrap:'wrap'}}>
-              {selCo.map(co=>(
-                <div key={co} style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
-                  <span style={{fontSize:12,fontWeight:700,color:'var(--blue)'}}>{RAW.companies[co]?.name||co}</span>
-                  {([['Délai client (j)','delaiClient'],['Délai fourn. (j)','delaiFourn'],['Remb./mois (€)','remb'],['Solde initial (€)','soldeInitial']] as [string,string][]).map(([lbl,key])=>(
-                    <div key={key} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
-                      <span style={{color:'var(--text-2)'}}>{lbl}</span>
-                      <input type="number" value={(getP(co) as any)[key]}
-                        onChange={e=>setParams(p=>({...p,[co]:{...getP(co),[key]:parseFloat(e.target.value)||0}}))}
-                        style={inputSt}/>
-                    </div>
-                  ))}
-                </div>
-              ))}
+              {paramsOpen && (
+                <button onClick={e=>{e.stopPropagation();setShowHelp(h=>!h)}} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
+                  {showHelp?'▾':'▸'} Comment ça marche ?
+                </button>
+              )}
             </div>
-            {Object.keys(budData).length===0&&<div style={{marginTop:10,fontSize:11,color:'var(--amber)'}}>⚠️ Aucun budget — générez-en un dans l'onglet Budget.</div>}
+            {paramsOpen && (<>
+              {showHelp && (
+                <div style={{background:'rgba(59,130,246,0.06)',borderRadius:8,padding:'12px 14px',marginBottom:14,fontSize:11,color:'var(--text-2)',lineHeight:'1.7',border:'1px solid rgba(59,130,246,0.15)'}}>
+                  <div><span style={{color:'var(--blue)',fontWeight:600}}>Délai client (j)</span> — Jours avant qu'un client règle ses factures. Ex : 45 j → les encaissements de jan. arrivent en fév. dans le prévisionnel.</div>
+                  <div style={{marginTop:6}}><span style={{color:'var(--amber)',fontWeight:600}}>Délai fourn. (j)</span> — Jours avant de régler vos fournisseurs. Ex : 30 j → les achats de jan. sont décaissés en fév.</div>
+                  <div style={{marginTop:6}}><span style={{color:'var(--red)',fontWeight:600}}>Remb./mois (€)</span> — Charge fixe mensuelle sortante (remboursement de prêt, crédit-bail…) déduite chaque mois.</div>
+                  <div style={{marginTop:6}}><span style={{color:'var(--purple)',fontWeight:600}}>Solde initial (€)</span> — Solde bancaire de départ utilisé comme point de départ de la trésorerie cumulée.</div>
+                </div>
+              )}
+              <div style={{display:'flex',gap:24,flexWrap:'wrap'}}>
+                {selCo.map(co=>(
+                  <div key={co} style={{display:'flex',gap:14,alignItems:'center',flexWrap:'wrap'}}>
+                    <span style={{fontSize:12,fontWeight:700,color:'var(--blue)'}}>{RAW.companies[co]?.name||co}</span>
+                    {([['Délai client (j)','delaiClient'],['Délai fourn. (j)','delaiFourn'],['Remb./mois (€)','remb'],['Solde initial (€)','soldeInitial']] as [string,string][]).map(([lbl,key])=>(
+                      <div key={key} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
+                        <span style={{color:'var(--text-2)'}}>{lbl}</span>
+                        <input type="number" value={(getP(co) as any)[key]}
+                          onChange={e=>setParams(p=>({...p,[co]:{...getP(co),[key]:parseFloat(e.target.value)||0}}))}
+                          style={inputSt}/>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+              {Object.keys(budData).length===0&&<div style={{marginTop:10,fontSize:11,color:'var(--amber)'}}>⚠️ Aucun budget — générez-en un dans l'onglet Budget.</div>}
+            </>)}
           </div>
 
           {/* Table prévisionnel mensuel */}
@@ -331,12 +531,49 @@ export function Tresorerie() {
                   const vals=forecast.map(r=>(r as any)[key])
                   const tot=key==='cum'?forecast[forecast.length-1]?.cum??0:vals.reduce((s:number,v:number)=>s+v,0)
                   const bold=key==='fl'||key==='cum'
+                  const canExpand=key==='enc'||key==='dec'
+                  const isOpen=canExpand&&!!prevRowOpen[key]
+                  const detail=canExpand
+                    ? Object.entries(key==='enc'?forecastDetail.enc:forecastDetail.dec)
+                        .filter(([,a])=>a.vals.some((v:number)=>v!==0))
+                        .sort(([,a],[,b])=>b.vals.reduce((s:number,v:number)=>s+v,0)-a.vals.reduce((s:number,v:number)=>s+v,0))
+                    : []
                   return (
-                    <tr key={key} style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':'transparent'}}>
-                      <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent'}}>{lbl}</td>
-                      {vals.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:bold?700:400,fontSize:bold?12:11,color:v<0?'var(--red)':v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>)}
-                      <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700,color:tot<0?'var(--red)':col}}>{fmt(tot)}</td>
-                    </tr>
+                    <React.Fragment key={key}>
+                      <tr onClick={canExpand?()=>setPrevRowOpen(p=>({...p,[key]:!p[key]})):undefined}
+                        style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':isOpen?'rgba(255,255,255,0.02)':'transparent',cursor:canExpand?'pointer':'default'}}>
+                        <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent'}}>
+                          {canExpand&&<span style={{display:'inline-block',width:14,marginRight:4,fontSize:9,color:'var(--text-3)'}}>{isOpen?'▾':'▸'}</span>}
+                          {lbl}
+                        </td>
+                        {vals.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:bold?700:400,fontSize:bold?12:11,color:v<0?'var(--red)':v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>)}
+                        <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700,color:tot<0?'var(--red)':col}}>{fmt(tot)}</td>
+                      </tr>
+                      {isOpen&&detail.length===0&&(
+                        <tr><td colSpan={forecastMs.length+2} style={{padding:'8px 12px 8px 34px',fontSize:10,color:'var(--amber)',fontStyle:'italic'}}>
+                          Pas de données budgétaires — configurez un budget dans l'onglet Budget.
+                        </td></tr>
+                      )}
+                      {isOpen&&detail.map(([acc,a])=>{
+                        const dTot=a.vals.reduce((s:number,v:number)=>s+v,0)
+                        const ents=!acc.startsWith('__')?mergeEntries(RAW!,selCo,'pn',acc):[]
+                        return (
+                          <tr key={acc}
+                            onClick={ents.length>0?()=>setModal({title:`${acc} — ${a.label}`,entries:ents,cumN:dTot,cumN1:0}):undefined}
+                            style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:ents.length>0?'pointer':'default'}}>
+                            <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>
+                              {!acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{acc}</span>}
+                              {a.label}
+                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--text-3)',background:'rgba(255,255,255,0.06)',padding:'1px 5px',borderRadius:10}}>{ents.length} éc.</span>}
+                            </td>
+                            {a.vals.map((v:number,i:number)=>(
+                              <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
+                            ))}
+                            <td style={{padding:'5px 10px',textAlign:'right',fontFamily:'monospace',fontSize:10,fontWeight:600,color:dTot<0?'var(--red)':col}}>{dTot!==0?fmt(dTot):'—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </React.Fragment>
                   )
                 })}
               </tbody>
@@ -393,7 +630,7 @@ export function Tresorerie() {
       {/* VUE REALISEE */}
       {view==='realise' && (
         <div style={{padding:'16px 24px'}}>
-          <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12,marginBottom:20}}>
+          <div className="treso-kpi-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
             <KpiCard label="Encaissements N"     value={`${fmt(gE)} €`}      color="var(--green)"/>
             <KpiCard label="Décaissements N"     value={`${fmt(gD)} €`}      color="var(--red)"/>
             <KpiCard label="Flux net"             value={`${fmt(gE-gD)} €`}  color={(gE-gD)>=0?'var(--green)':'var(--red)'}/>
@@ -401,7 +638,7 @@ export function Tresorerie() {
           </div>
           <div style={{marginBottom:10,fontSize:11,color:'var(--text-3)'}}>💡 Cliquez <span style={{color:'var(--blue)'}}>▸</span> sur une catégorie pour voir les comptes, puis sur un compte pour voir les écritures.</div>
           {treso && (
-            <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 260px)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
+            <div className="treso-table-wrap" style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 260px)',borderRadius:'var(--radius-lg)',border:'1px solid var(--border-1)'}}>
               <table style={{width:'100%',borderCollapse:'collapse'}}>
                 <thead>
                   <tr>
@@ -449,3 +686,4 @@ export function Tresorerie() {
     </>
   )
 }
+

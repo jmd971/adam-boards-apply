@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAppStore } from '@/store'
 import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
@@ -8,14 +8,56 @@ import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
 
 const CATEGORIES = [
-  { cat: 'Vente',   subs: ['Prestation de service','Vente de marchandise','Activité annexe','Autre vente'],   acc: '706' },
-  { cat: 'Achat',   subs: ['Marchandises','Matières premières','Sous-traitance','Autre achat'],                acc: '607' },
-  { cat: 'Depense', subs: ['Loyer / Location','Abonnement logiciel','Téléphone / Internet','Assurance',
-                            'Carburant','Entretien / Réparation','Fournitures bureau','Publicité',
-                            'Déplacement / Mission','Honoraires comptable','Honoraires divers',
-                            'Formation','Services bancaires','Salaires','Charges sociales',
-                            'Impôts et taxes','Autre dépense'],                                                acc: '626' },
-]
+  { cat: 'Vente', acc: '706', subs: [
+    'Ventes de marchandises (707)','Prestations de services (706)','Travaux (704)',
+    'Négoce (707)','Location de biens (713)','Commissions reçues (708)',
+    'Subventions (740)','Revenus financiers (76)','Reprises sur provisions (781)',
+    'Activité annexe (708)','Autre produit (70)',
+  ]},
+  { cat: 'Achat', acc: '607', subs: [
+    'Achats de marchandises (607)','Matières premières (601)','Matières consommables (602)',
+    'Fournitures non stockées (606)','Emballages (603)','Sous-traitance générale (611)',
+    'Variation de stocks (603)','Autre achat (609)',
+  ]},
+  { cat: 'Depense', acc: '626', subs: [
+    // 61x — Services extérieurs A
+    'Loyer et charges locatives (613/614)','Crédit-bail (612)','Entretien et réparations (615)',
+    'Assurances (616)','Documentation et abonnements (618)','Concessions et brevets (611)',
+    // 62x — Services extérieurs B
+    'Personnel extérieur (621)','Honoraires et commissions (622)','Frais d\'actes et contentieux (622)',
+    'Publicité et marketing (623)','Frais de représentation (623)','Cadeaux clients (623)',
+    'Transports sur achats (624)','Transports sur ventes (624)',
+    'Déplacements et missions (625)','Repas d\'affaires (625)','Carburant (625)',
+    'Téléphone et Internet (626)','Affranchissements (626)','Services bancaires (627)',
+    'Cotisations professionnelles (628)',
+    // 63x — Impôts et taxes
+    'Formation professionnelle (633)','Taxe apprentissage (632)','Taxe foncière (635)',
+    'CFE / CVAE (635)','TVA non récupérable (635)','Autres impôts et taxes (635)',
+    // 64x — Charges de personnel
+    'Salaires bruts (641)','Primes et intéressements (648)','Charges patronales URSSAF (645)',
+    'Mutuelle et prévoyance (646)','Retraite complémentaire (645)',
+    // 65x — Autres charges de gestion
+    'Créances irrécouvrables (654)','Redevances et royalties (651)',
+    // 66x — Charges financières
+    'Intérêts bancaires (661)','Charges sur emprunts (661)',
+    // 67x — Charges exceptionnelles
+    'Charges exceptionnelles (671)',
+    // 68x — Dotations
+    'Dotations aux amortissements (681)','Dotations aux provisions (681)',
+    // Autre
+    'Electricité / Energie (606)','Eau (606)','Fournitures de bureau (606)',
+    'Abonnements logiciels (618)','Autre charge (658)',
+  ]},
+  { cat: 'Immobilisation', acc: '2181', subs: [
+    'Logiciels et licences (205)','Brevets et marques (205)','Fonds commercial (207)',
+    'Matériel informatique (2183)','Matériel de bureau (2184)','Mobilier (2184)',
+    'Agencements et installations (2131)','Matériel de transport (2182)',
+    'Matériel industriel (2154)','Matériel médical (2186)',
+    'Constructions (213)','Terrains (211)',
+    'Participations (261)','Dépôts et cautionnements (275)',
+    'Autre immobilisation (218)',
+  ]},
+] as { cat: ManualEntry['category']; subs: string[]; acc: string }[]
 
 const OCR_PROMPT = `Tu es un expert-comptable. Analyse cette facture et retourne UNIQUEMENT un JSON valide sans backticks ni markdown.
 Champs requis:
@@ -44,6 +86,24 @@ function calcTvaAmount(ht: number, ttc: number): number {
   return Math.round((ttc - ht) * 100) / 100
 }
 
+function fmtDate(iso: string): string {
+  if (!iso) return ''
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
+
+function calcEcheancierDates(startDate: string, nb: number, delaiJours: number): string[] {
+  const dates: string[] = []
+  if (!startDate || nb <= 0) return dates
+  const start = new Date(startDate)
+  for (let i = 0; i < nb; i++) {
+    const d = new Date(start)
+    d.setDate(d.getDate() + i * delaiJours)
+    dates.push(d.toISOString().slice(0, 10))
+  }
+  return dates
+}
+
 export function Saisie() {
   const RAW            = useAppStore(s => s.RAW)
   const filters        = useAppStore(s => s.filters)
@@ -51,17 +111,35 @@ export function Saisie() {
   const tenantId       = useTenantId()
   const setRAW         = useAppStore(s => s.setRAW)
   const setManualEntries = useAppStore(s => s.setManualEntries)
+  const setFilters     = useAppStore(s => s.setFilters)
   const manualEntries  = useAppStore(s => s.manualEntries)
   const isReadOnly     = !canWrite(role)
   
+  const dataLoading    = useAppStore(s => s.dataLoading)
+
   const [mode,       setMode]       = useState<Mode>('manual')
-  const [entries,    setEntries]    = useState<ManualEntry[]>([])
-  const [loading,    setLoading]    = useState(true)
   const [saving,     setSaving]     = useState(false)
   const [msg,        setMsg]        = useState<string | null>(null)
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrResult,  setOcrResult]  = useState<string | null>(null)
   const [ocrFile,    setOcrFile]    = useState<File | null>(null)
+
+  const [search,     setSearch]     = useState('')
+  const [filterCat,  setFilterCat]  = useState<string>('Tous')
+  const [sortCol,    setSortCol]    = useState<'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'>('entry_date')
+  const [sortDir,    setSortDir]    = useState<'asc'|'desc'>('desc')
+  const [page,          setPage]          = useState(0)
+  const [echNb,         setEchNb]         = useState(3)
+  const [echDelaiJours, setEchDelaiJours] = useState(30)
+  const [echStartDate,  setEchStartDate]  = useState('')
+  const [echDates,      setEchDates]      = useState<string[]>([])
+  // Édition / suppression de saisies existantes
+  const [editingId,     setEditingId]     = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
+  // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
+  const [echAmounts,    setEchAmounts]    = useState<number[]>([])
+  const [echAmountsDirty, setEchAmountsDirty] = useState(false)
 
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
@@ -73,6 +151,7 @@ export function Saisie() {
     amount_ht:    '',
     counterpart:  '',
     payment_mode: 'virement',
+    payment_date: '',
   })
 
   // TVA calculée automatiquement
@@ -83,24 +162,178 @@ export function Saisie() {
     ? calcTvaRate(parseFloat(form.amount_ht), parseFloat(form.amount_ttc))
     : null
 
+  const displayEntries = useMemo(() => {
+    let result = manualEntries.filter(e => e.source !== 'echeance')
+    if (filterCat !== 'Tous') result = result.filter(e => e.category === filterCat)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(e =>
+        (e.label || '').toLowerCase().includes(q) ||
+        (e.counterpart || '').toLowerCase().includes(q) ||
+        (e.subcategory || '').toLowerCase().includes(q) ||
+        e.entry_date.includes(q) ||
+        fmtDate(e.entry_date).includes(q)
+      )
+    }
+    return [...result].sort((a, b) => {
+      let av: string | number, bv: string | number
+      switch (sortCol) {
+        case 'amount_ht':   av = parseFloat(a.amount_ht||a.amount_ht_saisie||'0'); bv = parseFloat(b.amount_ht||b.amount_ht_saisie||'0'); break
+        case 'amount_ttc':  av = parseFloat(a.amount_ttc||'0');  bv = parseFloat(b.amount_ttc||'0');  break
+        case 'counterpart': av = (a.counterpart||'').toLowerCase(); bv = (b.counterpart||'').toLowerCase(); break
+        default:            av = a.entry_date; bv = b.entry_date
+      }
+      if (av < bv) return sortDir === 'asc' ? -1 : 1
+      if (av > bv) return sortDir === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [manualEntries, search, filterCat, sortCol, sortDir])
+
+  const PAGE_SIZE = 20
+  const pageCount = Math.ceil(displayEntries.length / PAGE_SIZE)
+  const pageEntries = displayEntries.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+
+  useEffect(() => { setPage(0) }, [search, filterCat])
+
+  // Auto-sélectionner la première société si company_key est vide (quand selCo n'est pas filtré)
   useEffect(() => {
-    sb.from('manual_entries').select('*').order('entry_date', { ascending: false }).limit(50)
-      .then(({ data }) => { setEntries((data ?? []) as ManualEntry[]); setLoading(false) })
-  }, [])
+    if (!form.company_key && RAW?.keys?.length) {
+      setForm(f => ({ ...f, company_key: filters.selCo[0] || RAW!.keys[0] }))
+    }
+  }, [RAW?.keys?.join(','), filters.selCo.join(',')])
+
+  // Auto-recalcule les dates d'échéances quand les paramètres changent
+  useEffect(() => {
+    const start = echStartDate || form.entry_date
+    if (!start) return
+    setEchDates(calcEcheancierDates(start, echNb, echDelaiJours))
+  }, [echStartDate, echNb, echDelaiJours, form.entry_date])
+
+  // Auto-recalcule les montants équitables tant que l'utilisateur n'a pas saisi de répartition custom.
+  // Dès qu'il édite un montant manuellement, on stoppe l'auto-calcul (echAmountsDirty=true).
+  // Base : TTC (cash flow réel = TTC, pas HT).
+  useEffect(() => {
+    const ttc = parseFloat(form.amount_ttc || '0') || 0
+    if (!echDates.length) { setEchAmounts([]); return }
+    if (echAmountsDirty && echAmounts.length === echDates.length) return
+    const part = Math.round((ttc / echDates.length) * 100) / 100
+    const arr = Array(echDates.length).fill(part)
+    const sum = part * echDates.length
+    if (sum !== ttc) arr[arr.length - 1] = Math.round((ttc - part * (echDates.length - 1)) * 100) / 100
+    setEchAmounts(arr)
+  }, [echDates.length, form.amount_ttc, echAmountsDirty])
+
+  const handleSort = (col: typeof sortCol) => {
+    if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(col); setSortDir(col === 'entry_date' ? 'desc' : 'asc') }
+  }
+
+  // ── Édition d'une saisie : charger dans le formulaire ───────────────────
+  const handleEditFacture = (e: ManualEntry) => {
+    setEditingId(String(e.id))
+    setForm({
+      company_key:  e.company_key || filters.selCo[0] || '',
+      entry_date:   e.entry_date || new Date().toISOString().slice(0, 10),
+      category:     e.category,
+      subcategory:  e.subcategory || '',
+      label:        e.label || '',
+      amount_ttc:   e.amount_ttc || '',
+      amount_ht:    e.amount_ht || e.amount_ht_saisie || '',
+      counterpart:  e.counterpart || '',
+      payment_mode: e.payment_mode || 'virement',
+      payment_date: e.payment_date || '',
+    })
+    setMode('manual')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+    setMsg('✏️ Modification en cours — éditez puis cliquez Enregistrer')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setMsg(null)
+  }
+
+  // ── Suppression d'une saisie (et ses échéances/amortissements liés) ─────
+  const handleDeleteFacture = async (id: string) => {
+    if (!tenantId) return
+    setSaving(true)
+    // Supprimer les enfants (parent_id) puis la facture elle-même
+    await sb.from('manual_entries').delete().eq('parent_id', id)
+    const { error } = await sb.from('manual_entries').delete().eq('id', id)
+    if (error) { setSaving(false); setMsg('❌ ' + error.message); return }
+
+    // Mettre à jour le store + rebuild RAW pour que tous les modules se mettent à jour
+    const newEntries = manualEntries.filter(en => String(en.id) !== id && (en as any).parent_id !== id)
+    setManualEntries(newEntries)
+    const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+    const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+    if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, newEntries))
+
+    setSaving(false)
+    setConfirmDelete(null)
+    setMsg('✅ Facture supprimée')
+    setTimeout(() => setMsg(null), 3000)
+  }
+  const sortIcon = (col: typeof sortCol) =>
+    sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
+
+  // Extrait le compte du libellé de sous-catégorie : "Publicité et marketing (623)" → "623"
+  const extractAcc = (sub: string, fallback: string) => {
+    const m = sub?.match(/\((\d{3,})[^)]*\)/)
+    return m ? m[1] : fallback
+  }
+
+  // Suggestion auto de sous-catégorie d'après l'historique des saisies (même catégorie,
+  // tiers ou libellé similaire). Vide si l'utilisateur a déjà choisi ou si pas d'indice.
+  const suggestedSub = useMemo(() => {
+    if (form.subcategory) return null
+    const lbl = (form.label || '').toLowerCase().trim()
+    const cpt = (form.counterpart || '').toLowerCase().trim()
+    if (!lbl && !cpt) return null
+    const subs = catConfig?.subs ?? []
+    const scores: Record<string, number> = {}
+    for (const e of manualEntries) {
+      if (e.category !== form.category || !e.subcategory) continue
+      if (!subs.includes(e.subcategory)) continue
+      const eLbl = (e.label || '').toLowerCase()
+      const eCpt = (e.counterpart || '').toLowerCase()
+      let score = 0
+      // Tiers identique ou inclusion → forte confiance
+      if (cpt && eCpt && (cpt === eCpt || (cpt.length >= 3 && eCpt.includes(cpt)) || (eCpt.length >= 3 && cpt.includes(eCpt)))) score += 5
+      // Tokens du libellé (>= 3 caractères)
+      if (lbl) {
+        const tokens = lbl.split(/\s+/).filter(t => t.length >= 3)
+        for (const t of tokens) {
+          if (eLbl.includes(t) || eCpt.includes(t)) score += 1
+        }
+      }
+      if (score > 0) scores[e.subcategory] = (scores[e.subcategory] || 0) + score
+    }
+    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+    return sorted.length > 0 ? sorted[0][0] : null
+  }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig])
 
   // ── Rafraîchir le store après saisie ─────────────────────────────────────
   const refreshStore = async (newEntry: ManualEntry) => {
     const allEntries = [newEntry, ...manualEntries]
     setManualEntries(allEntries)
-    if (RAW) {
-      // Reconstruire le RAW avec les nouvelles saisies
-      const { data: cd } = await sb.from('company_data').select('*')
-      const { data: bd } = await sb.from('budget').select('*')
-      if (cd) {
-        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
-        setRAW(newRAW)
+    if (!tenantId) return
+    const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+    const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+    if (cd) {
+      const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+      setRAW(newRAW)
+      // Étendre la période pour inclure le mois de la nouvelle entrée
+      if (newRAW.mn.length > 0) {
+        const newStart = newRAW.mn[0]
+        const newEnd   = newRAW.mn[newRAW.mn.length - 1]
+        setFilters({
+          startM: (!filters.startM || newStart < filters.startM) ? newStart : filters.startM,
+          endM:   (!filters.endM   || newEnd   > filters.endM)   ? newEnd   : filters.endM,
+        })
       }
     }
   }
@@ -198,12 +431,24 @@ export function Saisie() {
       const ttc    = parseFloat(parsed.amount_ttc) || 0
       const ht     = parseFloat(parsed.amount_ht)  || 0
 
+      // Trouver la sous-catégorie prédéfinie la plus proche de la réponse OCR
+      // (le texte OCR libre n'a pas le format "(623)" → extractAcc échouerait)
+      const ocrCat   = (parsed.category || 'Depense') as ManualEntry['category']
+      const ocrSub   = (parsed.subcategory || '').toLowerCase().trim()
+      const catSubs  = CATEGORIES.find(c => c.cat === ocrCat)?.subs ?? []
+      const matchedSub = ocrSub.length >= 3
+        ? catSubs.find(s => {
+            const label = s.split('(')[0].trim().toLowerCase()
+            return label.includes(ocrSub.slice(0, 8)) || ocrSub.includes(label.slice(0, 6))
+          })
+        : undefined
+
       setOcrResult(`✅ Facture analysée : ${parsed.counterpart || ''} — HT: ${ht.toFixed(2)} € | TTC: ${ttc.toFixed(2)} € | TVA: ${calcTvaAmount(ht, ttc).toFixed(2)} €`)
       setForm(f => ({
         ...f,
         entry_date:  parsed.date || f.entry_date,
-        category:    parsed.category || f.category,
-        subcategory: parsed.subcategory || '',
+        category:    ocrCat,
+        subcategory: matchedSub || parsed.subcategory || '',
         label:       parsed.label || '',
         amount_ttc:  ttc > 0 ? String(ttc) : f.amount_ttc,
         amount_ht:   ht > 0  ? String(ht)  : f.amount_ht,
@@ -248,6 +493,10 @@ export function Saisie() {
         tva_rate:     calcTvaRate(ht, ttc),
         counterpart:  row.counterpart || row.contrepartie || '',
         payment_mode: row.payment_mode || row.reglement || 'virement',
+        account_num:  extractAcc(
+          row.subcategory || row.sous_categorie || '',
+          CATEGORIES.find(c => c.cat === (row.category || row.categorie || 'Depense'))?.acc ?? '658'
+        ),
         source:       'csv',
       })
     }
@@ -256,20 +505,32 @@ export function Saisie() {
     setSaving(false)
     if (error) { setMsg('❌ ' + error.message); return }
     const newEntries = data as ManualEntry[]
-    setEntries(p => [...newEntries, ...p])
     setMsg(`✅ ${newEntries.length} lignes importées`)
     // Refresh store
     const allEntries = [...newEntries, ...manualEntries]
     setManualEntries(allEntries)
-    const { data: cd } = await sb.from('company_data').select('*')
-    const { data: bd } = await sb.from('budget').select('*')
-    if (cd && RAW) setRAW(buildRAW(cd as any, (bd ?? []) as any, allEntries))
+    if (tenantId) {
+      const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+      const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+      if (cd) {
+        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+        setRAW(newRAW)
+        if (newRAW.mn.length > 0) {
+          setFilters({
+            startM: (!filters.startM || newRAW.mn[0] < filters.startM) ? newRAW.mn[0] : filters.startM,
+            endM:   (!filters.endM   || newRAW.mn[newRAW.mn.length-1] > filters.endM) ? newRAW.mn[newRAW.mn.length-1] : filters.endM,
+          })
+        }
+      }
+    }
     setTimeout(() => setMsg(null), 4000)
   }
 
   // ── Soumission manuelle ───────────────────────────────────────────────────
   const handleSubmit = async () => {
+    const companyKeyCheck = form.company_key || filters.selCo[0] || RAW?.keys[0] || ''
     if (!form.amount_ht || !form.entry_date) return
+    if (!companyKeyCheck) { setMsg('❌ Indiquez le nom de la société'); return }
     setSaving(true)
     const ht  = parseFloat(form.amount_ht)  || 0
     const ttc = parseFloat(form.amount_ttc) || ht  // si TTC vide, TTC = HT (TVA 0)
@@ -282,9 +543,14 @@ export function Saisie() {
       invoiceUrl = await uploadInvoice(ocrFile)
     }
 
-    const { data, error } = await sb.from('manual_entries').insert({
+    const isEch = form.payment_mode === 'echeancier'
+    const dates = isEch ? echDates : []
+
+    const companyKey = form.company_key || filters.selCo[0] || RAW?.keys[0] || ''
+
+    const payload = {
       tenant_id:    tenantId,
-      company_key:  form.company_key,
+      company_key:  companyKey,
       entry_date:   form.entry_date,
       category:     form.category,
       subcategory:  form.subcategory,
@@ -296,22 +562,54 @@ export function Saisie() {
       tva_rate:     tvaRte,
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
-      account_num:  catConfig?.acc ?? '658',
-      source:       ocrFile ? 'ocr' : 'manual',
+      payment_date: !isEch && form.payment_date ? form.payment_date : null,
+      account_num:  extractAcc(form.subcategory, catConfig?.acc ?? '658'),
+      source:       (editingId ? 'manual' : (ocrFile ? 'ocr' : 'manual')) as 'manual' | 'ocr',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
-    }).select().single()
+      ...(isEch ? {
+        echeancier_data: {
+          nb: echNb,
+          delai_jours: echDelaiJours,
+          dates,
+          // amounts uniquement si l'utilisateur a personnalisé. Sinon on laisse
+          // Trésorerie répartir équitablement (rétro-compatible avec saisies anciennes).
+          ...(echAmountsDirty && echAmounts.length === dates.length
+              ? { amounts: echAmounts }
+              : {}),
+        },
+      } : { echeancier_data: null }),
+    }
+
+    const { data, error } = editingId
+      ? await sb.from('manual_entries').update(payload).eq('id', editingId).select().single()
+      : await sb.from('manual_entries').insert(payload).select().single()
 
     setSaving(false)
     if (error) { setMsg('❌ ' + error.message); return }
 
     const newEntry = data as ManualEntry
-    setEntries(p => [newEntry, ...p])
-    setMsg('✅ Entrée ajoutée — mise à jour des tableaux en cours...')
+    const wasEditing = !!editingId
+    setMsg(wasEditing ? '✅ Facture modifiée — mise à jour des tableaux en cours...' : '✅ Entrée ajoutée — mise à jour des tableaux en cours...')
 
-    // Rafraîchir tous les onglets
-    await refreshStore(newEntry)
-    setMsg('✅ Entrée ajoutée et tableaux mis à jour')
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'' }))
+    if (wasEditing) {
+      // Remplacer dans le store (pas de prepend, sinon doublon)
+      const updated = manualEntries.map(en => String(en.id) === editingId ? newEntry : en)
+      setManualEntries(updated)
+      if (tenantId) {
+        const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
+        const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
+        if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, updated))
+      }
+    } else {
+      await refreshStore(newEntry)
+    }
+
+    setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
+    setEditingId(null)
+    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setEchDates([])
+    setEchAmounts([])
+    setEchAmountsDirty(false)
     setOcrFile(null)
     setTimeout(() => setMsg(null), 3000)
   }
@@ -332,7 +630,7 @@ export function Saisie() {
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
 
   return (
-    <div style={{ padding:'16px 24px', maxWidth:920 }}>
+    <div style={{ padding:'16px 24px' }}>
 
       {isReadOnly && (
         <div style={{ padding:'8px 14px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', color:'#f59e0b', fontSize:11, fontWeight:600, marginBottom:16 }}>
@@ -351,7 +649,7 @@ export function Saisie() {
       {mode === 'ocr' && (
         <div style={{ background:'#0f172a', borderRadius:12, padding:24, border:'1px solid rgba(139,92,246,0.2)', marginBottom:24, textAlign:'center' }}>
           <div style={{ fontSize:14, fontWeight:600, color:'#8b5cf6', marginBottom:16 }}>
-            {ocrLoading ? 'Analyse Claude AI en cours...' : 'Importez une facture — HT et TTC extraits automatiquement'}
+            {ocrLoading ? 'Analyse en cours...' : 'Importez une facture — HT et TTC extraits automatiquement'}
           </div>
           {ocrLoading ? <Spinner size={32} /> : (
             <label style={{ padding:'10px 24px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', background:'rgba(139,92,246,0.15)', color:'#8b5cf6', border:'1px solid rgba(139,92,246,0.3)', display:'inline-block' }}>
@@ -370,7 +668,7 @@ export function Saisie() {
               📎 {ocrFile.name} — prêt à être enregistré avec la saisie
             </div>
           )}
-          <div style={{ marginTop:16, fontSize:11, color:'#334155' }}>JPG · PNG · PDF · Propulsé par Claude AI · Facture stockée automatiquement</div>
+          <div style={{ marginTop:16, fontSize:11, color:'#334155' }}>JPG · PNG · PDF · Facture stockée automatiquement</div>
         </div>
       )}
 
@@ -396,41 +694,63 @@ export function Saisie() {
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(175px,1fr))', gap:10 }}>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Société</label>
-              <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
-                {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name||k}</option>)}
-              </select>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Société</label>
+              {RAW.keys.length > 0
+                ? (
+                  <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
+                    {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name||k}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={form.company_key}
+                    onChange={e => setForm(f => ({...f, company_key: e.target.value.trim().toUpperCase().replace(/\s+/g,'_')}))}
+                    style={inputSt}
+                    placeholder="Ex : STE_COMMERCIALE"
+                  />
+                )
+              }
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Date</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Date</label>
               <input type="date" value={form.entry_date} onChange={e => setForm(f => ({...f, entry_date:e.target.value}))} style={inputSt} />
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Catégorie</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Catégorie</label>
               <select value={form.category} onChange={e => setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))} style={inputSt}>
                 {CATEGORIES.map(c => <option key={c.cat} value={c.cat}>{c.cat}</option>)}
               </select>
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Sous-catégorie</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Sous-catégorie</label>
               <select value={form.subcategory} onChange={e => setForm(f => ({...f, subcategory:e.target.value}))} style={inputSt}>
                 <option value="">— Choisir —</option>
-                {catConfig?.subs.map(s => <option key={s} value={s}>{s}</option>)}
+                {[...(catConfig?.subs ?? [])].sort((a, b) => a.localeCompare(b, 'fr')).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              {suggestedSub && suggestedSub !== form.subcategory && (
+                <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6 }}>
+                  <span>💡 Suggestion (à partir d'autres saisies) :</span>
+                  <button type="button"
+                    onClick={() => setForm(f => ({ ...f, subcategory: suggestedSub }))}
+                    style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
+                    {suggestedSub}
+                  </button>
+                </div>
+              )}
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Montant HT € *</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Montant HT € *</label>
               <input type="number" step="0.01" value={form.amount_ht}
                 onChange={e => setForm(f => ({...f, amount_ht:e.target.value}))}
                 style={inputSt} placeholder="0.00" />
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Montant TTC €</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Montant TTC €</label>
               <input type="number" step="0.01" value={form.amount_ttc}
                 onChange={e => setForm(f => ({...f, amount_ttc:e.target.value}))}
                 style={inputSt} placeholder="= HT si vide" />
@@ -438,7 +758,7 @@ export function Saisie() {
 
             {/* TVA calculée automatiquement */}
             <div style={{ gridColumn: 'span 1' }}>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>TVA (calculée)</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>TVA (calculée)</label>
               <div style={{ ...inputSt, display:'flex', alignItems:'center', gap:8, justifyContent:'space-between' }}>
                 <span style={{ fontFamily:'monospace', color: tvaAmount !== null ? '#f59e0b' : '#334155' }}>
                   {tvaAmount !== null ? `${tvaAmount.toFixed(2)} €` : '—'}
@@ -450,29 +770,115 @@ export function Saisie() {
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Libellé</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Libellé</label>
               <input type="text" value={form.label} onChange={e => setForm(f => ({...f, label:e.target.value}))} style={inputSt} placeholder="Description..." />
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Contrepartie</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Contrepartie</label>
               <input type="text" value={form.counterpart} onChange={e => setForm(f => ({...f, counterpart:e.target.value}))} style={inputSt} placeholder="Fournisseur..." />
             </div>
 
             <div>
-              <label style={{ fontSize:10, color:'#475569', display:'block', marginBottom:4 }}>Mode règlement</label>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Mode règlement</label>
               <select value={form.payment_mode} onChange={e => setForm(f => ({...f, payment_mode:e.target.value}))} style={inputSt}>
-                {['virement','prelevement','cb','cheque','especes'].map(m => <option key={m} value={m}>{m}</option>)}
+                {['comptant','virement','prelevement','cb','cheque','especes','echeancier'].map(m => (
+                  <option key={m} value={m}>{m === 'echeancier' ? 'Paiement échelonné' : m}</option>
+                ))}
               </select>
             </div>
+
+            {/* Date de paiement pour les modes non-échelonnés */}
+            {form.payment_mode !== 'echeancier' && (
+              <div>
+                <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Date de paiement</label>
+                <input type="date" value={form.payment_date}
+                  onChange={e => setForm(f => ({...f, payment_date:e.target.value}))}
+                  style={inputSt} placeholder="Optionnel" />
+              </div>
+            )}
+
+            {/* Écheancier : dates libres */}
+            {form.payment_mode === 'echeancier' && (
+              <>
+                <div>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>1ère échéance</label>
+                  <input type="date" value={echStartDate || form.entry_date}
+                    onChange={e => setEchStartDate(e.target.value)} style={inputSt} />
+                </div>
+                <div>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Nb d'échéances</label>
+                  <input type="number" min={1} max={60} value={echNb}
+                    onChange={e => setEchNb(Math.max(1, Math.min(60, Number(e.target.value))))}
+                    style={inputSt} />
+                </div>
+                <div>
+                  <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Délai entre chaque (jours)</label>
+                  <input type="number" min={1} max={365} value={echDelaiJours}
+                    onChange={e => setEchDelaiJours(Math.max(1, Math.min(365, Number(e.target.value))))}
+                    style={inputSt} />
+                </div>
+                <div style={{ gridColumn:'1 / -1' }}>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8' }}>Échéances (date et montant modifiables)</label>
+                    {echAmountsDirty && (
+                      <button type="button" onClick={() => setEchAmountsDirty(false)}
+                        style={{ background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)',
+                          borderRadius:6, padding:'3px 10px', fontSize:10, cursor:'pointer' }}>
+                        Répartir équitablement
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'flex-end' }}>
+                    {echDates.map((d, i) => (
+                      <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
+                        <span style={{ fontSize:9, color:'#475569' }}>Échéance {i + 1}</span>
+                        <input type="date" value={d}
+                          onChange={e => setEchDates(prev => prev.map((x, j) => j === i ? e.target.value : x))}
+                          style={{ ...inputSt, width:130, fontSize:11, padding:'4px 6px' }} />
+                        <input type="number" step="0.01" min={0} value={echAmounts[i] ?? 0}
+                          onChange={e => {
+                            const v = parseFloat(e.target.value) || 0
+                            setEchAmounts(prev => prev.map((x, j) => j === i ? v : x))
+                            setEchAmountsDirty(true)
+                          }}
+                          style={{ ...inputSt, width:130, fontSize:11, padding:'4px 6px', textAlign:'right' }} />
+                      </div>
+                    ))}
+                  </div>
+                  {(() => {
+                    const ttc = parseFloat(form.amount_ttc || '0') || 0
+                    const sum = echAmounts.reduce((s, v) => s + v, 0)
+                    const diff = Math.round((sum - ttc) * 100) / 100
+                    if (!ttc || !echAmounts.length) return null
+                    return (
+                      <div style={{ fontSize:10, marginTop:6, color: Math.abs(diff) < 0.01 ? '#10b981' : '#f59e0b' }}>
+                        Total échéances : {sum.toFixed(2)} € TTC / TTC facture : {ttc.toFixed(2)} €
+                        {Math.abs(diff) >= 0.01 && <span> — écart {diff > 0 ? '+' : ''}{diff.toFixed(2)} €</span>}
+                      </div>
+                    )
+                  })()}
+                </div>
+              </>
+            )}
 
           </div>
 
           <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:14 }}>
             <button onClick={handleSubmit} disabled={saving || !form.amount_ht || isReadOnly}
-              style={{ padding:'8px 20px', borderRadius:8, background:'linear-gradient(135deg,#3b82f6,#6366f1)', border:'none', color:'#fff', fontSize:12, fontWeight:600, cursor: saving||!form.amount_ht ? 'not-allowed':'pointer', opacity: saving||!form.amount_ht ? 0.6:1 }}>
-              {saving ? 'Enregistrement...' : '+ Ajouter'}
+              style={{ padding:'8px 20px', borderRadius:8,
+                background: editingId ? 'linear-gradient(135deg,#f59e0b,#ef4444)' : 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                border:'none', color:'#fff', fontSize:12, fontWeight:600,
+                cursor: saving||!form.amount_ht ? 'not-allowed':'pointer',
+                opacity: saving||!form.amount_ht ? 0.6:1 }}>
+              {saving ? 'Enregistrement...' : (editingId ? '💾 Enregistrer modifications' : '+ Ajouter')}
             </button>
+            {editingId && (
+              <button onClick={handleCancelEdit} disabled={saving}
+                style={{ padding:'8px 16px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize:12, fontWeight:500, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                Annuler
+              </button>
+            )}
             {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444' }}>{msg}</span>}
           </div>
         </div>
@@ -480,26 +886,92 @@ export function Saisie() {
 
       {/* Historique */}
       <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Historique</div>
-      {loading ? <Spinner size={24} /> : entries.length === 0 ? (
+
+      {/* Recherche + filtres */}
+      {!dataLoading && manualEntries.filter(e => e.source !== 'echeance').length > 0 && (
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:12, flexWrap:'wrap' }}>
+          <input
+            type="text"
+            placeholder="🔍 Rechercher (libellé, contrepartie, sous-catégorie...)"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ ...inputSt, flex:'1 1 220px', minWidth:200, maxWidth:380 }}
+          />
+          <div style={{ display:'flex', gap:4 }}>
+            {(['Tous','Vente','Achat','Depense'] as const).map(cat => {
+              const active = filterCat === cat
+              const accent = cat === 'Vente' ? '#10b981' : cat === 'Achat' ? '#ef4444' : cat === 'Depense' ? '#f59e0b' : '#60a5fa'
+              return (
+                <button key={cat} onClick={() => setFilterCat(cat)} style={{
+                  padding:'5px 10px', borderRadius:6, border: active ? `1px solid ${accent}` : '1px solid transparent',
+                  cursor:'pointer', fontSize:11, fontWeight:600, transition:'all 0.15s',
+                  background: active ? `${accent}22` : 'rgba(255,255,255,0.03)',
+                  color: active ? accent : '#475569',
+                }}>{cat}</button>
+              )
+            })}
+          </div>
+          <span style={{ fontSize:10, color:'#334155', marginLeft:4 }}>
+            {displayEntries.length} résultat{displayEntries.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+      {dataLoading ? <Spinner size={24} /> : manualEntries.filter(e => e.source !== 'echeance').length === 0 ? (
         <div style={{ fontSize:12, color:'#334155', textAlign:'center', padding:40 }}>Aucune saisie pour le moment.</div>
       ) : (
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-            <thead>
+            <thead style={{ position:'sticky', top:0, zIndex:2 }}>
               <tr style={{ background:'#0f172a' }}>
-                {['Date','Catégorie','Sous-cat. / Libellé','Contrepartie','HT €','TVA €','TTC €','Règlement','Source','Pièce'].map(h => (
-                  <th key={h} style={{ padding:'6px 8px', textAlign: h==='HT €'||h==='TVA €'||h==='TTC €' ? 'right':'left', color:'#475569', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)', whiteSpace:'nowrap' }}>{h}</th>
+                {([
+                  { label:'Date facture',         col:'entry_date'  as const, align:'left'  },
+                  { label:'Dt paiement',          col:null,                   align:'left'  },
+                  { label:'Société',              col:null,                   align:'left'  },
+                  { label:'Pièce',               col:null,                   align:'left'  },
+                  { label:'Catégorie',           col:null,                   align:'left'  },
+                  { label:'Sous-cat. / Libellé', col:null,                   align:'left'  },
+                  { label:'Contrepartie',        col:'counterpart' as const, align:'left'  },
+                  { label:'HT €',                col:'amount_ht'   as const, align:'right' },
+                  { label:'TVA €',               col:null,                   align:'right' },
+                  { label:'TTC €',               col:'amount_ttc'  as const, align:'right' },
+                  { label:'Règlement',            col:null,                   align:'left'  },
+                  { label:'Source',               col:null,                   align:'left'  },
+                  { label:'Actions',              col:null,                   align:'center'  },
+                ] as { label:string; col:'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'|null; align:string }[]).map(({ label, col, align }) => (
+                  <th key={label} onClick={col ? () => handleSort(col) : undefined} style={{
+                    padding:'6px 8px', textAlign: align as 'left'|'right',
+                    color: col && sortCol === col ? '#93c5fd' : '#475569',
+                    fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)',
+                    whiteSpace:'nowrap', cursor: col ? 'pointer' : 'default', userSelect:'none',
+                  }}>
+                    {label}{col ? sortIcon(col) : ''}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {entries.slice(0,40).map(e => {
+              {pageEntries.map(e => {
                 const ht  = parseFloat(e.amount_ht||e.amount_ht_saisie||'0')||0
                 const ttc = parseFloat(e.amount_ttc||'0')||0
                 const tva = calcTvaAmount(ht, ttc)
                 return (
                   <tr key={e.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                    <td style={{ padding:'6px 8px', color:'#475569', whiteSpace:'nowrap' }}>{e.entry_date}</td>
+                    <td style={{ padding:'6px 8px', color:'#475569', whiteSpace:'nowrap' }}>{fmtDate(e.entry_date)}</td>
+                    <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : '#334155', whiteSpace:'nowrap', fontSize:11 }}>
+                      {e.payment_mode === 'echeancier'
+                        ? <span style={{ color:'#8b5cf6', fontSize:10 }}>échelonné</span>
+                        : e.payment_date ? fmtDate(e.payment_date) : <span style={{ color:'#334155' }}>—</span>}
+                    </td>
+                    <td style={{ padding:'6px 8px', whiteSpace:'nowrap', fontSize:11 }}>
+                      <span style={{ color:'#60a5fa', fontWeight:500 }}>
+                        {RAW.companies[e.company_key]?.name || e.company_key || '—'}
+                      </span>
+                    </td>
+                    <td style={{ padding:'6px 8px', fontSize:11 }}>
+                      {e.invoice_url
+                        ? <button onClick={() => openInvoice(e.invoice_url!)} style={{ background:'none', border:'none', padding:0, color:'#60a5fa', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>📄 Voir</button>
+                        : <span style={{ color:'#64748b' }}>—</span>}
+                    </td>
                     <td style={{ padding:'6px 8px' }}>
                       <span style={{ padding:'2px 6px', borderRadius:20, fontSize:10,
                         background: e.category==='Vente' ? 'rgba(16,185,129,0.1)':'rgba(239,68,68,0.1)',
@@ -514,18 +986,51 @@ export function Saisie() {
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f1f5f9' }}>{ht.toFixed(2)}</td>
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f59e0b' }}>{tva !== 0 ? tva.toFixed(2) : '—'}</td>
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: e.category==='Vente' ? '#10b981':'#f1f5f9' }}>{ttc.toFixed(2)}</td>
-                    <td style={{ padding:'6px 8px', color:'#334155' }}>{e.payment_mode||'—'}</td>
+                    <td style={{ padding:'6px 8px', color:'#64748b' }}>{e.payment_mode||'—'}</td>
                     <td style={{ padding:'6px 8px', color:'#8b5cf6', fontSize:9 }}>{e.source}</td>
-                    <td style={{ padding:'6px 8px', fontSize:9 }}>
-                      {e.invoice_url
-                        ? <button onClick={() => openInvoice(e.invoice_url!)} style={{ background:'none', border:'none', padding:0, color:'#3b82f6', textDecoration:'none', cursor:'pointer', font:'inherit' }}>📄 Voir</button>
-                        : <span style={{ color:'#334155' }}>—</span>}
+                    <td style={{ padding:'6px 8px', fontSize:10, whiteSpace:'nowrap', textAlign:'center' }}>
+                      {confirmDelete === String(e.id) ? (
+                        <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                          <button onClick={() => handleDeleteFacture(String(e.id))} disabled={isReadOnly || saving}
+                            style={{ padding:'3px 8px', borderRadius:5, border:'none', background:'#ef4444', color:'#fff', fontSize:10, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                            ✓ Confirmer
+                          </button>
+                          <button onClick={() => setConfirmDelete(null)}
+                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#94a3b8', fontSize:10, cursor:'pointer', fontFamily:'inherit' }}>
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display:'flex', gap:4, justifyContent:'center' }}>
+                          <button onClick={() => handleEditFacture(e)} disabled={isReadOnly}
+                            title="Modifier"
+                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid rgba(59,130,246,0.3)', background:'rgba(59,130,246,0.08)', color:'#60a5fa', fontSize:11, cursor: isReadOnly ? 'not-allowed' : 'pointer', fontFamily:'inherit' }}>
+                            ✏️
+                          </button>
+                          <button onClick={() => setConfirmDelete(String(e.id))} disabled={isReadOnly}
+                            title="Supprimer"
+                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid rgba(239,68,68,0.3)', background:'rgba(239,68,68,0.08)', color:'#f87171', fontSize:11, cursor: isReadOnly ? 'not-allowed' : 'pointer', fontFamily:'inherit' }}>
+                            🗑
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          {pageCount > 1 && (
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px 0', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
+              <button onClick={() => setPage(0)} disabled={page === 0} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page===0?'#1e293b':'#475569', cursor: page===0?'default':'pointer', fontSize:11 }}>«</button>
+              <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page===0?'#1e293b':'#475569', cursor: page===0?'default':'pointer', fontSize:11 }}>‹</button>
+              <span style={{ fontSize:11, color:'#475569' }}>Page {page+1} / {pageCount} — {displayEntries.length} entrée{displayEntries.length>1?'s':''}</span>
+              <button onClick={() => setPage(p => Math.min(pageCount-1, p+1))} disabled={page >= pageCount-1} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page>=pageCount-1?'#1e293b':'#475569', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>›</button>
+              <button onClick={() => setPage(pageCount-1)} disabled={page >= pageCount-1} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page>=pageCount-1?'#1e293b':'#475569', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>»</button>
+            </div>
+          )}
         </div>
       )}
     </div>

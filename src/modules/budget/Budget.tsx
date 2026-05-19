@@ -440,6 +440,11 @@ export function Budget() {
   const [showWhatIf,   setShowWhatIf]   = useState(false)
   const [newVersionName, setNewVersionName] = useState('')
   const [creating,     setCreating]     = useState(false)
+  // Ajout manuel d'un compte (hors FEC)
+  const [showAddAccount, setShowAddAccount] = useState(false)
+  const [newAccNum,    setNewAccNum]    = useState('')
+  const [newAccLabel,  setNewAccLabel]  = useState('')
+  const [newAccType,   setNewAccType]   = useState<'c' | 'p'>('c')
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -536,6 +541,28 @@ export function Budget() {
     )
     setBudVersions(updated)
     setBudData({ ...budData, [budCo]: newData } as any)
+  }
+
+  // Ajoute un compte manuel (hors FEC) au budget courant. Le compte est créé avec
+  // un tableau b[12]=0 — l'utilisateur saisit ensuite les montants mois par mois.
+  const handleAddAccount = () => {
+    const accNum = newAccNum.trim()
+    if (!accNum) { setMsg('❌ Numéro de compte requis'); setTimeout(() => setMsg(null), 3000); return }
+    if (!/^\d{3,}/.test(accNum)) { setMsg('❌ Le numéro de compte doit commencer par au moins 3 chiffres'); setTimeout(() => setMsg(null), 3000); return }
+    if (coBud[accNum]) { setMsg('❌ Compte déjà existant dans cette version'); setTimeout(() => setMsg(null), 3000); return }
+    const newAcc = { b: Array(12).fill(0), t: newAccType, l: newAccLabel.trim() || accNum }
+    const newData = { ...coBud, [accNum]: newAcc }
+    const updated = budVersions.map(v =>
+      v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newData } : v
+    )
+    setBudVersions(updated)
+    setBudData({ ...budData, [budCo]: newData } as any)
+    setNewAccNum('')
+    setNewAccLabel('')
+    setNewAccType('c')
+    setShowAddAccount(false)
+    setMsg('✅ Compte ajouté — pensez à saisir les montants puis sauvegarder')
+    setTimeout(() => setMsg(null), 4000)
   }
 
   const handleSave = async () => {
@@ -813,6 +840,13 @@ export function Budget() {
                       🔄 Régénérer
                     </button>
                   )}
+                  <button onClick={() => setShowAddAccount(v => !v)}
+                    style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                      background: showAddAccount ? 'rgba(16,185,129,0.2)' : 'transparent',
+                      border: `1px solid ${showAddAccount ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                      color: showAddAccount ? '#6ee7b7' : '#475569' }}>
+                    {showAddAccount ? '× Annuler' : '+ Ajouter un compte'}
+                  </button>
                   <button onClick={handleSave} disabled={saving}
                     style={{ padding:'6px 14px', borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', fontSize:12, cursor:'pointer', fontWeight:600 }}>
                     {saving ? 'Sauvegarde...' : '💾 Sauvegarder'}
@@ -828,6 +862,63 @@ export function Budget() {
                   )}
                 </div>
               </div>
+
+              {/* Ajout d'un compte manuel (hors FEC) */}
+              {showAddAccount && (
+                <div style={{
+                  marginBottom:16, padding:'14px 16px', borderRadius:12,
+                  background:'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(20,184,166,0.06))',
+                  border:'1px solid rgba(16,185,129,0.3)',
+                  display:'flex', gap:10, alignItems:'flex-end', flexWrap:'wrap',
+                }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                      N° de compte
+                    </label>
+                    <input
+                      type="text" placeholder="ex : 6280001"
+                      value={newAccNum} onChange={e => setNewAccNum(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
+                      style={{ ...inputSt, width: 140 }}
+                    />
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:4, flex:1, minWidth:200 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                      Libellé
+                    </label>
+                    <input
+                      type="text" placeholder="ex : Cotisation CCI"
+                      value={newAccLabel} onChange={e => setNewAccLabel(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
+                      style={{ ...inputSt, width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                      Type
+                    </label>
+                    <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)' }}>
+                      <button type="button" onClick={() => setNewAccType('c')}
+                        style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
+                          background: newAccType === 'c' ? 'rgba(239,68,68,0.2)' : 'transparent',
+                          color: newAccType === 'c' ? '#fca5a5' : '#475569' }}>
+                        📤 Charge
+                      </button>
+                      <button type="button" onClick={() => setNewAccType('p')}
+                        style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
+                          background: newAccType === 'p' ? 'rgba(16,185,129,0.2)' : 'transparent',
+                          color: newAccType === 'p' ? '#6ee7b7' : '#475569' }}>
+                        📥 Produit
+                      </button>
+                    </div>
+                  </div>
+                  <button onClick={handleAddAccount}
+                    style={{ padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                      background:'rgba(16,185,129,0.25)', border:'1px solid rgba(16,185,129,0.4)', color:'#6ee7b7' }}>
+                    Ajouter
+                  </button>
+                </div>
+              )}
 
               {/* What-if simulation */}
               {showWhatIf && Object.keys(coBud).length > 0 && (

@@ -23,7 +23,7 @@ export const monthIdx = (m: string): number => {
   return parseInt(y) * 12 + parseInt(mo)
 }
 
-export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: string, months: string[]): [number, number][] {
+export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p2', acc: string, months: string[]): [number, number][] {
   return months.map(m => {
     let d = 0, c = 0
     for (const co of keys) { const v = RAW.companies[co]?.[field]?.[acc]?.mo?.[m]; if (v) { d += v[0]; c += v[1] } }
@@ -31,13 +31,13 @@ export function mergePL(RAW: RAWData, keys: string[], field: 'pn' | 'p1', acc: s
   })
 }
 
-export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string) {
+export function mergeEntries(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p2' | 'bn' | 'b1', acc: string) {
   const entries: [string, string, number, number, string, number][] = []
   for (const co of keys) { const acct = RAW.companies[co]?.[field]?.[acc]; if (acct?.e) entries.push(...acct.e as typeof entries) }
   return entries.sort((a, b) => (a[0] || '').localeCompare(b[0] || ''))
 }
 
-export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'bn' | 'b1', acc: string): string {
+export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p2' | 'bn' | 'b1', acc: string): string {
   for (const co of keys) {
     const src = RAW.companies[co]?.[field] as any
     if (!src) continue
@@ -53,9 +53,9 @@ export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'b
 export const sumArr = (arr: number[]): number => arr.reduce((s, v) => s + v, 0)
 export const solde  = (adj: [number, number][], isCharge: boolean): number[] => adj.map(([d, c]) => isCharge ? d - c : c - d)
 
-export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'bud'>, acc: string, _excludeOD: boolean): [number, number][] {
+export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, acc: string, _excludeOD: boolean): [number, number][] {
   return selectedMs.map((m, i) => {
-    const field = msSrc[i] === 'p1' ? 'p1' : 'pn'
+    const field: 'pn' | 'p1' | 'p2' = msSrc[i] === 'p2' ? 'p2' : msSrc[i] === 'p1' ? 'p1' : 'pn'
     let d = 0, c = 0
     for (const co of keys) {
       const src = RAW.companies[co]?.[field] as any
@@ -78,6 +78,23 @@ export function getBudget(selCo: string[], budData: Record<string, BudgetData>, 
   return fiscalIndices.map(fi => { let s = 0; for (const co of selCo) s += budData[co]?.[acc]?.b?.[fi] ?? 0; return s })
 }
 
+// Variante par préfixes : utilisée pour totaliser le budget d'une catégorie/section
+// (ex: accs=['628'] doit inclure le budget '628', '6280000000', '6280001' ajouté manuellement…)
+// Pas d'usage pour le rendu d'une sous-ligne précise — qui doit rester en lookup exact.
+export function getBudgetByPrefixes(selCo: string[], budData: Record<string, BudgetData>, prefixes: string[], fiscalIndices: number[]): number[] {
+  return fiscalIndices.map(fi => {
+    let s = 0
+    for (const co of selCo) {
+      const bd = budData[co] ?? {}
+      for (const [acc, bv] of Object.entries(bd)) {
+        if (!prefixes.some(p => acc.startsWith(p))) continue
+        s += (bv as any)?.b?.[fi] ?? 0
+      }
+    }
+    return s
+  })
+}
+
 const CO_PALETTE = ['#3b82f6', '#f97316', '#14b8a6', '#8b5cf6', '#f43f5e', '#84cc16', '#f59e0b', '#06b6d4']
 
 export function getCoColor(key: string): string {
@@ -98,9 +115,30 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
       const plField = row.period === 'N' ? 'pn' : row.period === 'N-1' ? 'p1' : 'p2'
       const bField  = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
       const msSet   = row.period === 'N' ? allMsN : row.period === 'N-1' ? allMsN1 : allMsN2
+      const cy      = new Date().getFullYear()
       for (const [acc, acct] of Object.entries(row.pl_data ?? {})) {
-        companies[co][plField][acc] = acct as any
-        for (const m of Object.keys((acct as any).mo ?? {})) msSet.add(m)
+        if (row.period === 'N') {
+          // FEC multi-années tagué N : reclasser chaque mois par année calendaire.
+          // Ex : FEC Jan 2025–Mai 2026 → mois 2025 vont en p1/allMsN1, mois 2026 en pn/allMsN.
+          const src = acct as any
+          for (const [m, v] of Object.entries(src.mo ?? {} as Record<string, unknown>)) {
+            const yr = parseInt(m.slice(0, 4))
+            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
+            const ms = yr >= cy ? allMsN : yr === cy - 1 ? allMsN1 : allMsN2
+            ms.add(m)
+            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+            ;(companies[co][f][acc] as any).mo[m] = v
+          }
+          for (const e of (src.e ?? [])) {
+            const yr = parseInt((e[0] as string || '').slice(0, 4)) || cy
+            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
+            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+            ;(companies[co][f][acc] as any).e.push(e)
+          }
+        } else {
+          companies[co][plField][acc] = acct as any
+          for (const m of Object.keys((acct as any).mo ?? {})) msSet.add(m)
+        }
       }
       for (const [acc, acct] of Object.entries(row.bilan_data ?? {})) companies[co][bField][acc] = acct as any
       if (row.period === 'N') { companies[co].cdN = row.client_data ?? {}; companies[co].veN = row.ve_entries ?? [] }
@@ -109,16 +147,24 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
   }
 
   for (const me of manualEntries) {
+    if (me.source === 'echeance') continue          // entrées-enfants : ignorées du P&L (gérées dans trésorerie)
     const mco = me.company_key; if (!mco) continue
     if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
     const mMonth = mDate.slice(0, 7)
-    // Use exact set membership: only treat as N-1 if the month is already in N-1 FEC data
-    // (and not also in N FEC data). Range-based check incorrectly classifies current-period
-    // entries as N-1 when the FEC N-1 import spans many years.
-    const isN1 = allMsN1.has(mMonth) && !allMsN.has(mMonth)
-    const plField = isN1 ? 'p1' : 'pn'
-    if (isN1) allMsN1.add(mMonth); else allMsN.add(mMonth)
+    // Classifier par appartenance exacte aux mois FEC. Priorité : N > N-1 > N-2.
+    // (Range-based check classait à tort les écritures courantes en N-1 quand le FEC N-1
+    //  couvrait plusieurs années.)
+    const inN  = allMsN.has(mMonth)
+    const inN1 = allMsN1.has(mMonth)
+    const inN2 = allMsN2.has(mMonth)
+    const plField: 'pn' | 'p1' | 'p2' =
+      inN ? 'pn' :
+      inN1 ? 'p1' :
+      inN2 ? 'p2' : 'pn'
+    if (plField === 'p2') allMsN2.add(mMonth)
+    else if (plField === 'p1') allMsN1.add(mMonth)
+    else allMsN.add(mMonth)
     const acc = me.account_num || '658', ht = parseFloat(me.amount_ht || me.amount_ht_saisie || '0') || 0
     if (ht === 0) continue
     const isCat7 = acc[0] === '7', debit = isCat7 ? 0 : ht, credit = isCat7 ? ht : 0
@@ -131,7 +177,7 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
   return { companies, mn: [...allMsN].sort(), m1: [...allMsN1].sort(), m2: [...allMsN2].sort(), keys: allKeys }
 }
 
-export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {
+export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {
   const result: PlData = {}
   for (const row of struct) {
     if (row.sep || row.header || !row.accs) continue
@@ -141,12 +187,15 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
     )
     let cumulN = 0, cumulN1S = 0
     const monthsN = new Array(selectedMs.length).fill(0), monthsN1 = new Array(allMsN1Same.length).fill(0), budMonths = new Array(12).fill(0)
+    const budSignRow = row.type === 'charge' ? 1 : -1
+    // Budget : agrégation par préfixes (inclut les sous-comptes FEC ET les comptes manuels
+    // ajoutés depuis la page Budget — ex: accs=['628'] inclut '628', '6280000000', '6280001'…)
+    getBudgetByPrefixes(selCo, budData, accs, Array.from({ length: 12 }, (_, i) => i))
+      .forEach((v, i) => { budMonths[i] += v * budSignRow })
     for (const acc of accs) {
       const sN = solde(getAdjMixed(RAW, selCo, selectedMs, msSrc, acc, excludeOD), row.type === 'charge')
       sN.forEach((v, i) => { monthsN[i] += v }); cumulN += sumArr(sN)
       cumulN1S += sumArr(solde(getAdjMixed(RAW, selCo, allMsN1Same, allMsN1SameSrc, acc, excludeOD), row.type === 'charge'))
-      const budSign = row.type === 'charge' ? 1 : -1
-      getBudget(selCo, budData, acc, Array.from({ length: 12 }, (_, i) => i)).forEach((v, i) => { budMonths[i] += v * budSign })
     }
     result[row.id] = { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: Math.round(budMonths.reduce((s, v) => s + v, 0)), accs: allAccs } as PlCalcRow
   }
@@ -202,7 +251,18 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           }
         }
       }
-      return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: 0, accs: [] } as PlCalcRow
+      // Budget : agrégation par préfixes (parallèle au cumul réel ci-dessus)
+      const budSign = type === 'charge' ? 1 : -1
+      for (const co of selCo) {
+        const bd = budData[co] ?? {}
+        for (const [acc, bv] of Object.entries(bd)) {
+          if (!prefixes.some(p => acc.startsWith(p))) continue
+          const b = (bv as any)?.b ?? []
+          for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0) * budSign
+        }
+      }
+      const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
+      return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal, accs: [] } as PlCalcRow
     }
     result['tot_ventes'] = sumByPrefixes(['7'], 'produit')
     result['tot_achats'] = sumByPrefixes(['60'], 'charge')
@@ -314,3 +374,4 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
 
   return result
 }
+

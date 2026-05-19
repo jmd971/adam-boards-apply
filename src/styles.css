@@ -108,9 +108,10 @@
 
 /* ── Mobile : sidebar cachée par défaut ────────────── */
 
+@media (max-width: 768px) {
   /* Bouton hamburger visible sur mobile */
   .mobile-menu-btn { display: flex !important; }
-@media (max-width: 768px) {
+
   .sidebar-wrapper {
     transform: translateX(-100%);
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
@@ -126,24 +127,8 @@
     width: 100%;
   }
 
-  /* Tables : scroll horizontal */
-  table {
-    min-width: 480px;
-  }
-
-  /* KPI grids : 2 colonnes */
-  div[style*="gridTemplateColumns:\"repeat(4"] {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-
-  /* Padding réduit sur mobile */
-  div[style*="padding:'20px 24px'"] {
-    padding: 12px 14px !important;
-  }
-
-  div[style*="padding: '20px 24px'"] {
-    padding: 12px 14px !important;
-  }
+  /* Padding réduit sur mobile — ciblé sur le pattern le plus commun uniquement */
+  [style*="padding: 20px 24px"] { padding: 12px 14px !important; }
 
   /* Touch targets */
   button { min-height: 40px; }
@@ -156,6 +141,45 @@
     max-height: 100dvh !important;
     border-radius: 0 !important;
   }
+
+  /* ── Montants monétaires : empêcher € de passer à la ligne ─ */
+  /* Ciblé sur JetBrains Mono uniquement (police des valeurs numériques) — */
+  /* [style*="monospace"] retiré : trop large, casse les cellules de tableau */
+  [style*="JetBrains Mono"] { white-space: nowrap !important; }
+
+  /* ── TopBar responsive : 2 lignes sur mobile ─────────── */
+  .topbar-inner {
+    height: auto !important;
+    min-height: 54px;
+    padding: 6px 12px !important;
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .topbar-filters {
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding: 2px 0 6px;
+    flex-shrink: 0;
+  }
+  .topbar-filters::-webkit-scrollbar { display: none; }
+
+  /* ── Tables P&L : scroll horizontal intégré ──────────── */
+  .pl-table { display: block; overflow-x: auto; }
+
+  /* ── Trésorerie : grille KPI 2 colonnes ──────────────── */
+  .treso-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* ── Trésorerie : tableau sans maxHeight (la page scrolle) ─ */
+  .treso-table-wrap {
+    max-height: none !important;
+    overflow-y: auto !important;   /* explicite — override le style inline */
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Empêcher le zoom iOS sur focus d'un champ ───────── */
+  input, select, textarea { font-size: 16px !important; }
 }
 
 /* ── Tablette ──────────────────────────────────────── */
@@ -174,6 +198,21 @@
   .kpi-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
   .kpi-grid-3 { grid-template-columns: repeat(2, 1fr) !important; }
   .chart-grid { grid-template-columns: 1fr !important; }
+
+  /* Dashboard : padding & gap réduits */
+  .dashboard-print { padding: 12px !important; gap: 12px !important; }
+
+  /* Valeur KPI : taille réduite sur petits écrans */
+  .dashboard-print .print-kpis > div [style*="fontSize:26"],
+  .dashboard-print .print-kpis > div [style*="font-size: 26"] {
+    font-size: 20px !important;
+  }
+
+  /* Colonnes des graphiques : 1 colonne */
+  .dashboard-print .print-charts { grid-template-columns: 1fr !important; }
+
+  /* Modules : réduire le padding général */
+  main > div { padding: 12px !important; }
 }
 
 /* ════════════════════════════════════════════════════
