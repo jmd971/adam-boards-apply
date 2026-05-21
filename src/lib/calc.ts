@@ -120,13 +120,14 @@ export function getBudget(selCo: string[], budData: Record<string, BudgetData>, 
 // Variante par préfixes : utilisée pour totaliser le budget d'une catégorie/section
 // (ex: accs=['628'] doit inclure le budget '628', '6280000000', '6280001' ajouté manuellement…)
 // Pas d'usage pour le rendu d'une sous-ligne précise — qui doit rester en lookup exact.
-export function getBudgetByPrefixes(selCo: string[], budData: Record<string, BudgetData>, prefixes: string[], fiscalIndices: number[]): number[] {
+export function getBudgetByPrefixes(selCo: string[], budData: Record<string, BudgetData>, prefixes: string[], fiscalIndices: number[], excludeOD = false): number[] {
   return fiscalIndices.map(fi => {
     let s = 0
     for (const co of selCo) {
       const bd = budData[co] ?? {}
       for (const [acc, bv] of Object.entries(bd)) {
         if (!prefixes.some(p => acc.startsWith(p))) continue
+        if (excludeOD && isODAccount(acc)) continue   // « Hors OD » : cohérent avec le réel
         s += (bv as any)?.b?.[fi] ?? 0
       }
     }
@@ -229,11 +230,14 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
     )
     let cumulN = 0, cumulN1S = 0
     const monthsN = new Array(selectedMs.length).fill(0), monthsN1 = new Array(allMsN1Same.length).fill(0), budMonths = new Array(12).fill(0)
-    const budSignRow = row.type === 'charge' ? 1 : -1
+    // Budget stocké en valeur absolue (positive). Le réel (solde) est lui aussi affiché en
+    // magnitude positive pour produits comme charges → le budget doit l'être aussi (sinon les
+    // produits apparaissaient en négatif). Les formules de marge/résultat appliquent les signes
+    // via add() en aval, exactement comme pour le réel.
     // Budget : agrégation par préfixes (inclut les sous-comptes FEC ET les comptes manuels
     // ajoutés depuis la page Budget — ex: accs=['628'] inclut '628', '6280000000', '6280001'…)
-    getBudgetByPrefixes(selCo, budData, accs, Array.from({ length: 12 }, (_, i) => i))
-      .forEach((v, i) => { budMonths[i] += v * budSignRow })
+    getBudgetByPrefixes(selCo, budData, accs, Array.from({ length: 12 }, (_, i) => i), excludeOD)
+      .forEach((v, i) => { budMonths[i] += v })
     for (const acc of accs) {
       const sN = solde(getAdjMixed(RAW, selCo, selectedMs, msSrc, acc, excludeOD), row.type === 'charge')
       sN.forEach((v, i) => { monthsN[i] += v }); cumulN += sumArr(sN)
@@ -294,14 +298,16 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           }
         }
       }
-      // Budget : agrégation par préfixes (parallèle au cumul réel ci-dessus)
-      const budSign = type === 'charge' ? 1 : -1
+      // Budget : agrégation par préfixes (parallèle au cumul réel ci-dessus).
+      // Stocké en valeur absolue positive → ajouté tel quel (produits comme charges),
+      // pour rester cohérent avec le réel affiché en magnitude positive.
       for (const co of selCo) {
         const bd = budData[co] ?? {}
         for (const [acc, bv] of Object.entries(bd)) {
           if (!prefixes.some(p => acc.startsWith(p))) continue
+          if (excludeOD && isODAccount(acc)) continue   // « Hors OD » : exclure aussi du budget
           const b = (bv as any)?.b ?? []
-          for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0) * budSign
+          for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0)
         }
       }
       const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
