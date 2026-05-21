@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { PlData, SigRow, RAWData } from '@/types'
-import { fmt, pct, monthLabel, mergeEntries, mergeLabel, getBudget } from '@/lib/calc'
+import { fmt, pct, monthLabel, mergeEntries, mergeLabel, getBudget, isODAccount } from '@/lib/calc'
 
 interface PlTableProps {
   struct: SigRow[]
@@ -13,6 +13,8 @@ interface PlTableProps {
   showN1Full: boolean
   showBudget: boolean
   caTotal: number
+  /** « Hors OD » : masquer les comptes d'inventaire (cohérent avec computePlCalc). */
+  excludeOD?: boolean
   budData?: Record<string, Record<string, { b: number[] }>>
   onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
   maxHeight?: string
@@ -53,7 +55,7 @@ const labelFor = (acc: string, fromFec?: string): string => {
 }
 
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc, showMonths, showN1Full, showBudget, caTotal, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc, showMonths, showN1Full, showBudget, caTotal, excludeOD, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
   // All rows with sub-accounts start expanded — user can click to collapse
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(struct.filter(r => (r.accs?.length ?? 0) > 0 && !r.sep && !r.header).map(r => [r.id, true]))
@@ -237,6 +239,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           for (const field of ['pn', 'p1'] as const) {
             const src = (RAW.companies[co] as any)?.[field] ?? {}
             for (const k of Object.keys(src)) {
+              if (excludeOD && isODAccount(k)) continue   // « Hors OD » : masquer les comptes d'inventaire
               if (!seen.has(k) && uniqueAccs.some(p => k.startsWith(p))) {
                 seen.add(k); plAccs.push(k)
               }
@@ -247,6 +250,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           if (budData) {
             const bd = (budData as any)[co] ?? {}
             for (const k of Object.keys(bd)) {
+              if (excludeOD && isODAccount(k)) continue
               if (!seen.has(k) && uniqueAccs.some(p => k.startsWith(p))) {
                 seen.add(k); plAccs.push(k)
               }
