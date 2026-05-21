@@ -222,6 +222,14 @@ export function buildRAW(
 
 export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {
   const result: PlData = {}
+
+  // Le budget b[12] est indexé par mois calendaire (fiscalIndex : jan=0…déc=11). On ne somme
+  // que les mois budgétaires correspondant à la période sélectionnée (sinon le budget restait
+  // sur l'année entière alors que le réel suit le filtre de mois).
+  const selBudIdx = new Set(selectedMs.map(m => fiscalIndex(m)))
+  const sumBudInPeriod = (budMonths: number[]) =>
+    budMonths.reduce((s, v, i) => selBudIdx.has(i) ? s + v : s, 0)
+
   for (const row of struct) {
     if (row.sep || row.header || !row.accs) continue
     const allAccs = row.accs ?? []
@@ -243,7 +251,7 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
       sN.forEach((v, i) => { monthsN[i] += v }); cumulN += sumArr(sN)
       cumulN1S += sumArr(solde(getAdjMixed(RAW, selCo, allMsN1Same, allMsN1SameSrc, acc, excludeOD), row.type === 'charge'))
     }
-    result[row.id] = { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: Math.round(budMonths.reduce((s, v) => s + v, 0)), accs: allAccs } as PlCalcRow
+    result[row.id] = { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: Math.round(sumBudInPeriod(budMonths)), accs: allAccs } as PlCalcRow
   }
 
   // Helper: combine existing result rows with signs into a new summary row
@@ -310,7 +318,7 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0)
         }
       }
-      const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
+      const budTotal = Math.round(sumBudInPeriod(budMonths))
       return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal, accs: [] } as PlCalcRow
     }
     result['tot_ventes'] = sumByPrefixes(['7'], 'produit')
