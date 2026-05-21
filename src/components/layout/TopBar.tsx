@@ -21,6 +21,8 @@ const TAB_META: Record<string, { label: string; icon: string }> = {
 }
 
 const PL_TABS       = ['cr','sig','equilibre']
+// Pages où « Hors OD » a un effet (toutes celles qui calculent via computePlCalc).
+const OD_TABS       = ['cr','sig','equilibre','ratios']
 const ANALYSIS_TABS = ['dashboard','cr','sig','equilibre','objectifs','bilan','ratios','budget','tresorerie']
 
 interface TopBarProps {
@@ -40,6 +42,7 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
   const meta       = TAB_META[tab] || { label: tab, icon: '📊' }
   const isAnalysis = ANALYSIS_TABS.includes(tab)
   const isPL       = PL_TABS.includes(tab)
+  const isOD       = OD_TABS.includes(tab)
 
   const selSt: React.CSSProperties = {
     background:'transparent', border:'none', color:'var(--text-0)',
@@ -139,13 +142,16 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
           </div>
         )}
 
-        {/* Toggles P&L */}
+        {/* Toggles affichage tableau P&L (CR/SIG/Équilibre) */}
         {isPL && (
           <div style={{ display:'flex', gap:5 }}>
-            <Toggle label="Mois"    k="showMonths" />
-            <Toggle label="N-1"     k="showN1Full" />
-            <Toggle label="Hors OD" k="excludeOD"  />
+            <Toggle label="Mois" k="showMonths" />
+            <Toggle label="N-1"  k="showN1Full" />
           </div>
+        )}
+        {/* Hors OD : aussi sur Ratios (toutes les pages calculées via computePlCalc) */}
+        {isOD && (
+          <Toggle label="Hors OD" k="excludeOD" />
         )}
         {isAnalysis && (
           <Toggle label="Budget" k="showBudget" />
