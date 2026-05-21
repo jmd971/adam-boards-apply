@@ -520,22 +520,22 @@ else if (raw.m2.length > 0) setFilters({ startM: raw.m2[0], endM: raw.m2.at(-1) 
 
 ### 13. TopBar — tags ·N / ·N-1 / ·N-2 dans le sélecteur de période
 
-**Bug corrigé 2026-05-18** : les tags dans le dropdown de période (startM / endM) doivent être basés sur l'**année calendaire du mois**, pas sur l'appartenance aux sets `RAW.mn` / `RAW.m1` / `RAW.m2`.
+**⚠️ Règle révisée le 2026-05-19 (exercice fiscal)** — voir l'historique ci-dessous.
 
-**JAMAIS** :
+**Règle ACTUELLE** : les tags du dropdown de période sont basés sur l'**appartenance aux sets `RAW.mn` / `RAW.m1` / `RAW.m2`**.
+
 ```typescript
-const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
-{monthLabel(m)}{inN?' ·N':inN1?' ·N-1':''}  // ❌ faux si FEC multi-années (tout dans mn)
+const tag = RAW?.mn?.includes(m) ? ' ·N' : RAW?.m1?.includes(m) ? ' ·N-1' : RAW?.m2?.includes(m) ? ' ·N-2' : ''
+{monthLabel(m)}{tag}  // ✅ buildRAW classe par exercice fiscal → sets fiables
 ```
 
-**TOUJOURS** :
-```typescript
-const yr = parseInt(m.slice(0, 4)), cy = new Date().getFullYear()
-const tag = yr === cy ? ' ·N' : yr === cy - 1 ? ' ·N-1' : yr <= cy - 2 ? ' ·N-2' : ''
-{monthLabel(m)}{tag}  // ✅ basé sur l'année réelle
-```
+C'est correct car depuis le support des **exercices fiscaux non calendaires** (cf règle 21), `buildRAW` classe chaque mois dans `pn/p1/p2` par exercice **réel** de la société (oct→sep aussi bien que jan→déc). Les sets `mn/m1/m2` sont donc fiables, y compris pour les FEC multi-années.
 
-Conséquence : `RAW` n'est plus lu dans `TopBar` — supprimer `const RAW = useAppStore(s => s.RAW)` pour éviter l'erreur TS6133.
+**Historique** :
+- *2026-05-18* : on était passé à l'**année calendaire** (`yr === cy ? ·N`) parce que `buildRAW` dumpait les FEC multi-années dans `mn` → sets non fiables. Cette approche calendaire est désormais **FAUSSE pour les exercices décalés** (oct 2025 = N fiscal mais année civile 2025 = ·N-1).
+- *2026-05-19* : `buildRAW` corrigé pour classer par exercice fiscal → retour aux sets, qui sont la source de vérité.
+
+**JAMAIS** revenir à l'année calendaire (`new Date().getFullYear()`) pour ces tags — ça casserait les sociétés à exercice décalé.
 
 ---
 
@@ -738,3 +738,42 @@ Vérification anti-régression :
 1. Budget → "Ajouter un compte" → `6280001` "Cotisation CCI" type Charge → saisir des montants → Sauvegarder
 2. CR / SIG / Équilibre + toggle Budget actif → ligne "Cotisations professionnelles" (628) doit inclure le montant de `6280001` dans la colonne Budget
 3. Déplier cette section → la sous-ligne `6280001 Cotisation CCI` doit apparaître avec son budget (et `—` en Cumul N car pas dans le FEC)
+
+---
+
+### 21. Exercice fiscal non calendaire (oct→sep, etc.)
+
+**Feature 2026-05-19** : une société peut avoir un exercice fiscal qui ne commence pas le 1er janvier (ex : 1er oct → 30 sep). Le réglage est **par société**, stocké dans `company_settings.fiscal_year_start_month` (1..12, défaut 1 = année civile).
+
+#### Architecture
+- **Table** : `company_settings` (migration 011), `unique(tenant_id, company_key)`
+- **Hook** : `useCompanySettings` (lecture + `setFiscalYearStartMonth`)
+- **Store** : `fiscalSettings: Record<company_key, startMonth>` alimenté par `useCompanyData`
+- **Helpers purs** (`calc.ts`) :
+  - `fiscalMonthIndex(m, startMonth)` → position 0..11 dans l'exercice
+  - `fiscalYearOf(m, startMonth)` → exercice de **clôture** (oct 2025→sep 2026 = "2026")
+  - `currentFiscalYear(startMonth, today?)` → exercice courant
+
+#### Invariant central — `buildRAW`
+`buildRAW(companyData, budgets, manualEntries, fiscalSettings)` classe N/N-1/N-2 **par exercice fiscal, société par société** :
+```typescript
+const startMonth = fiscalSettings[co] ?? 1
+const cfy = currentFiscalYear(startMonth)
+const fy  = fiscalYearOf(m, startMonth)
+const field = fy >= cfy ? 'pn' : fy === cfy - 1 ? 'p1' : 'p2'
+```
+- `startMonth = 1` ⇒ comportement calendaire **strictement identique** à l'historique (rétro-compat).
+- La classification se fait par mois, **indépendamment du tag `row.period`** (qui était calendaire et faux pour un exercice à cheval).
+- **Tout appel à `buildRAW` doit passer `fiscalSettings`** (depuis le store). Sinon (défaut `{}`) la société retombe en année civile → classification fausse après une saisie. Appels concernés : `useCompanyData`, `Saisie` (refreshStore + édition + delete + import CSV).
+
+#### Ce qui n'a PAS eu besoin de changer
+- `usePeriodFilter` : `defaultMs = RAW.mn` est déjà le bon exercice (buildRAW a classé correctement). Le décalage N-1 (`année-1`, même mois calendaire) reste valable.
+- Dashboard `fyN` : `RAW.mn[last].slice(0,4)` = année de clôture = libellé correct.
+
+#### Limitation connue — GROUPE multi-exercices
+Si on agrège plusieurs sociétés aux exercices **différents**, un même mois calendaire peut tomber en `mn` pour l'une et `m1` pour l'autre → `getAdjMixed` (qui résout un seul champ par mois via `msSrc`) peut rater des données. Les **cumuls mono-société et groupes homogènes sont corrects**. Le mois-par-mois d'un groupe hétérogène est best-effort. À traiter si un client réel le nécessite.
+
+Vérification anti-régression :
+1. Société calendaire (pas de ligne `company_settings` ou `start_month=1`) → CR/SIG/Équilibre inchangés
+2. `INSERT INTO company_settings(tenant_id, company_key, fiscal_year_start_month) VALUES (<tid>, '<co>', 10)` → recharger → la période N de cette société couvre oct→sep, le cumul N inclut oct-nov-déc
+3. Saisir une facture en novembre → elle tombe bien dans N (pas N-1)
