@@ -18,6 +18,36 @@ export function monthLabel(m: string): string {
 
 export const fiscalIndex = (m: string): number => parseInt(m.split('-')[1]) - 1
 
+// ── Exercice fiscal (non forcément calendaire) ──────────────────────────────
+// startMonth : mois de début d'exercice, 1..12 (1 = janvier = année civile).
+
+/**
+ * Position d'un mois dans l'exercice fiscal, 0..11.
+ * startMonth=1  → janvier=0 … décembre=11 (identique à fiscalIndex).
+ * startMonth=10 → octobre=0, novembre=1, … septembre=11.
+ */
+export const fiscalMonthIndex = (m: string, startMonth = 1): number => {
+  const mo = parseInt(m.split('-')[1])      // 1..12
+  return (mo - startMonth + 12) % 12
+}
+
+/**
+ * Exercice fiscal auquel appartient un mois. Convention : libellé = année de CLÔTURE.
+ * startMonth=1  → exercice = année civile (clôture = l'année elle-même).
+ * startMonth=10 → oct 2025..sep 2026 = exercice "2026".
+ */
+export const fiscalYearOf = (m: string, startMonth = 1): number => {
+  const [y, mo] = m.split('-').map(Number)
+  if (startMonth === 1) return y
+  return mo >= startMonth ? y + 1 : y
+}
+
+/** Exercice fiscal courant (basé sur la date du jour par défaut). */
+export const currentFiscalYear = (startMonth = 1, today: Date = new Date()): number => {
+  const m = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  return fiscalYearOf(m, startMonth)
+}
+
 export const monthIdx = (m: string): number => {
   const [y, mo] = m.split('-')
   return parseInt(y) * 12 + parseInt(mo)
@@ -101,7 +131,12 @@ export function getCoColor(key: string): string {
   let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) & 0xffff; return CO_PALETTE[h % CO_PALETTE.length]
 }
 
-export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: string; data: BudgetData; status: string }[], manualEntries: ManualEntry[] = []): RAWData {
+export function buildRAW(
+  companyData: CompanyDataRow[],
+  budgets: { company_key: string; data: BudgetData; status: string }[],
+  manualEntries: ManualEntry[] = [],
+  fiscalSettings: Record<string, number> = {},
+): RAWData {
   const companies: Record<string, CompanyRaw> = {}
   const allMsN = new Set<string>(), allMsN1 = new Set<string>(), allMsN2 = new Set<string>()
   const allKeys = [...new Set(companyData.map(r => r.company_key).filter(Boolean))]
@@ -111,35 +146,37 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
     const budget = budgets.find(b => b.company_key === co)
     const coName = (rows.find(r => (r as any).company_name) as any)?.company_name || co.replace(/_/g, ' ')
     companies[co] = { name: coName, pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: budget?.data ?? {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }
+
+    // Exercice fiscal de CETTE société. startMonth=1 ⇒ année civile (rétro-compat).
+    const startMonth = fiscalSettings[co] ?? 1
+    const cfy = currentFiscalYear(startMonth)
+    // Champ pn/p1/p2 selon l'exercice fiscal d'un mois donné.
+    const fieldForMonth = (m: string): 'pn' | 'p1' | 'p2' => {
+      const fy = fiscalYearOf(m, startMonth)
+      return fy >= cfy ? 'pn' : fy === cfy - 1 ? 'p1' : 'p2'
+    }
+    const setForField = (f: 'pn' | 'p1' | 'p2') => f === 'pn' ? allMsN : f === 'p1' ? allMsN1 : allMsN2
+
     for (const row of rows) {
-      const plField = row.period === 'N' ? 'pn' : row.period === 'N-1' ? 'p1' : 'p2'
-      const bField  = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
-      const msSet   = row.period === 'N' ? allMsN : row.period === 'N-1' ? allMsN1 : allMsN2
-      const cy      = new Date().getFullYear()
+      const bField = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
+      // P&L (mois-indexé) : classer CHAQUE mois par exercice fiscal de la société.
+      // Indépendant du tag row.period (qui était calendaire et faux pour un exercice à cheval).
       for (const [acc, acct] of Object.entries(row.pl_data ?? {})) {
-        if (row.period === 'N') {
-          // FEC multi-années tagué N : reclasser chaque mois par année calendaire.
-          // Ex : FEC Jan 2025–Mai 2026 → mois 2025 vont en p1/allMsN1, mois 2026 en pn/allMsN.
-          const src = acct as any
-          for (const [m, v] of Object.entries(src.mo ?? {} as Record<string, unknown>)) {
-            const yr = parseInt(m.slice(0, 4))
-            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
-            const ms = yr >= cy ? allMsN : yr === cy - 1 ? allMsN1 : allMsN2
-            ms.add(m)
-            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
-            ;(companies[co][f][acc] as any).mo[m] = v
-          }
-          for (const e of (src.e ?? [])) {
-            const yr = parseInt((e[0] as string || '').slice(0, 4)) || cy
-            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
-            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
-            ;(companies[co][f][acc] as any).e.push(e)
-          }
-        } else {
-          companies[co][plField][acc] = acct as any
-          for (const m of Object.keys((acct as any).mo ?? {})) msSet.add(m)
+        const src = acct as any
+        for (const [m, v] of Object.entries(src.mo ?? {} as Record<string, unknown>)) {
+          const f = fieldForMonth(m)
+          setForField(f).add(m)
+          if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+          ;(companies[co][f][acc] as any).mo[m] = v
+        }
+        for (const e of (src.e ?? [])) {
+          const em = (e[0] as string || '').slice(0, 7)
+          const f = em ? fieldForMonth(em) : 'pn'
+          if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+          ;(companies[co][f][acc] as any).e.push(e)
         }
       }
+      // Bilan & données clients : snapshots de fin d'exercice → on garde le tag row.period.
       for (const [acc, acct] of Object.entries(row.bilan_data ?? {})) companies[co][bField][acc] = acct as any
       if (row.period === 'N') { companies[co].cdN = row.client_data ?? {}; companies[co].veN = row.ve_entries ?? [] }
       else if (row.period === 'N-1') { companies[co].cdN1 = row.client_data ?? {}; companies[co].veN1 = row.ve_entries ?? [] }
@@ -152,16 +189,12 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
     if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
     const mMonth = mDate.slice(0, 7)
-    // Classifier par appartenance exacte aux mois FEC. Priorité : N > N-1 > N-2.
-    // (Range-based check classait à tort les écritures courantes en N-1 quand le FEC N-1
-    //  couvrait plusieurs années.)
-    const inN  = allMsN.has(mMonth)
-    const inN1 = allMsN1.has(mMonth)
-    const inN2 = allMsN2.has(mMonth)
+    // Classer la saisie par l'exercice fiscal de sa société (cohérent avec le P&L ci-dessus).
+    const meStartMonth = fiscalSettings[mco] ?? 1
+    const meCfy = currentFiscalYear(meStartMonth)
+    const meFy  = fiscalYearOf(mMonth, meStartMonth)
     const plField: 'pn' | 'p1' | 'p2' =
-      inN ? 'pn' :
-      inN1 ? 'p1' :
-      inN2 ? 'p2' : 'pn'
+      meFy >= meCfy ? 'pn' : meFy === meCfy - 1 ? 'p1' : 'p2'
     if (plField === 'p2') allMsN2.add(mMonth)
     else if (plField === 'p1') allMsN1.add(mMonth)
     else allMsN.add(mMonth)
