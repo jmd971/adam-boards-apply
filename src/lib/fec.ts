@@ -86,17 +86,30 @@ export function parseFEC(text: string): ParsedFEC | null {
   lastFecHeaders = headers
   const warnings: ParseWarning[] = []
 
+  // Normalisation robuste d'un en-tête : accents + artefacts d'encodage EBP/Windows-1252
+  const normHeader = (s: string): string =>
+    s.toLowerCase()
+      .replace(/[éèêë]/g, 'e')  // ë : EBP encode "È" → U+00CB (PiËce, DÈbit…)
+      .replace(/[àâä]/g, 'a')
+      .replace(/[ùûü]/g, 'u')
+      .replace(/[îï]/g, 'i')
+      .replace(/[ôö]/g, 'o')
+      .replace(/[ç]/g, 'c')
+      .replace(/[∞°]/g, 'o')    // EBP : "N∞ de compte" = "N° de compte" (artefact encodage)
+      .replace(/[^\w\s]/g, ' ') // supprimer tout caractère spécial restant
+      .replace(/\s+/g, ' ').trim()
+
   // Recherche d'en-têtes avec variantes étendues
   const find = (patterns: string[]): number => {
     for (let i = 0; i < headers.length; i++) {
-      const h = headers[i].toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a').replace(/[ùû]/g, 'u')
-      if (patterns.some(p => h.includes(p.toLowerCase()))) return i
+      const h = normHeader(headers[i])
+      if (patterns.some(p => h.includes(normHeader(p)))) return i
     }
     return -1
   }
 
   const ci = {
-    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte', 'n° de compte', 'no de compte', 'numero de compte', 'numero compte', 'n de compte', 'codegl', 'gl code', 'no compte', 'accountnumber', 'account number']),
+    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte', 'n° de compte', 'no de compte', 'n de compte', 'de compte', 'numero de compte', 'numero compte', 'codegl', 'gl code', 'no compte', 'accountnumber', 'account number']),
     label:         find(['comptelib', 'libelle compte', 'intitule compte', 'intitule du compte', 'nom compte', 'libellecompte', 'compte lib', 'accountlabel']),
     date:          find(['ecrituredate', 'date ecriture', 'date d\'ecriture', 'date comptable', 'datecomptable', 'date_ecriture', 'datepiece', 'date piece', 'date']),
     debit:         find(['debit', 'montant debit', 'montantdebit', 'debiteur', 'debit eur', 'mouvdebit', 'mouv debit', 'debit €']),
@@ -321,7 +334,13 @@ export function parseFEC(text: string): ParsedFEC | null {
   }
 
   if (entryCount === 0) {
-    warnings.push({ type: 'format', message: 'Aucune écriture de classe 6/7 trouvée. Le fichier ne contient pas de données P&L.' })
+    // Aide au diagnostic : lister les premières valeurs lues dans la colonne compte
+    const sampleAccs = lines.slice(1, 6).map(l =>
+      l.split(sep)[ci.acc]?.trim().replace(/"/g, '') ?? ''
+    ).filter(Boolean).join(', ')
+    lastFecError = `Aucune écriture de classe 6 ou 7 trouvée — le fichier ne contient pas de données P&L.`
+      + (sampleAccs ? ` Comptes lus (col.${ci.acc + 1}) : ${sampleAccs}.` : '')
+      + ` Vérifiez que le fichier exporte bien toutes les classes de comptes (pas seulement les À-Nouveaux).`
     return null
   }
 
