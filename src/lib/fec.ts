@@ -21,6 +21,23 @@ export interface ParsedFEC {
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────
 
+/**
+ * Lit un fichier (ou Blob) en détectant son encodage.
+ * Les exports comptables EBP / Sage / Ciel sont souvent en Windows-1252 (Latin-1) :
+ * `file.text()` les décode en UTF-8 et corrompt les accents (Débit → "D�bit"),
+ * ce qui casse la détection des colonnes. On tente UTF-8 strict d'abord,
+ * puis on retombe sur Windows-1252 si le contenu n'est pas de l'UTF-8 valide.
+ */
+export async function readFileText(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer()
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    // UTF-8 invalide → fichier Latin-1 / Windows-1252 (typique EBP)
+    return new TextDecoder('windows-1252').decode(buffer)
+  }
+}
+
 function parseNum(s: string): number {
   if (!s) return 0
   return parseFloat(s.replace(/\s/g, '').replace(',', '.')) || 0
