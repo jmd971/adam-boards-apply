@@ -9,6 +9,10 @@ import type { ParsedFEC } from '@/lib/fec'
 interface PendingImport {
   file: File
   company: string
+  /** Nom de société détecté depuis le fichier (proposition par défaut). */
+  detectedCompany: string
+  /** true = l'utilisateur saisit un nom de société libre (mode texte). */
+  manualCompany: boolean
   period: string
   fy: string
   parsed: ParsedFEC
@@ -40,8 +44,12 @@ export function Import() {
   const tenantId       = useAppStore(s => s.tenantId)
   const fiscalSettings = useAppStore(s => s.fiscalSettings)
   const setFiscalSettings = useAppStore(s => s.setFiscalSettings)
+  const RAW            = useAppStore(s => s.RAW)
   const qc             = useQueryClient()
   const canEdit        = role === 'admin' || role === 'comptable' || role === 'superadmin'
+
+  // Sociétés déjà en base (pour rattacher un import à une société existante)
+  const existingCompanies = (RAW?.keys ?? []).map(k => ({ key: k, name: RAW?.companies[k]?.name || k }))
 
   const [checking,  setChecking]  = useState(false)
   const [importing, setImporting] = useState(false)
@@ -73,7 +81,12 @@ export function Import() {
           continue
         }
 
-        const company = detectCompany(file.name)
+        const detectedCompany = detectCompany(file.name)
+        // Pré-sélection : si le nom détecté correspond exactement à une société existante
+        // (après normalisation casse/espaces), on rattache à celle-ci. Sinon, nouvelle société.
+        const norm = (s: string) => s.toUpperCase().replace(/[\s_]+/g, '')
+        const existingMatch = (RAW?.keys ?? []).find(k => norm(k) === norm(detectedCompany))
+        const company = existingMatch ?? detectedCompany
         const { period, fy } = fp
           ? { period: fp.period as 'N' | 'N-1' | 'N-2', fy: detectPeriod(parsed.months).fy }
           : detectPeriod(parsed.months)
@@ -99,7 +112,7 @@ export function Import() {
         const currentFiscal       = fiscalSettings[company] ?? 1
         // Proposer la mise à jour uniquement si la valeur détectée est différente de l'actuelle
         const updateFiscal = detectedFiscalStart !== null && detectedFiscalStart !== currentFiscal
-        newPending.push({ file, company, period, fy, parsed, hasConflict: !!data, cancelled: false, detectedFiscalStart, updateFiscal })
+        newPending.push({ file, company, detectedCompany, manualCompany: false, period, fy, parsed, hasConflict: !!data, cancelled: false, detectedFiscalStart, updateFiscal })
       } catch (e: any) {
         setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: e.message }])
       }
@@ -107,7 +120,7 @@ export function Import() {
 
     setChecking(false)
     if (newPending.length > 0) setPending(p => [...newPending, ...p])
-  }, [canEdit, tenantId])
+  }, [canEdit, tenantId, RAW])
 
   // Étape 2 : import des fichiers confirmés
   const confirmImport = async () => {
@@ -118,10 +131,14 @@ export function Import() {
 
     for (const item of toImport) {
       try {
+        // Rattachement à une société existante → conserver son nom d'affichage.
+        // Nouvelle société → nom dérivé du fichier.
+        const existingName = RAW?.companies?.[item.company]?.name
+        const companyName = existingName || detectCompanyName(item.file.name)
         const { error } = await sb.from('company_data').upsert({
           tenant_id:    tenantId,
           company_key:  item.company,
-          company_name: detectCompanyName(item.file.name),
+          company_name: companyName,
           period:       item.period,
           fiscal_year:  item.fy,
           pl_data:      item.parsed.plData,
@@ -176,6 +193,36 @@ export function Import() {
 
   const toggleUpdateFiscal = (idx: number) =>
     setPending(p => p.map((item, i) => i === idx ? { ...item, updateFiscal: !item.updateFiscal } : item))
+
+  // Recalcule conflit + détection fiscale après changement de société cible
+  const recheckPending = async (idx: number, company: string, period: string, detectedFiscalStart: number | null) => {
+    let hasConflict = false
+    if (tenantId && company) {
+      const { data } = await sb.from('company_data')
+        .select('company_key').eq('tenant_id', tenantId).eq('company_key', company).eq('period', period).maybeSingle()
+      hasConflict = !!data
+    }
+    const currentFiscal = fiscalSettings[company] ?? 1
+    const updateFiscal = detectedFiscalStart !== null && detectedFiscalStart !== currentFiscal
+    setPending(p => p.map((it, i) => i === idx ? { ...it, hasConflict, updateFiscal } : it))
+  }
+
+  // Sélection d'une société existante OU passage en saisie libre
+  const changePendingCompany = (idx: number, value: string) => {
+    if (value === '__manual__') {
+      setPending(p => p.map((it, i) => i === idx ? { ...it, manualCompany: true } : it))
+      return
+    }
+    setPending(p => p.map((it, i) => i === idx ? { ...it, company: value, manualCompany: false } : it))
+    const it = pending[idx]
+    if (it) recheckPending(idx, value, it.period, it.detectedFiscalStart)
+  }
+
+  // Saisie libre d'un nom de société (mode texte)
+  const setPendingManualName = (idx: number, raw: string) => {
+    const company = raw.toUpperCase().replace(/\s+/g, '_')
+    setPending(p => p.map((it, i) => i === idx ? { ...it, company } : it))
+  }
 
   const dropZones = [
     { id: 'n2', label: 'N-2 (Avant-dernier)',      period: 'N-2' },
@@ -245,8 +292,50 @@ export function Import() {
                   return (
                   <div key={i} style={{ opacity: item.cancelled ? 0.4 : 1, background: 'rgba(255,255,255,0.02)' }}>
                     <div className="flex items-center gap-3 px-4 py-2.5 text-xs">
-                      <span className="font-mono text-muted flex-1 truncate">{item.file.name}</span>
-                      <span className="text-white">{item.company} · {item.period}</span>
+                      <span className="font-mono text-muted flex-1 truncate" title={item.file.name}>{item.file.name}</span>
+
+                      {/* Sélecteur de société : rattacher à une société existante ou en créer une */}
+                      {!item.cancelled && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          {item.manualCompany ? (
+                            <input
+                              type="text"
+                              autoFocus
+                              value={item.company}
+                              onChange={e => setPendingManualName(i, e.target.value)}
+                              onBlur={() => recheckPending(i, item.company, item.period, item.detectedFiscalStart)}
+                              placeholder="NOM_SOCIETE"
+                              style={{ width: 150, padding: '4px 8px', borderRadius: 6, fontSize: 11, fontFamily: 'monospace',
+                                background: 'var(--bg-0)', color: 'var(--text-0)', border: '1px solid var(--border-1)', outline: 'none' }}
+                            />
+                          ) : (
+                            <select
+                              value={item.company}
+                              onChange={e => changePendingCompany(i, e.target.value)}
+                              title="Société à laquelle rattacher ce fichier"
+                              style={{ maxWidth: 200, padding: '4px 8px', borderRadius: 6, fontSize: 11,
+                                background: 'var(--bg-0)', color: 'var(--text-0)', border: '1px solid var(--border-1)',
+                                cursor: 'pointer', fontFamily: 'inherit', outline: 'none' }}
+                            >
+                              {existingCompanies.length > 0 && (
+                                <optgroup label="Sociétés existantes">
+                                  {existingCompanies.map(c => (
+                                    <option key={c.key} value={c.key} style={{ background: '#0d1424' }}>{c.name}</option>
+                                  ))}
+                                </optgroup>
+                              )}
+                              {!existingCompanies.some(c => c.key === item.detectedCompany) && (
+                                <option value={item.detectedCompany} style={{ background: '#0d1424' }}>
+                                  ✨ Créer : {item.detectedCompany}
+                                </option>
+                              )}
+                              <option value="__manual__" style={{ background: '#0d1424' }}>+ Autre nom…</option>
+                            </select>
+                          )}
+                          <span className="text-muted">· {item.period}</span>
+                        </div>
+                      )}
+
                       {item.hasConflict && !item.cancelled && (
                         <span className="px-2 py-0.5 rounded text-xs"
                           style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
