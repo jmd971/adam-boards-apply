@@ -83,7 +83,16 @@ export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p
 export const sumArr = (arr: number[]): number => arr.reduce((s, v) => s + v, 0)
 export const solde  = (adj: [number, number][], isCharge: boolean): number[] => adj.map(([d, c]) => isCharge ? d - c : c - d)
 
-export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, acc: string, _excludeOD: boolean): [number, number][] {
+// ── OD de clôture (opérations d'inventaire) ─────────────────────────────────
+// Comptes générés UNIQUEMENT en fin d'exercice (variation de stocks, dotations,
+// reprises, provisions congés payés, transferts de charges). Tant que N est en
+// cours, ils existent dans N-1 (clos) mais pas dans N → fausse la comparaison.
+// Le toggle « Hors OD » les neutralise des DEUX côtés (N et N-1).
+export const OD_ACCOUNT_PREFIXES = ['603', '713', '681', '686', '687', '781', '787', '6412', '64582', '791']
+export const isODAccount = (acc: string): boolean =>
+  OD_ACCOUNT_PREFIXES.some(p => acc.startsWith(p))
+
+export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, acc: string, excludeOD: boolean): [number, number][] {
   return selectedMs.map((m, i) => {
     const field: 'pn' | 'p1' | 'p2' = msSrc[i] === 'p2' ? 'p2' : msSrc[i] === 'p1' ? 'p1' : 'pn'
     let d = 0, c = 0
@@ -94,10 +103,10 @@ export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], 
       // and all sub-accounts. This ensures manual entries at 6262 are found even when FEC
       // also has a summary entry at 626.
       for (const k of Object.keys(src)) {
-        if (k.startsWith(acc)) {
-          const v = src[k]?.mo?.[m]
-          if (v) { d += v[0]; c += v[1] }
-        }
+        if (!k.startsWith(acc)) continue
+        if (excludeOD && isODAccount(k)) continue   // « Hors OD » : ignorer les comptes d'inventaire
+        const v = src[k]?.mo?.[m]
+        if (v) { d += v[0]; c += v[1] }
       }
     }
     return [d, c]
@@ -265,6 +274,7 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           const src = (RAW.companies[co] as any)?.[f]
           if (!src) continue
           for (const k of Object.keys(src)) {
+            if (excludeOD && isODAccount(k)) continue   // « Hors OD » : exclure les comptes d'inventaire du total
             if (prefixes.some(p => k.startsWith(p))) allAccKeys.add(k)
           }
         }
