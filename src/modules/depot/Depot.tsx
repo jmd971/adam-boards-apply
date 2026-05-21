@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectCompanyName, detectPeriod } from '@/lib/fec'
+import { parseFEC, detectCompany, detectCompanyName, detectPeriod, readFileText } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 import type { DepositLink, Deposit } from '@/types'
@@ -204,7 +204,7 @@ function PendingDeposits() {
 
       if (dlErr || !fileData) throw new Error(dlErr?.message ?? 'Téléchargement échoué')
 
-      const text = await fileData.text()
+      const text = await readFileText(fileData)
       const parsed = parseFEC(text)
       if (!parsed) throw new Error('Format FEC non reconnu')
 
