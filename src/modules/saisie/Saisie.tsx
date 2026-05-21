@@ -113,6 +113,7 @@ export function Saisie() {
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const setFilters     = useAppStore(s => s.setFilters)
   const manualEntries  = useAppStore(s => s.manualEntries)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
   const isReadOnly     = !canWrite(role)
   
   const dataLoading    = useAppStore(s => s.dataLoading)
@@ -268,7 +269,7 @@ export function Saisie() {
     setManualEntries(newEntries)
     const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
     const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
-    if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, newEntries))
+    if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, newEntries, fiscalSettings))
 
     setSaving(false)
     setConfirmDelete(null)
@@ -324,7 +325,7 @@ export function Saisie() {
     const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
     const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
     if (cd) {
-      const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+      const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries, fiscalSettings)
       setRAW(newRAW)
       // Étendre la période pour inclure le mois de la nouvelle entrée
       if (newRAW.mn.length > 0) {
@@ -513,7 +514,7 @@ export function Saisie() {
       const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
       const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
       if (cd) {
-        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries, fiscalSettings)
         setRAW(newRAW)
         if (newRAW.mn.length > 0) {
           setFilters({
@@ -598,7 +599,7 @@ export function Saisie() {
       if (tenantId) {
         const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
         const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
-        if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, updated))
+        if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, updated, fiscalSettings))
       }
     } else {
       await refreshStore(newEntry)
