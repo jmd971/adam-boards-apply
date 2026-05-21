@@ -8,7 +8,10 @@ import type { ParsedFEC } from '@/lib/fec'
 
 interface PendingImport {
   file: File
+  /** Clé identifiante de la société (company_key) — stable, sans espaces. */
   company: string
+  /** Nom d'affichage de la société (company_name) — lisible, éditable. */
+  companyName: string
   /** Nom de société détecté depuis le fichier (proposition par défaut). */
   detectedCompany: string
   /** true = l'utilisateur saisit un nom de société libre (mode texte). */
@@ -87,6 +90,8 @@ export function Import() {
         const norm = (s: string) => s.toUpperCase().replace(/[\s_]+/g, '')
         const existingMatch = (RAW?.keys ?? []).find(k => norm(k) === norm(detectedCompany))
         const company = existingMatch ?? detectedCompany
+        // Nom d'affichage : société existante → son nom ; nouvelle → nom lisible depuis le fichier
+        const companyName = existingMatch ? (RAW?.companies[existingMatch]?.name || existingMatch) : detectCompanyName(file.name)
         const { period, fy } = fp
           ? { period: fp.period as 'N' | 'N-1' | 'N-2', fy: detectPeriod(parsed.months).fy }
           : detectPeriod(parsed.months)
@@ -112,7 +117,7 @@ export function Import() {
         const currentFiscal       = fiscalSettings[company] ?? 1
         // Proposer la mise à jour uniquement si la valeur détectée est différente de l'actuelle
         const updateFiscal = detectedFiscalStart !== null && detectedFiscalStart !== currentFiscal
-        newPending.push({ file, company, detectedCompany, manualCompany: false, period, fy, parsed, hasConflict: !!data, cancelled: false, detectedFiscalStart, updateFiscal })
+        newPending.push({ file, company, companyName, detectedCompany, manualCompany: false, period, fy, parsed, hasConflict: !!data, cancelled: false, detectedFiscalStart, updateFiscal })
       } catch (e: any) {
         setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: e.message }])
       }
@@ -132,9 +137,9 @@ export function Import() {
     for (const item of toImport) {
       try {
         // Rattachement à une société existante → conserver son nom d'affichage.
-        // Nouvelle société → nom dérivé du fichier.
+        // Nouvelle société → nom saisi/choisi par l'utilisateur (fallback : nom du fichier).
         const existingName = RAW?.companies?.[item.company]?.name
-        const companyName = existingName || detectCompanyName(item.file.name)
+        const companyName = existingName || item.companyName || detectCompanyName(item.file.name)
         const { error } = await sb.from('company_data').upsert({
           tenant_id:    tenantId,
           company_key:  item.company,
@@ -210,18 +215,20 @@ export function Import() {
   // Sélection d'une société existante OU passage en saisie libre
   const changePendingCompany = (idx: number, value: string) => {
     if (value === '__manual__') {
-      setPending(p => p.map((it, i) => i === idx ? { ...it, manualCompany: true } : it))
+      // Saisie libre : vider pour que l'utilisateur tape le vrai nom de société
+      setPending(p => p.map((it, i) => i === idx ? { ...it, manualCompany: true, company: '', companyName: '' } : it))
       return
     }
-    setPending(p => p.map((it, i) => i === idx ? { ...it, company: value, manualCompany: false } : it))
+    const name = existingCompanies.find(c => c.key === value)?.name || value
+    setPending(p => p.map((it, i) => i === idx ? { ...it, company: value, companyName: name, manualCompany: false } : it))
     const it = pending[idx]
     if (it) recheckPending(idx, value, it.period, it.detectedFiscalStart)
   }
 
-  // Saisie libre d'un nom de société (mode texte)
-  const setPendingManualName = (idx: number, raw: string) => {
-    const company = raw.toUpperCase().replace(/\s+/g, '_')
-    setPending(p => p.map((it, i) => i === idx ? { ...it, company } : it))
+  // Saisie libre : le texte tapé est le NOM de la société ; la clé en est dérivée.
+  const setPendingManualName = (idx: number, name: string) => {
+    const company = name.trim().toUpperCase().replace(/\s+/g, '_')
+    setPending(p => p.map((it, i) => i === idx ? { ...it, companyName: name, company } : it))
   }
 
   const dropZones = [
@@ -301,11 +308,12 @@ export function Import() {
                             <input
                               type="text"
                               autoFocus
-                              value={item.company}
+                              value={item.companyName}
                               onChange={e => setPendingManualName(i, e.target.value)}
                               onBlur={() => recheckPending(i, item.company, item.period, item.detectedFiscalStart)}
-                              placeholder="NOM_SOCIETE"
-                              style={{ width: 150, padding: '4px 8px', borderRadius: 6, fontSize: 11, fontFamily: 'monospace',
+                              placeholder="Nom de la société"
+                              title={item.company ? `Clé : ${item.company}` : 'Saisis le nom de la société'}
+                              style={{ width: 170, padding: '4px 8px', borderRadius: 6, fontSize: 11,
                                 background: 'var(--bg-0)', color: 'var(--text-0)', border: '1px solid var(--border-1)', outline: 'none' }}
                             />
                           ) : (
@@ -379,15 +387,24 @@ export function Import() {
               </div>
               <div className="flex items-center gap-3 px-4 py-3"
                 style={{ background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                <button
-                  onClick={confirmImport}
-                  disabled={importing || pending.every(p => p.cancelled)}
-                  className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
-                  style={{ background: '#3b82f6', color: 'white', opacity: pending.every(p => p.cancelled) ? 0.5 : 1 }}>
-                  {importing
-                    ? <span className="flex items-center gap-2"><Spinner size={12} /> Import...</span>
-                    : `Importer (${pending.filter(p => !p.cancelled).length})`}
-                </button>
+                {(() => {
+                  const active = pending.filter(p => !p.cancelled)
+                  const missingName = active.some(p => !p.company.trim())
+                  const blocked = importing || active.length === 0 || missingName
+                  return (
+                    <button
+                      onClick={confirmImport}
+                      disabled={blocked}
+                      className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                      style={{ background: '#3b82f6', color: 'white', opacity: blocked ? 0.5 : 1, cursor: blocked ? 'not-allowed' : 'pointer' }}
+                      title={missingName ? 'Renseigne un nom de société pour chaque fichier' : undefined}>
+                      {importing
+                        ? <span className="flex items-center gap-2"><Spinner size={12} /> Import...</span>
+                        : missingName ? 'Nom de société manquant'
+                        : `Importer (${active.length})`}
+                    </button>
+                  )
+                })()}
                 <button onClick={() => setPending([])} className="text-xs text-muted hover:text-white transition-colors">
                   Tout annuler
                 </button>
