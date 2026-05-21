@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectCompanyName, detectPeriod, detectFiscalStart, type ParseWarning, lastFecError, lastFecHeaders } from '@/lib/fec'
+import { parseFEC, detectCompany, detectCompanyName, detectPeriod, detectFiscalStart, readFileText, type ParseWarning, lastFecError, lastFecHeaders } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 import type { ParsedFEC } from '@/lib/fec'
@@ -62,7 +62,7 @@ export function Import() {
             error: `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(0)} Mo). Limite : ${MAX_FILE_SIZE / 1024 / 1024} Mo.` }])
           continue
         }
-        const text = await file.text()
+        const text = await readFileText(file)
         const parsed = parseFEC(text)
         if (!parsed) {
           const headerInfo = lastFecHeaders.length
