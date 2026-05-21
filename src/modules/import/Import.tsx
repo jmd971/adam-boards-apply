@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
-import { parseFEC, detectCompany, detectCompanyName, detectPeriod, type ParseWarning, lastFecError } from '@/lib/fec'
+import { parseFEC, detectCompany, detectCompanyName, detectPeriod, detectFiscalStart, type ParseWarning, lastFecError } from '@/lib/fec'
 import { useAppStore } from '@/store'
 import { Spinner } from '@/components/ui'
 import type { ParsedFEC } from '@/lib/fec'
@@ -14,6 +14,10 @@ interface PendingImport {
   parsed: ParsedFEC
   hasConflict: boolean
   cancelled: boolean
+  /** Mois de début d'exercice détecté dans le FEC (null si FEC partiel). */
+  detectedFiscalStart: number | null
+  /** true = appliquer la mise à jour de company_settings à l'import. */
+  updateFiscal: boolean
 }
 
 interface ImportResult {
@@ -25,15 +29,19 @@ interface ImportResult {
   error?: string
   warnings?: ParseWarning[]
   skippedLines?: number
+  /** Mois de début d'exercice appliqué lors de l'import (si mis à jour). */
+  fiscalStart?: number
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 Mo
 
 export function Import() {
-  const role     = useAppStore(s => s.role)
-  const tenantId = useAppStore(s => s.tenantId)
-  const qc       = useQueryClient()
-  const canEdit  = role === 'admin' || role === 'comptable' || role === 'superadmin'
+  const role           = useAppStore(s => s.role)
+  const tenantId       = useAppStore(s => s.tenantId)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
+  const setFiscalSettings = useAppStore(s => s.setFiscalSettings)
+  const qc             = useQueryClient()
+  const canEdit        = role === 'admin' || role === 'comptable' || role === 'superadmin'
 
   const [checking,  setChecking]  = useState(false)
   const [importing, setImporting] = useState(false)
@@ -83,7 +91,11 @@ export function Import() {
           .eq('period', period)
           .maybeSingle()
 
-        newPending.push({ file, company, period, fy, parsed, hasConflict: !!data, cancelled: false })
+        const detectedFiscalStart = detectFiscalStart(parsed.months)
+        const currentFiscal       = fiscalSettings[company] ?? 1
+        // Proposer la mise à jour uniquement si la valeur détectée est différente de l'actuelle
+        const updateFiscal = detectedFiscalStart !== null && detectedFiscalStart !== currentFiscal
+        newPending.push({ file, company, period, fy, parsed, hasConflict: !!data, cancelled: false, detectedFiscalStart, updateFiscal })
       } catch (e: any) {
         setResults(r => [...r, { file: file.name, company: '', period: '', months: 0, entries: 0, error: e.message }])
       }
@@ -119,6 +131,16 @@ export function Import() {
 
         if (error) throw error
 
+        // Mettre à jour company_settings si l'exercice fiscal détecté diffère de l'actuel
+        if (item.updateFiscal && item.detectedFiscalStart !== null && tenantId) {
+          await sb.from('company_settings').upsert(
+            { tenant_id: tenantId, company_key: item.company, fiscal_year_start_month: item.detectedFiscalStart },
+            { onConflict: 'tenant_id,company_key' }
+          )
+          // Mise à jour du store (optimistic)
+          setFiscalSettings({ ...fiscalSettings, [item.company]: item.detectedFiscalStart })
+        }
+
         newResults.push({
           file:         item.file.name,
           company:      item.company,
@@ -127,6 +149,7 @@ export function Import() {
           entries:      item.parsed.entryCount,
           warnings:     item.parsed.warnings,
           skippedLines: item.parsed.skippedLines,
+          fiscalStart:  item.updateFiscal ? item.detectedFiscalStart ?? undefined : undefined,
         })
       } catch (e: any) {
         newResults.push({ file: item.file.name, company: '', period: '', months: 0, entries: 0, error: e.message })
@@ -146,6 +169,9 @@ export function Import() {
 
   const cancelPending = (idx: number) =>
     setPending(p => p.map((item, i) => i === idx ? { ...item, cancelled: true } : item))
+
+  const toggleUpdateFiscal = (idx: number) =>
+    setPending(p => p.map((item, i) => i === idx ? { ...item, updateFiscal: !item.updateFiscal } : item))
 
   const dropZones = [
     { id: 'n2', label: 'N-2 (Avant-dernier)',      period: 'N-2' },
@@ -208,23 +234,55 @@ export function Import() {
                 <span className="text-xs text-muted">{pending.filter(p => !p.cancelled).length} fichier(s)</span>
               </div>
               <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                {pending.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-2.5 text-xs"
-                    style={{ opacity: item.cancelled ? 0.4 : 1, background: 'rgba(255,255,255,0.02)' }}>
-                    <span className="font-mono text-muted flex-1 truncate">{item.file.name}</span>
-                    <span className="text-white">{item.company} · {item.period}</span>
-                    {item.hasConflict && !item.cancelled && (
-                      <span className="px-2 py-0.5 rounded text-xs"
-                        style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-                        ⚠️ Écrase les données existantes
-                      </span>
+                {pending.map((item, i) => {
+                  const MONTH_NAMES = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
+                  const currentFiscal = fiscalSettings[item.company] ?? 1
+                  const showFiscalBadge = !item.cancelled && item.detectedFiscalStart !== null
+                  return (
+                  <div key={i} style={{ opacity: item.cancelled ? 0.4 : 1, background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="flex items-center gap-3 px-4 py-2.5 text-xs">
+                      <span className="font-mono text-muted flex-1 truncate">{item.file.name}</span>
+                      <span className="text-white">{item.company} · {item.period}</span>
+                      {item.hasConflict && !item.cancelled && (
+                        <span className="px-2 py-0.5 rounded text-xs"
+                          style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                          ⚠️ Écrase les données existantes
+                        </span>
+                      )}
+                      {!item.cancelled
+                        ? <button onClick={() => cancelPending(i)} className="text-muted hover:text-brand-red transition-colors ml-1">✕</button>
+                        : <span className="text-muted text-xs">Annulé</span>
+                      }
+                    </div>
+                    {showFiscalBadge && (
+                      <div className="px-4 pb-2.5 flex items-center gap-2 text-xs">
+                        <span style={{ color: '#64748b' }}>📅 Exercice détecté :</span>
+                        <span style={{ fontWeight: 600, color: item.detectedFiscalStart !== currentFiscal ? '#f59e0b' : '#34d399' }}>
+                          {MONTH_NAMES[item.detectedFiscalStart!]}
+                          {item.detectedFiscalStart === currentFiscal && ' ✓ déjà configuré'}
+                        </span>
+                        {item.detectedFiscalStart !== currentFiscal && (
+                          <>
+                            <span style={{ color: '#475569' }}>— actuel : {MONTH_NAMES[currentFiscal]}</span>
+                            <button
+                              onClick={() => toggleUpdateFiscal(i)}
+                              style={{
+                                padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
+                                border: 'none', cursor: 'pointer', transition: 'all 0.12s',
+                                background: item.updateFiscal ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)',
+                                color:      item.updateFiscal ? '#93c5fd' : '#64748b',
+                                boxShadow:  item.updateFiscal ? 'inset 0 0 0 1px rgba(59,130,246,0.4)' : 'inset 0 0 0 1px rgba(255,255,255,0.1)',
+                              }}
+                            >
+                              {item.updateFiscal ? '✓ Mettre à jour' : 'Ignorer'}
+                            </button>
+                          </>
+                        )}
+                      </div>
                     )}
-                    {!item.cancelled
-                      ? <button onClick={() => cancelPending(i)} className="text-muted hover:text-brand-red transition-colors ml-1">✕</button>
-                      : <span className="text-muted text-xs">Annulé</span>
-                    }
                   </div>
-                ))}
+                  )
+                })}
               </div>
               <div className="flex items-center gap-3 px-4 py-3"
                 style={{ background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
@@ -260,6 +318,7 @@ export function Import() {
                       ? <span className="text-brand-red">{r.error}</span>
                       : <span className="text-brand-green">{r.company} · {r.period} · {r.months} mois · {r.entries.toLocaleString()} écritures
                           {r.skippedLines ? <span style={{ color:'#f59e0b' }}> · {r.skippedLines} ignorée(s)</span> : null}
+                          {r.fiscalStart ? <span style={{ color:'#93c5fd' }}> · exercice : mois {r.fiscalStart}</span> : null}
                         </span>
                     }
                   </div>
