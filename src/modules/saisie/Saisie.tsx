@@ -3,6 +3,7 @@ import { useAppStore } from '@/store'
 import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
 import { buildRAW } from '@/lib/calc'
+import { readFileText } from '@/lib/fec'
 import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
@@ -469,7 +470,7 @@ export function Saisie() {
     const file = e.target.files?.[0]
     if (!file) return
     setMsg(null)
-    const text = await file.text()
+    const text = await readFileText(file)
     const lines = text.split('\n').filter(l => l.trim())
     if (lines.length < 2) { setMsg('❌ CSV vide ou invalide'); return }
     const sep = lines[0].includes(';') ? ';' : ','
