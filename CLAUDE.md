@@ -151,11 +151,13 @@ const canEdit = role === 'admin' || role === 'comptable' || role === 'superadmin
 
 Ne jamais retirer `superadmin` de cette liste.
 
-### 5. Parser FEC — BOM et variantes de colonnes
+### 5. Parser FEC — encodage, BOM et variantes de colonnes
 
 `src/lib/fec.ts` doit :
+- **Détecter l'encodage** via `readFileText(blob)` — voir [règle 22](#22-encodage-des-fichiers-comptables-ebp--sage--windows-1252). NE PAS utiliser `file.text()` (force UTF-8 → casse les exports EBP en Windows-1252).
 - Striper le BOM UTF-8 en premier : `text.replace(/^﻿/, '')`
 - Normaliser les fins de ligne : `.replace(/\r\n/g, '\n').replace(/\r/g, '\n')`
+- Détecter les colonnes via `normHeader()` qui neutralise accents + artefacts d'encodage (`°`, `∞`, `ë`…) avant de matcher
 - Supporter les variantes de noms de colonnes (CompteNum, compte_num, accountnum…)
 - Supporter un seul champ `Montant` + `Sens` quand pas de Débit/Crédit séparés
 
@@ -188,14 +190,16 @@ Dans les `useMemo` qui s'exécutent avant le guard `if (!RAW) return` :
 | Fichier | Rôle |
 |---------|------|
 | `src/store/index.ts` | Zustand store : RAW, manualEntries, filters, role, tenantId |
-| `src/lib/calc.ts` | `buildRAW`, `computePlCalc`, `mergeEntries`, `fmt`, `fiscalIndex` |
-| `src/lib/fec.ts` | Parser FEC : `parseFEC`, `detectCompany`, `detectPeriod`, `lastFecError` |
+| `src/lib/calc.ts` | `buildRAW`, `computePlCalc`, `mergeEntries`, `fmt`, `fiscalIndex`, `isODAccount`, `readFileText` |
+| `src/lib/fec.ts` | Parser FEC : `parseFEC`, `detectCompany`, `detectPeriod`, `detectFiscalStart`, `readFileText`, `lastFecError` |
 | `src/lib/roles.ts` | `canWrite(role)` — read-only si viewer/client |
 | `src/lib/structure.ts` | Définition des lignes du plan comptable (SigRow) |
-| `src/hooks/useCompanyData.ts` | TanStack Query → charge company_data + budget + manual_entries |
+| `src/hooks/useCompanyData.ts` | TanStack Query → company_data + budget + manual_entries + company_settings ; pose la période (préservée si valide) |
 | `src/hooks/usePeriodFilter.ts` | Filtre les mois selon `filters.startM`/`filters.endM` |
+| `src/components/ui/PlTable.tsx` | Tableau P&L détaillé (catégories + sous-comptes), props `excludeOD` / `budData` |
 | `src/modules/saisie/Saisie.tsx` | Saisie manuelle + OCR + CSV ; historique via store |
-| `src/modules/import/Import.tsx` | Import FEC ; accessible superadmin + admin + comptable |
+| `src/modules/import/Import.tsx` | Import FEC ; rattachement société existante ; auto-détection exercice |
+| `src/modules/parametres/Parametres.tsx` | Réglage exercice fiscal par société (admin/superadmin) |
 | `src/modules/tresorerie/Tresorerie.tsx` | Tréso réalisée + prévisionnel + vue journalière |
 | `src/modules/equilibre/Equilibre.tsx` | Vue mensuelle par compte PCG |
 | `src/types/index.ts` | Types TypeScript : ManualEntry, RAWData, CompanyRaw… |
@@ -234,6 +238,13 @@ notes, created_at, updated_at
 unique(tenant_id, company_key)
 ```
 Migration : `supabase/migrations/010_company_objectives.sql` — à exécuter manuellement dans Supabase Studio si pas déjà fait. Hook : [useCompanyObjectives.ts](src/hooks/useCompanyObjectives.ts).
+
+### `company_settings`
+```
+tenant_id, company_key, fiscal_year_start_month (1..12, défaut 1)
+unique(tenant_id, company_key)
+```
+Migration : `supabase/migrations/011_company_settings.sql`. Mois de début d'exercice fiscal par société — voir [règle 21](#21-exercice-fiscal-non-calendaire-octsep-etc). Réglable dans la page Paramètres.
 
 ---
 
@@ -634,21 +645,28 @@ Vérification anti-régression :
 return { ..., budMonths, budTotal: 0, accs: [] } as PlCalcRow  // ❌ budget jamais calculé pour EQ
 ```
 
-**TOUJOURS** : agréger le budget par préfixes en miroir du cumul réel, avec la même convention de signe que le chemin principal (`budSign = type === 'charge' ? 1 : -1`) :
+**TOUJOURS** : agréger le budget par préfixes en miroir du cumul réel.
+
+**Signe du budget — corrigé 2026-05-21** : le budget est stocké en **valeur absolue positive**, et le réel (`solde`) est affiché en **magnitude positive** pour produits comme charges. Le budget doit donc être ajouté **tel quel (positif)**, **JAMAIS** avec un signe `-1` pour les produits :
 ```typescript
+// ❌ ANCIEN BUG : produits affichés en négatif + marge/résultat budgétés faux
 const budSign = type === 'charge' ? 1 : -1
-for (const co of selCo) {
-  const bd = budData[co] ?? {}
-  for (const [acc, bv] of Object.entries(bd)) {
-    if (!prefixes.some(p => acc.startsWith(p))) continue
-    const b = (bv as any)?.b ?? []
-    for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0) * budSign
-  }
-}
-const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
+budMonths[i] += (b[i] || 0) * budSign
+// ✅ budget toujours positif ; les signes de marge/résultat sont appliqués par add()
+budMonths[i] += (b[i] || 0)
 ```
 
-Les agrégats `marge_eq` et `resultat_eq` sont calculés via `add()` qui propage automatiquement `budTotal` / `budMonths` une fois les rangées source remplies.
+**Période du budget — corrigé 2026-05-21** : `budTotal` ne doit sommer que les mois budgétaires de la **période sélectionnée** (sinon le budget restait sur l'année entière alors que le réel suit le filtre de mois). Le budget `b[12]` est indexé par mois calendaire (`fiscalIndex` : jan=0…déc=11) :
+```typescript
+const selBudIdx = new Set(selectedMs.map(m => fiscalIndex(m)))
+const sumBudInPeriod = (budMonths: number[]) =>
+  budMonths.reduce((s, v, i) => selBudIdx.has(i) ? s + v : s, 0)
+const budTotal = Math.round(sumBudInPeriod(budMonths))
+```
+
+Ces deux règles s'appliquent **partout où le budget est calculé** : `computePlCalc` (boucle catégories + `sumByPrefixes`), `getBudgetByPrefixes`, et les **sous-lignes de `PlTable`** (qui calculent leur budget indépendamment — voir [règle 22](#22-encodage-des-fichiers-comptables-ebp--sage--windows-1252) et la [règle Hors OD](#23-hors-od--comptes-dinventaire-de-clôture)).
+
+Les agrégats `marge_eq` et `resultat_eq` sont calculés via `add()` qui propage automatiquement `budTotal` / `budMonths` une fois les rangées source remplies (les `budTotal` enfants sont déjà restreints à la période).
 
 ---
 
@@ -749,6 +767,8 @@ Vérification anti-régression :
 - **Table** : `company_settings` (migration 011), `unique(tenant_id, company_key)`
 - **Hook** : `useCompanySettings` (lecture + `setFiscalYearStartMonth`)
 - **Store** : `fiscalSettings: Record<company_key, startMonth>` alimenté par `useCompanyData`
+- **Page Paramètres** (`src/modules/parametres/Parametres.tsx`, tab `parametres`, admin/superadmin) : règle le mois de début d'exercice par société sans SQL. Upsert `company_settings` → reconstruit `RAW` + réajuste la période.
+- **Auto-détection à l'import** : `detectFiscalStart(months)` (fec.ts) infère le mois de début depuis un FEC ≥ 10 mois (premier mois chronologique). L'écran Import propose de mettre à jour `company_settings` si la valeur détectée diffère.
 - **Helpers purs** (`calc.ts`) :
   - `fiscalMonthIndex(m, startMonth)` → position 0..11 dans l'exercice
   - `fiscalYearOf(m, startMonth)` → exercice de **clôture** (oct 2025→sep 2026 = "2026")
@@ -777,3 +797,65 @@ Vérification anti-régression :
 1. Société calendaire (pas de ligne `company_settings` ou `start_month=1`) → CR/SIG/Équilibre inchangés
 2. `INSERT INTO company_settings(tenant_id, company_key, fiscal_year_start_month) VALUES (<tid>, '<co>', 10)` → recharger → la période N de cette société couvre oct→sep, le cumul N inclut oct-nov-déc
 3. Saisir une facture en novembre → elle tombe bien dans N (pas N-1)
+
+---
+
+### 22. Encodage des fichiers comptables (EBP / Sage / Windows-1252)
+
+**Bug corrigé 2026-05-21** : les exports EBP/Sage/Ciel sont souvent en **Windows-1252 (Latin-1)**, pas UTF-8. `file.text()` du navigateur décode en UTF-8 → les octets accentués deviennent invalides (`Débit` → `D�bit`, `N° de compte` → `N� de compte`) → colonnes introuvables → import vide **sans erreur claire**.
+
+**TOUJOURS** lire les fichiers via `readFileText(blob)` (exporté de `fec.ts`) — jamais `file.text()`/`blob.text()` directement :
+```typescript
+export async function readFileText(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer()
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer) }
+  catch { return new TextDecoder('windows-1252').decode(buffer) }  // EBP/Sage Latin-1
+}
+```
+Utilisé dans : `Import.tsx` (FEC), `Depot.tsx` (FEC déposés), `Saisie.tsx` (CSV).
+
+`normHeader()` dans `parseFEC` neutralise aussi les artefacts d'encodage résiduels (`°`/`∞` → `o`, `ë` → `e`, etc.) avant de matcher les colonnes — ne pas le retirer.
+
+---
+
+### 23. Hors OD — comptes d'inventaire de clôture
+
+**Feature 2026-05-21** : le toggle « Hors OD » neutralise les **comptes générés uniquement en fin d'exercice** (variation de stocks, dotations, reprises, provisions congés payés, transferts de charges). But : comparer N (en cours) vs N-1 (clos) sans biais.
+
+- **Liste centralisée** (`calc.ts`) : `OD_ACCOUNT_PREFIXES = ['603','713','681','686','687','781','787','6412','64582','791']` + helper `isODAccount(acc)`.
+- **Avant**, `excludeOD` était passé à `getAdjMixed` mais **ignoré** (`_excludeOD`) → le toggle ne faisait rien. Désormais respecté **partout** où on calcule un montant :
+  - `getAdjMixed`, `sumByPrefixes`, `getBudgetByPrefixes` (calc.ts)
+  - sous-lignes de `PlTable.tsx` (liste des comptes + budget)
+- **Cohérence** : la même fonction `isODAccount()` filtre partout → les totaux restent égaux à la somme des catégories en mode Hors OD.
+- **Affichage du toggle** : `OD_TABS = ['cr','sig','equilibre','ratios']` dans `TopBar.tsx` (Ratios inclus car il calcule aussi via `computePlCalc`). Les toggles **Mois / N-1** restent réservés à `PL_TABS` (options d'affichage du tableau PlTable).
+- **`excludeOD=false` (défaut)** : chemin strictement identique à l'historique (les ajouts sont court-circuités).
+
+---
+
+### 24. Import — rattachement à une société existante
+
+**Feature 2026-05-21** : à l'import, un sélecteur permet de rattacher le FEC à une **société déjà en base** au lieu d'en créer une nouvelle dérivée du nom de fichier (évite les doublons type `MC EXPORT EBP` vs `SFP`).
+
+- **`company_key` vs `company_name`** sont désormais distincts dans `PendingImport` :
+  - `company` = clé identifiante stable (sans espaces), ex `SFP_CONSEIL`
+  - `companyName` = nom d'affichage lisible, ex `SFP Conseil`
+- **Pré-sélection** : si le nom détecté correspond (normalisation casse/espaces) à une société existante → rattachée automatiquement.
+- **`confirmImport`** : pour une société existante, **conserver son `company_name`** (`RAW.companies[co].name`) — ne JAMAIS l'écraser par le nom du fichier. Pour une nouvelle société : utiliser le nom saisi (`companyName`), fallback `detectCompanyName(file.name)`.
+- Le bouton Importer se bloque si une société cible est vide (mode « + Autre nom… » non rempli).
+
+---
+
+### 25. Période — préservation au refresh (bornée à l'exercice)
+
+**Bug corrigé 2026-05-21** : `useCompanyData` réinitialisait `startM`/`endM` à **chaque** chargement → la période persistée et les changements manuels étaient perdus à chaque refresh.
+
+`useCompanyData` préserve désormais la période choisie **uniquement si elle reste dans l'exercice par défaut** (`RAW.mn`, ou fallback `m1`/`m2`) :
+```typescript
+const defaultSet = raw.mn.length ? raw.mn : raw.m1.length ? raw.m1 : raw.m2.length ? raw.m2 : []
+const { startM, endM } = useAppStore.getState().filters
+const periodStillValid = !!startM && !!endM && defaultSet.includes(startM) && defaultSet.includes(endM)
+if (!periodStillValid && defaultSet.length > 0) {
+  setFilters({ startM: defaultSet[0], endM: defaultSet[defaultSet.length - 1] })
+}
+```
+**Pourquoi borner à l'exercice** : le Dashboard est centré sur N (`selectedMs = RAW.mn` filtré, N-1 = année précédente de ces mois). Préserver une période **hors de `RAW.mn`** (ex : obsolète après ré-import, ou pointant sur du N-1) lui faisait perdre la comparaison N-1. La borne garantit que la période reste dans l'exercice courant.
