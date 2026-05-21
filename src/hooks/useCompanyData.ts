@@ -89,14 +89,26 @@ export function useCompanyData() {
     if (raw.keys.length > 0) {
       setFilters({ selCo: raw.keys, budCo: raw.keys[0] ?? '' })
     }
-    if (raw.mn.length > 0) {
-      setFilters({ startM: raw.mn[0], endM: raw.mn[raw.mn.length - 1] })
-    } else if (raw.m1.length > 0) {
-      // Pas de données N → fallback sur N-1
-      setFilters({ startM: raw.m1[0], endM: raw.m1[raw.m1.length - 1] })
-    } else if (raw.m2.length > 0) {
-      // Pas de N ni N-1 → fallback sur N-2 (ex : seul FEC 2024 importé en 2026)
-      setFilters({ startM: raw.m2[0], endM: raw.m2[raw.m2.length - 1] })
+
+    // Période : ne PAS écraser une période déjà choisie par l'utilisateur si elle reste
+    // valide pour les données courantes. Sinon chaque refresh / refetch réinitialisait
+    // startM/endM (souvent sur le seul mois N) et les changements de période étaient perdus.
+    // On ne pose la période par défaut que si la période persistée est vide ou hors des
+    // mois disponibles (ex : après un nouvel import qui change les mois).
+    const allMonths = new Set([...raw.mn, ...raw.m1, ...raw.m2])
+    const { startM, endM } = useAppStore.getState().filters
+    const periodStillValid = !!startM && !!endM && allMonths.has(startM) && allMonths.has(endM)
+
+    if (!periodStillValid) {
+      if (raw.mn.length > 0) {
+        setFilters({ startM: raw.mn[0], endM: raw.mn[raw.mn.length - 1] })
+      } else if (raw.m1.length > 0) {
+        // Pas de données N → fallback sur N-1
+        setFilters({ startM: raw.m1[0], endM: raw.m1[raw.m1.length - 1] })
+      } else if (raw.m2.length > 0) {
+        // Pas de N ni N-1 → fallback sur N-2 (ex : seul FEC 2024 importé en 2026)
+        setFilters({ startM: raw.m2[0], endM: raw.m2[raw.m2.length - 1] })
+      }
     }
 
     setDataLoading(false)
