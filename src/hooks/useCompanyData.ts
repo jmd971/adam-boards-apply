@@ -13,6 +13,7 @@ export function useCompanyData() {
   const setBudData      = useAppStore(s => s.setBudData)
   const setBudStatus    = useAppStore(s => s.setBudStatus)
   const setBudVersions  = useAppStore(s => s.setBudVersions)
+  const setFiscalSettings = useAppStore(s => s.setFiscalSettings)
   const setDataLoading  = useAppStore(s => s.setDataLoading)
   const setFilters      = useAppStore(s => s.setFilters)
 
@@ -24,20 +25,28 @@ export function useCompanyData() {
       // Filtre tenant explicite : la policy RLS autorise le superadmin à lire
       // tous les tenants (is_superadmin()), il faut cibler côté client sinon
       // un switch de tenant renverrait l'union des deux.
-      const [cdRes, bdRes, meRes] = await Promise.all([
+      const [cdRes, bdRes, meRes, csRes] = await Promise.all([
         sb.from('company_data').select('*').eq('tenant_id', tenantId!),
         sb.from('budget').select('*').eq('tenant_id', tenantId!),
         sb.from('manual_entries').select('*').eq('tenant_id', tenantId!).order('entry_date', { ascending: true }),
+        sb.from('company_settings').select('company_key, fiscal_year_start_month').eq('tenant_id', tenantId!),
       ])
 
       if (cdRes.error) console.error('[Supabase] company_data:', cdRes.error.message)
       if (bdRes.error) console.error('[Supabase] budget:', bdRes.error.message)
       if (meRes.error) console.error('[Supabase] manual_entries:', meRes.error.message)
+      if (csRes.error) console.error('[Supabase] company_settings:', csRes.error.message)
+
+      const fiscalSettings: Record<string, number> = {}
+      for (const r of (csRes.data ?? []) as Array<{ company_key: string; fiscal_year_start_month: number }>) {
+        fiscalSettings[r.company_key] = r.fiscal_year_start_month
+      }
 
       return {
         companyData:   (cdRes.data ?? []) as CompanyDataRow[],
         budgets:       (bdRes.data ?? []) as Array<{ id: string; company_key: string; version_name: string; data: Record<string, any>; status: string }>,
         manualEntries: (meRes.data ?? []) as ManualEntry[],
+        fiscalSettings,
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -53,10 +62,11 @@ export function useCompanyData() {
       return
     }
 
-    const { companyData = [], budgets = [], manualEntries = [] } = query.data ?? {}
-    const raw = buildRAW(companyData, budgets as any, manualEntries)
+    const { companyData = [], budgets = [], manualEntries = [], fiscalSettings = {} } = query.data ?? {}
+    const raw = buildRAW(companyData, budgets as any, manualEntries, fiscalSettings)
     setRAW(raw)
     setManualEntries(manualEntries)
+    setFiscalSettings(fiscalSettings)
 
     const bd: Record<string, any> = {}
     const bs: Record<string, string> = {}
