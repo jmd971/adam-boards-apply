@@ -74,9 +74,16 @@ const PRESETS: Scenario[] = [
 
 interface WhatIfProps {
   coBud: Record<string, any>
+  startMonth?: number
 }
 
-function WhatIfPanel({ coBud }: WhatIfProps) {
+function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
+  // Ordre d'affichage des mois selon le début d'exercice fiscal
+  // ex: startMonth=10 → [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8] (Oct en premier)
+  const fiscalOrder = useMemo(
+    () => Array(12).fill(0).map((_, d) => (startMonth - 1 + d) % 12),
+    [startMonth]
+  )
   const [caVar, setCaVar]       = useState(0)
   const [achVar, setAchVar]     = useState(0)
   const [servVar, setServVar]   = useState(0)
@@ -351,8 +358,8 @@ function WhatIfPanel({ coBud }: WhatIfProps) {
             <thead>
               <tr style={{ background: '#080d1a' }}>
                 <th style={{ padding: '6px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#080d1a', zIndex: 2 }}>Indicateur</th>
-                {MONTHS_SHORT.map(m => (
-                  <th key={m} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{m}</th>
+                {fiscalOrder.map(ai => (
+                  <th key={ai} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{MONTHS_SHORT[ai]}</th>
                 ))}
                 <th style={{ padding: '6px 10px', textAlign: 'right', color: '#3b82f6', fontWeight: 700, minWidth: 80, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Total</th>
               </tr>
@@ -383,12 +390,13 @@ function WhatIfPanel({ coBud }: WhatIfProps) {
                     }}>
                       {label}
                     </td>
-                    {simMonthly.map((m, i) => {
+                    {fiscalOrder.map((ai) => {
+                      const m = simMonthly[ai]
                       const val = m[key as keyof typeof m] ?? 0
-                      const base = baseMonthly[i][key as keyof typeof baseMonthly[0]] ?? 0
+                      const base = baseMonthly[ai][key as keyof typeof baseMonthly[0]] ?? 0
                       const diff = val - base
                       return (
-                        <td key={i} style={{ padding: '4px 4px', textAlign: 'right', fontFamily: 'monospace' }}>
+                        <td key={ai} style={{ padding: '4px 4px', textAlign: 'right', fontFamily: 'monospace' }}>
                           <div style={{ color: val < 0 ? '#ef4444' : color, fontWeight: isBold ? 600 : 400 }}>
                             {fmt(val)}
                           </div>
@@ -422,13 +430,14 @@ function WhatIfPanel({ coBud }: WhatIfProps) {
 }
 
 export function Budget() {
-  const RAW          = useAppStore(s => s.RAW)
-  const filters      = useAppStore(s => s.filters)
-  const budData      = useAppStore(s => s.budData)
-  const setBudData   = useAppStore(s => s.setBudData)
-  const budVersions  = useAppStore(s => s.budVersions)
+  const RAW            = useAppStore(s => s.RAW)
+  const filters        = useAppStore(s => s.filters)
+  const budData        = useAppStore(s => s.budData)
+  const setBudData     = useAppStore(s => s.setBudData)
+  const budVersions    = useAppStore(s => s.budVersions)
   const setBudVersions = useAppStore(s => s.setBudVersions)
-  const tenantId     = useAppStore(s => s.tenantId)
+  const tenantId       = useAppStore(s => s.tenantId)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
 
   const [budCo,        setBudCo]        = useState(filters.selCo[0] ?? '')
   const [selVersion,   setSelVersion]   = useState<string>('')
@@ -468,6 +477,14 @@ export function Budget() {
   const coBud = useMemo(
     () => (budVersions.find(v => v.company_key === budCo && v.version_name === selVersion)?.data ?? {}) as Record<string, any>,
     [budVersions, budCo, selVersion]
+  )
+
+  // Exercice fiscal de la société sélectionnée
+  const startMonth  = fiscalSettings[budCo] ?? 1
+  // Ordre d'affichage des colonnes mois (calendaire si startMonth=1, sinon fiscal)
+  const fiscalOrder = useMemo(
+    () => Array(12).fill(0).map((_, d) => (startMonth - 1 + d) % 12),
+    [startMonth]
   )
 
   // ── Comparaison de versions (#7 bis) ─────────────────────────────────────
@@ -922,7 +939,7 @@ export function Budget() {
 
               {/* What-if simulation */}
               {showWhatIf && Object.keys(coBud).length > 0 && (
-                <WhatIfPanel coBud={coBud} />
+                <WhatIfPanel coBud={coBud} startMonth={startMonth} />
               )}
 
               {/* Comparaison de versions (#7 bis) */}
@@ -1010,8 +1027,8 @@ export function Budget() {
                       <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
                         <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
                         <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
-                        {MONTHS_SHORT.map(m => (
-                          <th key={m} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{m}</th>
+                        {fiscalOrder.map(ai => (
+                          <th key={ai} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ai]}</th>
                         ))}
                         <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
                       </tr>
@@ -1034,11 +1051,11 @@ export function Budget() {
                                 {isCharge ? 'charge':'produit'}
                               </span>
                             </td>
-                            {Array(12).fill(0).map((_, fi) => (
-                              <td key={fi} style={{ padding:'2px 2px' }}>
+                            {fiscalOrder.map(ai => (
+                              <td key={ai} style={{ padding:'2px 2px' }}>
                                 <input
-                                  type="number" value={bv.b?.[fi] ?? 0}
-                                  onChange={e => handleCell(acc, fi, e.target.value)}
+                                  type="number" value={bv.b?.[ai] ?? 0}
+                                  onChange={e => handleCell(acc, ai, e.target.value)}
                                   style={{ width:66, padding:'3px 4px', textAlign:'right',
                                     background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)',
                                     borderRadius:4, color: isCharge ? '#fca5a5':'#6ee7b7',
@@ -1054,28 +1071,30 @@ export function Budget() {
                       })}
                     </tbody>
                     <tfoot>
-                      {[
-                        { label:'📥 Total produits',  row:totals.produits, color:'#10b981', isCumul:false },
-                        { label:'📤 Total charges',   row:totals.charges,  color:'#ef4444', isCumul:false },
-                        { label:'💰 Résultat',        row:totals.result,   color:'#3b82f6', isCumul:false },
-                        { label:'📊 Résultat cumulé', row:totals.cumul,    color:'#8b5cf6', isCumul:true  },
-                      ].map(({ label, row, color, isCumul }) => {
-                        const grandTotal = isCumul ? (row[row.length-1] ?? 0) : row.reduce((s,x)=>s+x,0)
-                        return (
-                        <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
-                          <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
-                          <td />
-                          {row.map((v, i) => (
-                            <td key={i} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
-                              color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
-                          ))}
-                          <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
-                            color: grandTotal<0 ? '#ef4444':color }}>
-                            {fmt(grandTotal)}
-                          </td>
-                        </tr>
-                        )
-                      })}
+                      {(() => {
+                        // Cumul cumulatif dans l'ordre fiscal (pas calendaire)
+                        let cum = 0
+                        const fiscalCumul = fiscalOrder.map(ai => { cum += totals.result[ai]; return cum })
+                        return [
+                          { label:'📥 Total produits',  values: fiscalOrder.map(ai => totals.produits[ai]),  color:'#10b981', grandTotal: totals.produits.reduce((s,x)=>s+x,0) },
+                          { label:'📤 Total charges',   values: fiscalOrder.map(ai => totals.charges[ai]),   color:'#ef4444', grandTotal: totals.charges.reduce((s,x)=>s+x,0)  },
+                          { label:'💰 Résultat',        values: fiscalOrder.map(ai => totals.result[ai]),    color:'#3b82f6', grandTotal: totals.result.reduce((s,x)=>s+x,0)   },
+                          { label:'📊 Résultat cumulé', values: fiscalCumul,                                 color:'#8b5cf6', grandTotal: fiscalCumul[fiscalCumul.length-1] ?? 0 },
+                        ].map(({ label, values, color, grandTotal }) => (
+                          <tr key={label} style={{ background: label.includes('cumulé') ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
+                            <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
+                            <td />
+                            {values.map((v, d) => (
+                              <td key={d} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
+                                color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
+                            ))}
+                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
+                              color: grandTotal<0 ? '#ef4444':color }}>
+                              {fmt(grandTotal)}
+                            </td>
+                          </tr>
+                        ))
+                      })()}
                     </tfoot>
                   </table>
                 </div>
