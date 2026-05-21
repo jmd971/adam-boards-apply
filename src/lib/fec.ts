@@ -379,3 +379,21 @@ export function detectPeriod(months: string[]): { period: 'N' | 'N-1' | 'N-2'; f
   if (maxY < cy)      return { period: 'N-1', fy: String(maxY) }
   return { period: 'N', fy: String(maxY) }
 }
+
+/**
+ * Détecte automatiquement le mois de début d'exercice fiscal à partir des mois d'un FEC.
+ *
+ * Principe : le premier mois chronologique du FEC est le premier mois de l'exercice.
+ * Fiable uniquement si le FEC couvre ≥ 10 mois (sinon pas assez de signal).
+ *
+ * Exemples :
+ *   ["2024-01", ..., "2024-12"]              → 1  (exercice civil)
+ *   ["2024-10", ..., "2024-12", "2025-01", ..., "2025-09"] → 10 (exercice oct→sep)
+ *
+ * @returns Le mois de début (1..12), ou null si le FEC est trop court pour être fiable.
+ */
+export function detectFiscalStart(months: string[]): number | null {
+  if (months.length < 10) return null          // FEC partiel — pas assez fiable
+  const sorted = [...months].sort()
+  return parseInt(sorted[0].split('-')[1])     // mois du premier mois chronologique
+}
