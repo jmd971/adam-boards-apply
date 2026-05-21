@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { buildRAW } from '@/lib/calc'
 import type { CompanyDataRow, FecAccount } from '@/types'
 
@@ -29,6 +29,11 @@ function row(over: Partial<CompanyDataRow>): CompanyDataRow {
 /* ─── buildRAW transforms ────────────────────────────────────────────────── */
 
 describe('buildRAW — Supabase rows → RAW structure', () => {
+  // Date système figée pour rendre la classification N/N-1/N-2 déterministe
+  // (sinon les fixtures 2026/2025/2024 deviennent fausses au changement d'année).
+  beforeAll(() => { vi.useFakeTimers({ toFake: ['Date'] }); vi.setSystemTime(new Date('2026-05-15')) })
+  afterAll(() => vi.useRealTimers())
+
   it('renvoie un RAW vide quand aucune ligne', () => {
     const raw = buildRAW([], [])
     expect(raw.keys).toEqual([])
@@ -48,17 +53,19 @@ describe('buildRAW — Supabase rows → RAW structure', () => {
     expect(raw.companies.SCI_TOURIZK.name).toBe('SCI TOURIZK')
   })
 
-  it('range pl_data dans pn quand period=N', () => {
+  it('range pl_data dans pn quand period=N (exercice courant = 2026)', () => {
+    // Date figée à 2026 → les mois 2026 sont l'exercice N. La classification se fait
+    // désormais par exercice fiscal réel, pas par le tag row.period (calendaire).
     const raw = buildRAW([row({
       period: 'N',
       pl_data: {
-        '7060000000': fec({ '2025-01': [0, 1000], '2025-02': [0, 2000] }, 'PRESTATIONS'),
+        '7060000000': fec({ '2026-01': [0, 1000], '2026-02': [0, 2000] }, 'PRESTATIONS'),
       },
     })], [])
     // Le compte doit exister dans pn[acc] avec son mo et son label
     expect(raw.companies.MC.pn['7060000000']).toBeDefined()
     expect(raw.companies.MC.pn['7060000000'].l).toBe('PRESTATIONS')
-    expect(raw.companies.MC.pn['7060000000'].mo['2025-01']).toEqual([0, 1000])
+    expect(raw.companies.MC.pn['7060000000'].mo['2026-01']).toEqual([0, 1000])
     // Et p1 doit être vide
     expect(raw.companies.MC.p1['7060000000']).toBeUndefined()
   })
