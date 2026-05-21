@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { PlData, SigRow, RAWData } from '@/types'
-import { fmt, pct, monthLabel, mergeEntries, mergeLabel, getBudget, isODAccount } from '@/lib/calc'
+import { fmt, pct, monthLabel, mergeEntries, mergeLabel, getBudget, isODAccount, fiscalIndex } from '@/lib/calc'
 
 interface PlTableProps {
   struct: SigRow[]
@@ -61,6 +61,10 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
     Object.fromEntries(struct.filter(r => (r.accs?.length ?? 0) > 0 && !r.sep && !r.header).map(r => [r.id, true]))
   )
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
+
+  // Indices budgétaires (mois calendaires, jan=0…déc=11) correspondant à la période
+  // sélectionnée — pour restreindre le budget des sous-lignes aux mois filtrés (comme computePlCalc).
+  const budPeriodIdx = [...new Set(selectedMs.map(m => fiscalIndex(m)))]
 
   let currentHeader: string | null = null
   const rows: React.ReactNode[] = []
@@ -335,9 +339,9 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               </td>
               <td colSpan={showN1Full ? 5 : 4} />
               {showBudget && (() => {
-                const budSign   = isCharge ? 1 : -1
+                // Budget stocké en valeur absolue (positif) ; restreint aux mois de la période.
                 const accBudget = budData
-                  ? Math.round(getBudget(selCo, budData as any, acc, Array.from({ length: 12 }, (_, i) => i)).reduce((s, v) => s + v * budSign, 0))
+                  ? Math.round(getBudget(selCo, budData as any, acc, budPeriodIdx).reduce((s, v) => s + v, 0))
                   : 0
                 const accEcart  = Math.round(val - accBudget)
                 const accEcartP = accBudget !== 0 ? accEcart / Math.abs(accBudget) : null
