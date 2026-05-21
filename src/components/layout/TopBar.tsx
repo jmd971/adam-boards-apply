@@ -17,6 +17,7 @@ const TAB_META: Record<string, { label: string; icon: string }> = {
   tresorerie:     { label:'Trésorerie',           icon:'💧' },
   creances:       { label:'Créances clients',      icon:'📋' },
   aide:           { label:'Aide',                 icon:'❓' },
+  parametres:     { label:'Paramètres',           icon:'⚙️' },
 }
 
 const PL_TABS       = ['cr','sig','equilibre']
