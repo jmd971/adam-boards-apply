@@ -76,6 +76,8 @@ export interface ManualEntry {
   category: 'Vente' | 'Achat' | 'Depense' | 'Immobilisation'
   subcategory: string
   label?: string
+  /** Numéro de facture (saisi ou OCR) — sert de référence dans la trésorerie. */
+  invoice_number?: string
   counterpart?: string
   account_num?: string
   payment_mode?: 'comptant' | 'echeancier' | 'cb' | 'virement' | 'cheque' | 'especes' | 'prelevement'
