@@ -149,6 +149,7 @@ export function Saisie() {
     category:     'Vente' as ManualEntry['category'],
     subcategory:  '',
     label:        '',
+    invoice_number: '',
     amount_ttc:   '',
     amount_ht:    '',
     counterpart:  '',
@@ -239,6 +240,7 @@ export function Saisie() {
       category:     e.category,
       subcategory:  e.subcategory || '',
       label:        e.label || '',
+      invoice_number: (e as any).invoice_number || '',
       amount_ttc:   e.amount_ttc || '',
       amount_ht:    e.amount_ht || e.amount_ht_saisie || '',
       counterpart:  e.counterpart || '',
@@ -252,7 +254,7 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setMsg(null)
   }
 
@@ -452,6 +454,7 @@ export function Saisie() {
         category:    ocrCat,
         subcategory: matchedSub || parsed.subcategory || '',
         label:       parsed.label || '',
+        invoice_number: (parsed as any).invoice_number || (parsed as any).numero_facture || f.invoice_number,
         amount_ttc:  ttc > 0 ? String(ttc) : f.amount_ttc,
         amount_ht:   ht > 0  ? String(ht)  : f.amount_ht,
         counterpart: parsed.counterpart || '',
@@ -489,6 +492,7 @@ export function Saisie() {
         category:     row.category || row.categorie || 'Depense',
         subcategory:  row.subcategory || row.sous_categorie || '',
         label:        row.label || row.libelle || '',
+        invoice_number: row.invoice_number || row.numero_facture || row.num_facture || null,
         amount_ttc:   String(ttc),
         amount_ht:    String(ht),
         tva_amount:   String(calcTvaAmount(ht, ttc)),
@@ -557,6 +561,7 @@ export function Saisie() {
       category:     form.category,
       subcategory:  form.subcategory,
       label:        form.label,
+      invoice_number: form.invoice_number || null,
       amount_ttc:   String(ttc),
       amount_ht:    String(ht),
       amount_ht_saisie: String(ht),
@@ -608,7 +613,7 @@ export function Saisie() {
 
     setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setEchDates([])
     setEchAmounts([])
     setEchAmountsDirty(false)
@@ -774,6 +779,11 @@ export function Saisie() {
             <div>
               <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Libellé</label>
               <input type="text" value={form.label} onChange={e => setForm(f => ({...f, label:e.target.value}))} style={inputSt} placeholder="Description..." />
+            </div>
+
+            <div>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>N° de facture</label>
+              <input type="text" value={form.invoice_number} onChange={e => setForm(f => ({...f, invoice_number:e.target.value}))} style={inputSt} placeholder="Ex : F2026-001" />
             </div>
 
             <div>
