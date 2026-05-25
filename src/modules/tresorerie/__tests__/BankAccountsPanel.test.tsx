@@ -15,9 +15,12 @@ vi.mock('@/store', () => ({
 vi.mock('@/lib/supabase', () => ({
   sb: {
     from: () => ({
+      // Chaîne : select().eq('tenant_id').order().order() — eq ajouté pour le filtre tenant.
       select: () => ({
-        order: () => ({
-          order: () => Promise.resolve({ data: mocks.bankData, error: null }),
+        eq: () => ({
+          order: () => ({
+            order: () => Promise.resolve({ data: mocks.bankData, error: null }),
+          }),
         }),
       }),
     }),
