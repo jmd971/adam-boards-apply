@@ -1,5 +1,16 @@
 import { useState, useMemo } from 'react'
 import { fmt } from '@/lib/calc'
+import { sb } from '@/lib/supabase'
+
+// Ouvre une facture (bucket 'invoice' privé) via une URL signée. Rétro-compat : si la valeur
+// est déjà une URL http, on l'ouvre telle quelle.
+async function openInvoice(urlOrPath: string) {
+  if (!urlOrPath) return
+  if (urlOrPath.startsWith('http')) { window.open(urlOrPath, '_blank', 'noopener'); return }
+  const { data, error } = await sb.storage.from('invoice').createSignedUrl(urlOrPath, 3600)
+  if (!error && data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
+  else alert("Impossible d'ouvrir la facture : " + (error?.message ?? 'URL indisponible'))
+}
 
 interface EcrituresModalProps {
   title: string
@@ -153,14 +164,14 @@ export function EcrituresModal({ title, entries, cumN, cumN1, onClose }: Ecritur
                     <td style={{ padding:'5px 8px', color:'var(--text-1)', maxWidth:340, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {e[1] || '—'}
                       {e[7] && (
-                        <a href={e[7]} target="_blank" rel="noopener noreferrer"
-                          onClick={ev => ev.stopPropagation()}
+                        <button onClick={ev => { ev.stopPropagation(); openInvoice(String(e[7])) }}
                           title="Voir / télécharger la facture"
                           style={{ marginLeft:8, display:'inline-flex', alignItems:'center', gap:3, padding:'1px 7px',
                             borderRadius:6, background:'rgba(59,130,246,0.18)', color:'#93c5fd', fontSize:10, fontWeight:600,
-                            textDecoration:'none', boxShadow:'inset 0 0 0 1px rgba(59,130,246,0.35)', verticalAlign:'middle' }}>
+                            border:'none', boxShadow:'inset 0 0 0 1px rgba(59,130,246,0.35)', cursor:'pointer',
+                            fontFamily:'inherit', verticalAlign:'middle' }}>
                           📎 Facture
-                        </a>
+                        </button>
                       )}
                     </td>
                     <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', color: e[2] > 0 ? 'var(--text-0)' : 'var(--text-3)' }}>
