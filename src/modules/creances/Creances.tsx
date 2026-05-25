@@ -62,6 +62,7 @@ interface ClientRow {
 export function Creances() {
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
+  const manualEntries = useAppStore(s => s.manualEntries)
   const [modal, setModal]         = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
   const [search, setSearch]       = useState('')
   const [expanded, setExpanded]   = useState<Record<string, boolean>>({})
@@ -146,6 +147,38 @@ export function Creances() {
       }
     }
 
+    // ─── Saisies manuelles (module Saisie) ───────────────────────────────
+    // bn (bilan) ne contient QUE le dernier FEC importé : les factures saisies
+    // à la main n'y figurent pas. On les intègre ici pour que les créances
+    // reflètent AUSSI la Saisie (factures de vente non encore encaissées),
+    // pas seulement le dernier FEC.
+    // Règle « encaissée » (donc exclue) : règlement comptant, ou date de
+    // règlement déjà passée. Sinon la facture reste une créance ouverte.
+    const todayISO = TODAY.toISOString().slice(0, 10)
+    const saisieKeys: string[] = []
+    for (const me of manualEntries) {
+      if (me.category !== 'Vente') continue            // créances clients = ventes uniquement
+      if (me.source === 'echeance') continue            // échéances-enfants : planning d'encaissement, pas une facture
+      if (!selCo.includes(me.company_key)) continue
+      const ttc = parseFloat(me.amount_ttc || me.amount_ht || '0') || 0
+      if (ttc <= 0) continue
+      const paid = me.payment_mode === 'comptant' || (!!me.payment_date && me.payment_date <= todayISO)
+      if (paid) continue
+      const client  = (me.counterpart || me.label || me.subcategory || 'Client').trim()
+      const acct    = `SA·${client}`
+      const dateStr = me.entry_date || ''
+      const age     = ageDays(dateStr)
+      const piece   = me.invoice_number || ''
+      if (!map[acct]) { map[acct] = { name: client, account: acct, companyKey: me.company_key, total: 0, bk: 4, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }; saisieKeys.push(acct) }
+      const row = map[acct]
+      row.total += Math.round(ttc)
+      row.invoices.push({ date: dateStr, label: me.label || client, debit: ttc, credit: 0, piece, age, bucket: getBucket(age) })
+      row.entries.push([dateStr, me.label || client, ttc, 0, piece, 0, '', me.invoice_url || ''])
+      row.nbInvoices += 1
+      if (!row.oldest || (dateStr && dateStr < row.oldest)) { row.oldest = dateStr; row.oldestDays = ageDays(dateStr); row.bk = getBucket(row.oldestDays) }
+    }
+    for (const k of saisieKeys) map[k].invoices.sort((a, b) => a.date.localeCompare(b.date))
+
     const allClients = Object.values(map).filter(c => c.total > 0).sort((a, b) => b.total - a.total)
     const byBucket: ClientRow[][] = BUCKETS.map(() => [])
     for (const c of allClients) byBucket[c.bk].push(c)
@@ -169,7 +202,7 @@ export function Creances() {
     const dso = ca > 0 && RAW.mn?.length ? Math.round(totalCreances / (ca / RAW.mn.length) * 30) : null
 
     return { byBucket, allClients, totalCreances, dso }
-  }, [RAW, selCo.join(',')])
+  }, [RAW, selCo.join(','), manualEntries])
 
   // Apply filters
   const filteredClients = useMemo(() => {
@@ -203,7 +236,7 @@ export function Creances() {
             Créances clients
           </h2>
           <p style={{ fontSize: 12, color: '#475569', margin: 0 }}>
-            Balance âgée des comptes clients (41x) · {nbTotal} client{nbTotal > 1 ? 's' : ''} avec solde dû
+            Balance âgée des comptes clients (41x, FEC + saisies) · {nbTotal} client{nbTotal > 1 ? 's' : ''} avec solde dû
           </p>
         </div>
 
