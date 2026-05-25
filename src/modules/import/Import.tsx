@@ -153,6 +153,7 @@ export function Import() {
           source:      'manual',
           client_data: item.parsed.clientData,
           ve_entries:  item.parsed.veEntries,
+          cash_moves:  item.parsed.cashMoves,
         }, { onConflict: 'tenant_id,company_key,period' })
 
         if (error) throw error
