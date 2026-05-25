@@ -155,7 +155,7 @@ export function buildRAW(
     const rows = companyData.filter(r => r.company_key === co)
     const budget = budgets.find(b => b.company_key === co)
     const coName = (rows.find(r => (r as any).company_name) as any)?.company_name || co.replace(/_/g, ' ')
-    companies[co] = { name: coName, pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: budget?.data ?? {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }
+    companies[co] = { name: coName, pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: budget?.data ?? {}, cdN: {}, cdN1: {}, veN: [], veN1: [], cashN: [], cash1: [], cash2: [] }
 
     // Exercice fiscal de CETTE société. startMonth=1 ⇒ année civile (rétro-compat).
     const startMonth = fiscalSettings[co] ?? 1
@@ -190,13 +190,24 @@ export function buildRAW(
       for (const [acc, acct] of Object.entries(row.bilan_data ?? {})) companies[co][bField][acc] = acct as any
       if (row.period === 'N') { companies[co].cdN = row.client_data ?? {}; companies[co].veN = row.ve_entries ?? [] }
       else if (row.period === 'N-1') { companies[co].cdN1 = row.client_data ?? {}; companies[co].veN1 = row.ve_entries ?? [] }
+
+      // Mouvements de trésorerie : classés par exercice fiscal de la date du mouvement
+      // (cohérent avec le P&L ci-dessus). Indépendant du tag row.period.
+      // (cashN/cash1/cash2 sont initialisés à [] à la création de companies[co] → non-null sûr.)
+      for (const cm of ((row as any).cash_moves ?? []) as any[]) {
+        const em = (cm.date as string || '').slice(0, 7)
+        const f = em ? fieldForMonth(em) : 'pn'
+        const target = f === 'pn' ? companies[co].cashN! : f === 'p1' ? companies[co].cash1! : companies[co].cash2!
+        target.push(cm)
+        if (em) setForField(f).add(em)
+      }
     }
   }
 
   for (const me of manualEntries) {
     if (me.source === 'echeance') continue          // entrées-enfants : ignorées du P&L (gérées dans trésorerie)
     const mco = me.company_key; if (!mco) continue
-    if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
+    if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [], cashN: [], cash1: [], cash2: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
     const mMonth = mDate.slice(0, 7)
     // Classer la saisie par l'exercice fiscal de sa société (cohérent avec le P&L ci-dessus).
