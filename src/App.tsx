@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { sb, getUserRoleAndTenant } from '@/lib/supabase'
 import { useAppStore } from '@/store'
+import { allSelectableMonths } from '@/lib/calc'
 import { canAccessTab, type Role } from '@/lib/roles'
 import { Sidebar }          from '@/components/layout/Sidebar'
 import { TopBar }           from '@/components/layout/TopBar'
@@ -44,6 +45,7 @@ function AppInner() {
   const switchTenant = useAppStore(s => s.switchTenant)
   const dataLoading  = useAppStore(s => s.dataLoading)
   const RAW          = useAppStore(s => s.RAW)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
   const tab          = useAppStore(s => s.tab)
   const setTab       = useAppStore(s => s.setTab)
 
@@ -92,10 +94,11 @@ function AppInner() {
 
   useCompanyData()
 
-  const allMonths = useMemo(() => {
-    const ms = new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? []), ...(RAW?.m2 ?? [])])
-    return [...ms].sort()
-  }, [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')])
+  // Mois sélectionnables = données (mn/m1/m2) + exercice N complet (projection budget des mois à venir).
+  const allMonths = useMemo(
+    () => allSelectableMonths(RAW, fiscalSettings),
+    [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(','), RAW?.keys?.join(','), JSON.stringify(fiscalSettings)]
+  )
 
   if (!user) return <LoginPage onLogin={(u: User) => {
     setUser(u)
