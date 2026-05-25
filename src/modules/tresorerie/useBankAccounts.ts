@@ -21,9 +21,13 @@ export function useBankAccounts() {
     queryKey: ['bank_accounts', tenantId],
     enabled:  !!tenantId,
     queryFn: async () => {
+      // Filtre tenant explicite obligatoire : la policy RLS autorise le superadmin à lire
+      // TOUS les tenants (is_superadmin()). Sans ce .eq(), un superadmin récupérerait les
+      // comptes bancaires de tous les groupes → prévisionnel faux (soldes mélangés).
       const { data, error } = await sb
         .from('bank_accounts')
         .select('*')
+        .eq('tenant_id', tenantId!)
         .order('company_key', { ascending: true })
         .order('label',        { ascending: true })
       if (error) throw error
