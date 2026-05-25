@@ -209,7 +209,6 @@ export function Tresorerie() {
     const enc: Record<string, { label:string; vals:number[]; factures:any[] }> = {}
     const dec: Record<string, { label:string; vals:number[]; factures:any[] }> = {}
     const realisedMonthsSet = new Set(months)
-    const fmtFr = (d: string) => d ? d.split('-').reverse().join('/') : ''
     for (let mi = 0; mi < forecastMs.length; mi++) {
       const m = forecastMs[mi]
       for (const co of selCo) {
@@ -252,9 +251,9 @@ export function Tresorerie() {
           const key = me.account_num || '658'
           const label = me.subcategory || key
           const isVente = me.category === 'Vente'
-          // Écriture facture pour le modal : [date, libellé, débit, crédit, réf, isOD, tag, invoice_url]
+          // Écriture d'échéance pour le modal : [date(AAAA-MM-JJ, triable), libellé, débit, crédit, réf, isOD, tag, invoice_url]
           const factureRow = (d: string, amt: number) => [
-            fmtFr(d),
+            d,
             `${me.label || me.counterpart || label}${me.echeancier_data ? ' (échéance)' : ''}`,
             isVente ? 0 : amt,           // décaissement → débit
             isVente ? amt : 0,           // encaissement → crédit
@@ -507,12 +506,12 @@ export function Tresorerie() {
                         const ents=(a as any).factures ?? []
                         return (
                           <tr key={acc}
-                            onClick={ents.length>0?()=>setModal({title:`${a.label} — factures prévues`,entries:ents,cumN:dTot,cumN1:0}):undefined}
+                            onClick={ents.length>0?()=>setModal({title:`${a.label} — échéances prévues`,entries:ents,cumN:dTot,cumN1:0}):undefined}
                             style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:ents.length>0?'pointer':'default'}}>
                             <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>
                               {!acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{acc}</span>}
                               {a.label}
-                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--blue)',background:'rgba(59,130,246,0.12)',padding:'1px 5px',borderRadius:10}}>{ents.length} facture{ents.length>1?'s':''}</span>}
+                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--blue)',background:'rgba(59,130,246,0.12)',padding:'1px 5px',borderRadius:10}}>{ents.length} échéance{ents.length>1?'s':''}</span>}
                             </td>
                             {a.vals.map((v:number,i:number)=>(
                               <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
