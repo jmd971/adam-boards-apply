@@ -50,3 +50,30 @@ export function vatRateForAccount(acc: string, vat: VatConfig | undefined): numb
   if (!cat) return 0
   return vat.rates[cat] ?? 0
 }
+
+// ── Trésorerie réelle (cash) ────────────────────────────────────────────────
+
+/** Compte de trésorerie (classe 5) : banque, caisse, virements internes. */
+export function isTreasuryAccount(acc: string): boolean {
+  return /^51[124]/.test(acc) || /^53/.test(acc) || /^54/.test(acc)
+}
+
+/**
+ * Catégorie d'un mouvement de trésorerie.
+ * - `pnlAccount` (contrepartie P&L directe OU résolue via lettrage) prime → catégorie fine.
+ * - sinon, catégorie générique selon le compte tiers de contrepartie.
+ */
+export function cashCategoryOf(counterpart: string, pnlAccount: string | null): string {
+  const acc = pnlAccount || ''
+  if (acc[0] === '7') return catOf(acc, ENC_CATS) ?? 'Autres produits'
+  if (acc[0] === '6') return catOf(acc, DEC_CATS) ?? 'Autres charges'
+  // Contrepartie non-P&L (tiers / bilan) → catégorie générique
+  if (counterpart.startsWith('411')) return 'Encaissements clients'
+  if (counterpart.startsWith('401')) return 'Décaissements fournisseurs'
+  if (/^42/.test(counterpart))       return 'Salaires'
+  if (/^43/.test(counterpart))       return 'Charges sociales'
+  if (/^44/.test(counterpart))       return 'TVA & État'
+  if (/^45/.test(counterpart))       return "Comptes d'associés"
+  if (/^16|^17|^51[0356789]/.test(counterpart)) return 'Emprunts & financements'
+  return 'Autres opérations'
+}
