@@ -35,7 +35,7 @@ export function Equilibre() {
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computePlCalc(RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD, true)
+    return computePlCalc(RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
   }, [RAW, selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
   const ventes   = plCalc['tot_ventes']?.cumulN ?? 0
