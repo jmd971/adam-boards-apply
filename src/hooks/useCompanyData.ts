@@ -14,6 +14,7 @@ export function useCompanyData() {
   const setBudStatus    = useAppStore(s => s.setBudStatus)
   const setBudVersions  = useAppStore(s => s.setBudVersions)
   const setFiscalSettings = useAppStore(s => s.setFiscalSettings)
+  const setVatSettings  = useAppStore(s => s.setVatSettings)
   const setDataLoading  = useAppStore(s => s.setDataLoading)
   const setFilters      = useAppStore(s => s.setFilters)
 
@@ -29,7 +30,9 @@ export function useCompanyData() {
         sb.from('company_data').select('*').eq('tenant_id', tenantId!),
         sb.from('budget').select('*').eq('tenant_id', tenantId!),
         sb.from('manual_entries').select('*').eq('tenant_id', tenantId!).order('entry_date', { ascending: true }),
-        sb.from('company_settings').select('company_key, fiscal_year_start_month').eq('tenant_id', tenantId!),
+        // select('*') : résilient si la migration 012 (vat_enabled/vat_rates) n'est pas
+        // encore jouée — les colonnes absentes sont simplement undefined (pas d'erreur).
+        sb.from('company_settings').select('*').eq('tenant_id', tenantId!),
       ])
 
       if (cdRes.error) console.error('[Supabase] company_data:', cdRes.error.message)
@@ -38,8 +41,10 @@ export function useCompanyData() {
       if (csRes.error) console.error('[Supabase] company_settings:', csRes.error.message)
 
       const fiscalSettings: Record<string, number> = {}
-      for (const r of (csRes.data ?? []) as Array<{ company_key: string; fiscal_year_start_month: number }>) {
+      const vatSettings: Record<string, { enabled: boolean; rates: Record<string, number> }> = {}
+      for (const r of (csRes.data ?? []) as Array<{ company_key: string; fiscal_year_start_month: number; vat_enabled?: boolean; vat_rates?: Record<string, number> | null }>) {
         fiscalSettings[r.company_key] = r.fiscal_year_start_month
+        vatSettings[r.company_key] = { enabled: !!r.vat_enabled, rates: r.vat_rates ?? {} }
       }
 
       return {
@@ -47,6 +52,7 @@ export function useCompanyData() {
         budgets:       (bdRes.data ?? []) as Array<{ id: string; company_key: string; version_name: string; data: Record<string, any>; status: string }>,
         manualEntries: (meRes.data ?? []) as ManualEntry[],
         fiscalSettings,
+        vatSettings,
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -62,11 +68,12 @@ export function useCompanyData() {
       return
     }
 
-    const { companyData = [], budgets = [], manualEntries = [], fiscalSettings = {} } = query.data ?? {}
+    const { companyData = [], budgets = [], manualEntries = [], fiscalSettings = {}, vatSettings = {} } = query.data ?? {}
     const raw = buildRAW(companyData, budgets as any, manualEntries, fiscalSettings)
     setRAW(raw)
     setManualEntries(manualEntries)
     setFiscalSettings(fiscalSettings)
+    setVatSettings(vatSettings)
 
     const bd: Record<string, any> = {}
     const bs: Record<string, string> = {}
