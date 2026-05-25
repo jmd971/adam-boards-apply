@@ -69,7 +69,12 @@ export function Tresorerie() {
     }
 
     for (const co of selCo) {
-      const cash = (RAW.companies[co] as any)?.cashN ?? []
+      // Tous les mouvements de trésorerie (N + N-1 + N-2), filtrés ensuite par les mois
+      // sélectionnés. On NE lit PAS uniquement cashN : selon l'exercice fiscal réglé, les
+      // mois affichés peuvent être classés dans cash1/cash2 — il faut donc les inclure,
+      // le filtre `miOf(...) < 0` ne retenant que les mois de la période.
+      const c = (RAW.companies[co] as any) ?? {}
+      const cash = [...(c.cashN ?? []), ...(c.cash1 ?? []), ...(c.cash2 ?? [])]
       if (cash.length > 0) {
         // FEC prioritaire : réalisé = mouvements de trésorerie réels (TTC)
         for (const cm of cash) {
