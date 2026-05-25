@@ -241,10 +241,23 @@ Migration : `supabase/migrations/010_company_objectives.sql` — à exécuter ma
 
 ### `company_settings`
 ```
-tenant_id, company_key, fiscal_year_start_month (1..12, défaut 1)
+tenant_id, company_key, fiscal_year_start_month (1..12, défaut 1),
+vat_enabled (bool, défaut false), vat_rates (jsonb { "<catégorie>": taux% })
 unique(tenant_id, company_key)
 ```
-Migration : `supabase/migrations/011_company_settings.sql`. Mois de début d'exercice fiscal par société — voir [règle 21](#21-exercice-fiscal-non-calendaire-octsep-etc). Réglable dans la page Paramètres.
+Migrations : `011_company_settings.sql` (exercice fiscal) + `012_company_vat.sql` (TVA). Réglé dans la page Paramètres — voir règles 21 et 26.
+
+### `company_data` — colonne ajoutée
+`cash_moves jsonb` (migration `013`) : mouvements de trésorerie réels reconstruits du FEC (classe 5). **Re-import requis** pour peupler — voir règle 26.
+
+### `manual_entries` — colonne ajoutée
+`invoice_number text` (migration `014`) : numéro de facture (saisie/OCR/CSV) — voir règle 27.
+
+### `bank_accounts`
+```
+tenant_id, company_key, label, balance, balance_date, notes
+```
+Soldes bancaires (prévisionnel de trésorerie). **Lecture avec filtre `tenant_id` explicite obligatoire** (règle 26).
 
 ---
 
@@ -845,17 +858,50 @@ Utilisé dans : `Import.tsx` (FEC), `Depot.tsx` (FEC déposés), `Saisie.tsx` (C
 
 ---
 
-### 25. Période — préservation au refresh (bornée à l'exercice)
+### 25. Période — réinitialisation DÉTERMINISTE (cohérence multi-utilisateurs)
 
-**Bug corrigé 2026-05-21** : `useCompanyData` réinitialisait `startM`/`endM` à **chaque** chargement → la période persistée et les changements manuels étaient perdus à chaque refresh.
-
-`useCompanyData` préserve désormais la période choisie **uniquement si elle reste dans l'exercice par défaut** (`RAW.mn`, ou fallback `m1`/`m2`) :
+**Itération finale 2026-05-21** : `useCompanyData` **réinitialise toujours** `startM`/`endM` à l'exercice par défaut à chaque chargement — la période ne dépend **QUE des données du tenant**, jamais du cache navigateur (localStorage).
 ```typescript
 const defaultSet = raw.mn.length ? raw.mn : raw.m1.length ? raw.m1 : raw.m2.length ? raw.m2 : []
-const { startM, endM } = useAppStore.getState().filters
-const periodStillValid = !!startM && !!endM && defaultSet.includes(startM) && defaultSet.includes(endM)
-if (!periodStillValid && defaultSet.length > 0) {
+if (defaultSet.length > 0) {
   setFilters({ startM: defaultSet[0], endM: defaultSet[defaultSet.length - 1] })
 }
 ```
-**Pourquoi borner à l'exercice** : le Dashboard est centré sur N (`selectedMs = RAW.mn` filtré, N-1 = année précédente de ces mois). Préserver une période **hors de `RAW.mn`** (ex : obsolète après ré-import, ou pointant sur du N-1) lui faisait perdre la comparaison N-1. La borne garantit que la période reste dans l'exercice courant.
+**Pourquoi déterministe et NON préservé** : deux utilisateurs (ex : deux superadmins) sur le **même tenant** doivent voir la **même plage de mois** → donc les mêmes chiffres. Une préservation par navigateur faisait diverger leurs vues (chacun avait une période en cache différente → trésorerie/analyse différentes). L'ancienne plainte « la période revenait sur janvier » venait d'un **exercice fiscal mal réglé** (règle 21) : avec l'exercice correct, `RAW.mn` couvre tout l'exercice, donc la réinitialisation tombe sur la période complète, pas un seul mois.
+
+---
+
+### 26. Trésorerie v2 — réalisé cash réel + prévisionnel TTC
+
+**Refonte 2026-05-21** (5 phases). Le module Trésorerie distingue **cash réel** (réalisé) et **prévisionnel TTC**.
+
+#### Catégories & helpers — `src/lib/tresoCats.ts`
+Les catégories `ENC_CATS`/`DEC_CATS` + `catOf` y sont **centralisées** (partagées Trésorerie + Paramètres). Helpers : `isTreasuryAccount(acc)` (classe 5), `cashCategoryOf(counterpart, pnlAccount)`, `vatRateForAccount(acc, vat)`.
+
+#### Réalisé = mouvements de trésorerie réels (cash)
+- Source : `RAW.companies[co].cashN/cash1/cash2` — mouvements de **classe 5** reconstruits du FEC (`buildCashMoves` dans `fec.ts`), pas les comptes 6/7.
+- **Lire TOUS les buckets** (`cashN+cash1+cash2`) puis filtrer par `selectedMs` — JAMAIS seulement `cashN` (sinon, selon l'exercice fiscal, les mois affichés tombés dans `cash1` seraient perdus).
+- **« FEC prioritaire »** : si la société a des `cashN`, le réalisé = mouvements FEC (les saisies n'alimentent que le prévisionnel, évite le double-compte). Sans FEC → réalisé = paiements des saisies.
+- Catégorisation : contrepartie P&L directe (6/7) → `catOf` ; tiers 411/401 → via **lettrage** vers la facture (sinon générique « Encaissements clients »/« Décaissements fournisseurs »).
+
+#### `buildCashMoves` (`fec.ts`) — invariants
+- Regroupe par **(journal, pièce)** (pas d'`EcritureNum` dans les exports EBP) ; **exclut le journal À-Nouveaux** et les **virements internes** (écriture 100 % trésorerie).
+- **Collecte RELÂCHÉE du compte** : une passe dédiée accepte le 1er chiffre 1-9 + **suffixe alpha** (`411DIVERS`, `401EDF`). `isValidAccount` (strict, que des chiffres) rejette ces comptes auxiliaires → sans cette passe, les contreparties clients/fournisseurs seraient perdues et tout tomberait en « Autres opérations ».
+- `cash_moves` est **figé à l'import** (stocké dans `company_data.cash_moves`, migration 013) → **un ré-import est requis** après toute évolution du parser. Données importées avant Phase 2 = `cash_moves` vides.
+
+#### Prévisionnel
+- Démarre à **MIN(balance_date)** des comptes bancaires (fallback mois courant).
+- Budget **HT → TTC** via la TVA par catégorie (`vatSettings`, migration 012 : `company_settings.vat_enabled` + `vat_rates`). Réglé dans Paramètres.
+- Détail au clic = **échéances prévues issues des saisies** (`forecastDetail[acc].factures`), avec n° de facture + contrepartie + lien 📎 vers le scan (URL signée, bucket privé `invoice`).
+
+#### Anti-régression
+- `bank_accounts` doit être lu avec **filtre `tenant_id` explicite** (le RLS laisse le superadmin lire tous les tenants → sinon soldes mélangés).
+- `EcrituresModal` : dates stockées en **AAAA-MM-JJ** (triable), affichées en JJ/MM/AAAA via `fmtD`.
+
+Tests : `src/lib/__tests__/tresoCash.test.ts` (helpers + reconstruction `cashMoves`).
+
+---
+
+### 27. Numéro de facture sur les saisies
+
+`manual_entries.invoice_number` (migration 014). Saisi dans le formulaire Saisie, extrait par l'**OCR** (champ `invoice_number` du prompt) et l'import CSV. Sert de **référence** dans le détail prévisionnel de trésorerie (ajouté au libellé, la contrepartie restant en colonne réf).
