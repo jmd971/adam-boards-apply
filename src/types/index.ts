@@ -22,8 +22,27 @@ export interface CompanyDataRow {
   source: string
   client_data?: Record<string, ClientInfo>
   ve_entries?: VeEntry[]
+  /** Mouvements de trésorerie réels (classe 5) reconstruits depuis le FEC — voir Phase 2 trésorerie. */
+  cash_moves?: CashMove[]
   created_at: string
   updated_at: string
+}
+
+/**
+ * Mouvement de trésorerie réel reconstruit depuis le FEC (cash réel, TTC).
+ * Une écriture (regroupée par journal+pièce) contenant une ligne de classe 5 :
+ * la ligne de trésorerie donne le montant + sens, la contrepartie donne la catégorie.
+ */
+export interface CashMove {
+  date: string          // YYYY-MM-DD de la ligne trésorerie
+  acc: string           // compte de trésorerie (512, 53…)
+  counterpart: string   // compte de contrepartie principal
+  amount: number        // montant TTC, toujours positif
+  dir: 'enc' | 'dec'    // encaissement (débit trésorerie) / décaissement (crédit)
+  category: string      // libellé de catégorie résolu (P&L direct, lettrage, ou tiers générique)
+  piece: string
+  lettrage: string
+  label: string
 }
 
 export interface BudgetRow {
@@ -107,6 +126,11 @@ export interface CompanyRaw {
   cdN1: Record<string, ClientInfo>
   veN: VeEntry[]
   veN1: VeEntry[]
+  /** Mouvements de trésorerie réels classés par exercice fiscal (N / N-1 / N-2).
+   *  Optionnels : toujours initialisés par buildRAW, mais absents des fixtures de test. */
+  cashN?: CashMove[]
+  cash1?: CashMove[]
+  cash2?: CashMove[]
 }
 
 export interface RAWData {
