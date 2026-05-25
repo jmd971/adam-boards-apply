@@ -37,7 +37,7 @@ export function CompteResultat() {
 
   const plCalc = useMemo(() => {
     if (!RAW) return {}
-    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, CR, filters.excludeOD, true)
+    return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, CR, filters.excludeOD)
   }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
   const caTotal = plCalc['ca_v']?.cumulN ?? plCalc['ca']?.cumulN ?? 0
