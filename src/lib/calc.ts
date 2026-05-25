@@ -48,6 +48,30 @@ export const currentFiscalYear = (startMonth = 1, today: Date = new Date()): num
   return fiscalYearOf(m, startMonth)
 }
 
+/** Les 12 mois (YYYY-MM) de l'exercice fiscal `cfy` qui commence au mois `startMonth`. */
+export const fiscalExerciseMonths = (startMonth: number, cfy: number): string[] => {
+  const startYear = startMonth === 1 ? cfy : cfy - 1
+  const out: string[] = []
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(startYear, (startMonth - 1) + i, 1)
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  return out
+}
+
+/**
+ * Mois sélectionnables dans le filtre de période : mois avec données (mn/m1/m2) +
+ * l'exercice N COMPLET de chaque société (pour pouvoir projeter les mois à venir au budget).
+ */
+export const allSelectableMonths = (RAW: RAWData | null, fiscalSettings: Record<string, number> = {}): string[] => {
+  const set = new Set<string>([...(RAW?.mn ?? []), ...(RAW?.m1 ?? []), ...(RAW?.m2 ?? [])])
+  for (const co of (RAW?.keys ?? [])) {
+    const sm = fiscalSettings[co] ?? 1
+    for (const m of fiscalExerciseMonths(sm, currentFiscalYear(sm))) set.add(m)
+  }
+  return [...set].sort()
+}
+
 export const monthIdx = (m: string): number => {
   const [y, mo] = m.split('-')
   return parseInt(y) * 12 + parseInt(mo)
@@ -231,7 +255,7 @@ export function buildRAW(
   return { companies, mn: [...allMsN].sort(), m1: [...allMsN1].sort(), m2: [...allMsN2].sort(), keys: allKeys }
 }
 
-export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {
+export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean, fillBudget = false): PlData {
   const result: PlData = {}
 
   // Le budget b[12] est indexé par mois calendaire (fiscalIndex : jan=0…déc=11). On ne somme
@@ -240,6 +264,18 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
   const selBudIdx = new Set(selectedMs.map(m => fiscalIndex(m)))
   const sumBudInPeriod = (budMonths: number[]) =>
     budMonths.reduce((s, v, i) => selBudIdx.has(i) ? s + v : s, 0)
+
+  // « Atterrissage » (fillBudget) : pour les mois sélectionnés SANS écriture (ni FEC ni saisie),
+  // on projette le budget de ce mois à la place du réel (0). Les mois avec données (mn/m1/m2)
+  // gardent le réel. Permet de voir l'année N complète = réel + budget pour les mois à venir.
+  const dataMonths = new Set([...(RAW.mn ?? []), ...(RAW.m1 ?? []), ...(RAW.m2 ?? [])])
+  // Mois à projeter au budget : couples [position dans selectedMs, index fiscal du budget].
+  const fillIdx: Array<[number, number]> = fillBudget
+    ? selectedMs
+        .map((m, i): [number, number, string] => [i, fiscalIndex(m), m])
+        .filter(([, , m]) => !dataMonths.has(m))
+        .map(([i, fi]): [number, number] => [i, fi])
+    : []
 
   for (const row of struct) {
     if (row.sep || row.header || !row.accs) continue
@@ -261,6 +297,11 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
       const sN = solde(getAdjMixed(RAW, selCo, selectedMs, msSrc, acc, excludeOD), row.type === 'charge')
       sN.forEach((v, i) => { monthsN[i] += v }); cumulN += sumArr(sN)
       cumulN1S += sumArr(solde(getAdjMixed(RAW, selCo, allMsN1Same, allMsN1SameSrc, acc, excludeOD), row.type === 'charge'))
+    }
+    // Atterrissage : projeter le budget de la catégorie sur les mois sans écriture.
+    for (const [i, fi] of fillIdx) {
+      const bv = budMonths[fi] || 0
+      if (bv) { monthsN[i] += bv; cumulN += bv }
     }
     result[row.id] = { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: Math.round(sumBudInPeriod(budMonths)), accs: allAccs } as PlCalcRow
   }
@@ -328,6 +369,11 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           const b = (bv as any)?.b ?? []
           for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0)
         }
+      }
+      // Atterrissage : projeter le budget sur les mois sélectionnés sans écriture.
+      for (const [i, fi] of fillIdx) {
+        const bv = budMonths[fi] || 0
+        if (bv) { monthsN[i] += bv; cumulN += bv }
       }
       const budTotal = Math.round(sumBudInPeriod(budMonths))
       return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal, accs: [] } as PlCalcRow
