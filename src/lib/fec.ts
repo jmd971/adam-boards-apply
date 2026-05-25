@@ -306,18 +306,6 @@ export function parseFEC(text: string): ParsedFEC | null {
     const compAux = ci.compAux >= 0 ? (cols[ci.compAux] || '') : ''
     const lettrage = ci.lettrage >= 0 ? (cols[ci.lettrage] || '') : ''
 
-    // Collecte brute (toutes classes) pour reconstruire les mouvements de trésorerie.
-    // Non invasif : n'altère pas le parsing P&L/bilan ci-dessous.
-    rawLines.push({
-      journal:  ci.journal >= 0 ? (cols[ci.journal] || '') : '',
-      piece:    piece,
-      acc,
-      debit, credit,
-      date:     parseDate(cols[dateCol] || ''),
-      lettrage,
-      label:    ecLib || label,
-    })
-
     // Comptes de classes 6 et 7 → compte de résultat
     if (acc[0] === '6' || acc[0] === '7') {
       months.add(month)
@@ -387,6 +375,35 @@ export function parseFEC(text: string): ParsedFEC | null {
       + (sampleAccs ? ` Comptes lus (col.${ci.acc + 1}) : ${sampleAccs}.` : '')
       + ` Vérifiez que le fichier exporte bien toutes les classes de comptes (pas seulement les À-Nouveaux).`
     return null
+  }
+
+  // ── Collecte des lignes pour la trésorerie (cash) ──────────────────────────
+  // Passe dédiée, INDÉPENDANTE du parsing P&L/bilan : validation RELÂCHÉE du compte.
+  // isValidAccount (strict : que des chiffres) rejette les comptes auxiliaires des exports
+  // EBP/Sage (ex "411DIVERS", "401EDF") — or ce sont justement les contreparties clients/
+  // fournisseurs des écritures bancaires. Sans elles, les remises clients sont perdues et
+  // les mouvements tombent en « Autres opérations ». Ici on accepte le 1er chiffre 1-9 + suffixe.
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map(c => c.trim().replace(/"/g, ''))
+    if (cols.length < 3) continue
+    const acc = cols[ci.acc]?.trim()
+    if (!acc || !/^[1-9]/.test(acc)) continue
+    const dateCol = ci.date >= 0 ? ci.date : 2
+    const d = parseDate(cols[dateCol] || '')
+    if (!d) continue
+    const debit = parseNum(cols[ci.debit])
+    const credit = parseNum(cols[ci.credit])
+    if (debit < 0 || credit < 0) continue
+    if (debit === 0 && credit === 0) continue
+    rawLines.push({
+      journal:  ci.journal >= 0 ? (cols[ci.journal] || '') : '',
+      piece:    ci.piece >= 0 ? (cols[ci.piece] || '') : '',
+      acc,
+      debit, credit,
+      date:     d,
+      lettrage: ci.lettrage >= 0 ? (cols[ci.lettrage] || '') : '',
+      label:    ci.ecLib >= 0 ? (cols[ci.ecLib] || '') : (ci.label >= 0 ? (cols[ci.label] || acc) : acc),
+    })
   }
 
   // Warnings de synthèse
