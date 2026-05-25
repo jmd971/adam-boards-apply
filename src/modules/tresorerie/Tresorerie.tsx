@@ -204,9 +204,12 @@ export function Tresorerie() {
 
   // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
   const forecastDetail = useMemo(() => {
-    const enc: Record<string, { label:string; vals:number[] }> = {}
-    const dec: Record<string, { label:string; vals:number[] }> = {}
+    // `factures` = écritures prévues issues des saisies (échéances/paiements), avec lien facture
+    // (invoice_url). Affichées au clic sur une ligne du détail prévisionnel.
+    const enc: Record<string, { label:string; vals:number[]; factures:any[] }> = {}
+    const dec: Record<string, { label:string; vals:number[]; factures:any[] }> = {}
     const realisedMonthsSet = new Set(months)
+    const fmtFr = (d: string) => d ? d.split('-').reverse().join('/') : ''
     for (let mi = 0; mi < forecastMs.length; mi++) {
       const m = forecastMs[mi]
       for (const co of selCo) {
@@ -222,18 +225,18 @@ export function Tresorerie() {
           const mult = 1 + vatRateForAccount(acc, vat) / 100
           if (t === 'p') {
             const v = Math.round((b[fiC] || 0) * mult)
-            if (!enc[acc]) enc[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            if (!enc[acc]) enc[acc] = { label: l, vals: Array(forecastMs.length).fill(0), factures: [] }
             enc[acc].vals[mi] += v
           }
           if (t === 'c') {
             const v = Math.round((b[fiF] || 0) * mult)
-            if (!dec[acc]) dec[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            if (!dec[acc]) dec[acc] = { label: l, vals: Array(forecastMs.length).fill(0), factures: [] }
             dec[acc].vals[mi] += v
           }
         }
         if (p.remb > 0) {
           const k = `__remb_${co}`
-          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW?.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0) }
+          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW?.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0), factures: [] }
           dec[k].vals[mi] += Math.round(p.remb)
         }
       }
@@ -248,6 +251,17 @@ export function Tresorerie() {
           if (ttc === 0) continue
           const key = me.account_num || '658'
           const label = me.subcategory || key
+          const isVente = me.category === 'Vente'
+          // Écriture facture pour le modal : [date, libellé, débit, crédit, réf, isOD, tag, invoice_url]
+          const factureRow = (d: string, amt: number) => [
+            fmtFr(d),
+            `${me.label || me.counterpart || label}${me.echeancier_data ? ' (échéance)' : ''}`,
+            isVente ? 0 : amt,           // décaissement → débit
+            isVente ? amt : 0,           // encaissement → crédit
+            me.counterpart || '',
+            0, '',
+            (me as any).invoice_url || '',
+          ]
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
             const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
@@ -256,15 +270,17 @@ export function Tresorerie() {
               const d = echDates[idx]
               if (d.startsWith(m)) {
                 const part = echAmounts?.[idx] ?? equalPart
-                const bucket = me.category === 'Vente' ? enc : dec
-                if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+                const bucket = isVente ? enc : dec
+                if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
                 bucket[key].vals[mi] += part
+                bucket[key].factures.push(factureRow(d, Math.round(part)))
               }
             }
           } else if (me.payment_date?.startsWith(m)) {
-            const bucket = me.category === 'Vente' ? enc : dec
-            if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+            const bucket = isVente ? enc : dec
+            if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
             bucket[key].vals[mi] += ttc
+            bucket[key].factures.push(factureRow(me.payment_date, Math.round(ttc)))
           }
         }
       }
@@ -486,15 +502,17 @@ export function Tresorerie() {
                       )}
                       {isOpen&&detail.map(([acc,a])=>{
                         const dTot=a.vals.reduce((s:number,v:number)=>s+v,0)
-                        const ents=!acc.startsWith('__')?mergeEntries(RAW!,selCo,'pn',acc):[]
+                        // Détail prévisionnel = les factures saisies (échéances/paiements prévus)
+                        // avec leur lien facture, pas les écritures P&L passées.
+                        const ents=(a as any).factures ?? []
                         return (
                           <tr key={acc}
-                            onClick={ents.length>0?()=>setModal({title:`${acc} — ${a.label}`,entries:ents,cumN:dTot,cumN1:0}):undefined}
+                            onClick={ents.length>0?()=>setModal({title:`${a.label} — factures prévues`,entries:ents,cumN:dTot,cumN1:0}):undefined}
                             style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:ents.length>0?'pointer':'default'}}>
                             <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>
                               {!acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{acc}</span>}
                               {a.label}
-                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--text-3)',background:'rgba(255,255,255,0.06)',padding:'1px 5px',borderRadius:10}}>{ents.length} éc.</span>}
+                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--blue)',background:'rgba(59,130,246,0.12)',padding:'1px 5px',borderRadius:10}}>{ents.length} facture{ents.length>1?'s':''}</span>}
                             </td>
                             {a.vals.map((v:number,i:number)=>(
                               <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
