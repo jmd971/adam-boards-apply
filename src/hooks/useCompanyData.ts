@@ -97,18 +97,15 @@ export function useCompanyData() {
       setFilters({ selCo: raw.keys, budCo: raw.keys[0] ?? '' })
     }
 
-    // Période par défaut = exercice courant N (RAW.mn), avec fallback N-1 puis N-2 si pas de N.
-    // On PRÉSERVE une période déjà choisie par l'utilisateur uniquement si elle reste DANS cet
-    // exercice par défaut — sinon chaque refresh la réinitialisait (changements perdus). Mais on
-    // ne la préserve PAS si elle pointe hors de l'exercice courant (ex : période obsolète après
-    // un ré-import, ou pointant sur du N-1) : sinon le Dashboard, centré sur N, perdrait sa
-    // comparaison N-1 faute de mois N dans la sélection.
+    // Période = exercice courant N (RAW.mn), fallback N-1 puis N-2 si pas de N.
+    // RÉINITIALISATION DÉTERMINISTE à chaque chargement : la période ne dépend QUE des données
+    // (le même tenant donne la même plage pour tous les utilisateurs). On ne préserve PAS la
+    // période persistée par navigateur — sinon deux superadmins sur le même tenant verraient
+    // des plages de mois différentes (donc des chiffres trésorerie/analyse différents).
+    // (L'ancienne plainte « la période revenait sur janvier » venait d'un exercice mal réglé :
+    //  avec l'exercice fiscal correct, RAW.mn couvre tout l'exercice, pas un seul mois.)
     const defaultSet = raw.mn.length ? raw.mn : raw.m1.length ? raw.m1 : raw.m2.length ? raw.m2 : []
-    const { startM, endM } = useAppStore.getState().filters
-    const periodStillValid =
-      !!startM && !!endM && defaultSet.includes(startM) && defaultSet.includes(endM)
-
-    if (!periodStillValid && defaultSet.length > 0) {
+    if (defaultSet.length > 0) {
       setFilters({ startM: defaultSet[0], endM: defaultSet[defaultSet.length - 1] })
     }
 
