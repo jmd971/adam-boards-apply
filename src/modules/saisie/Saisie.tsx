@@ -69,8 +69,9 @@ Champs requis:
 5. subcategory: sous-catégorie précise
 6. label: description courte
 7. counterpart: nom fournisseur ou client
+8. invoice_number: numéro de la facture (réf. facture / facture n° / invoice number). Chaîne vide "" si absent.
 
-Répondre UNIQUEMENT avec: {"date":"YYYY-MM-DD","amount_ttc":0.00,"amount_ht":0.00,"category":"Depense","subcategory":"Autre dépense","label":"Description","counterpart":"Nom"}`
+Répondre UNIQUEMENT avec: {"date":"YYYY-MM-DD","amount_ttc":0.00,"amount_ht":0.00,"category":"Depense","subcategory":"Autre dépense","label":"Description","counterpart":"Nom","invoice_number":"F2026-001"}`
 
 type Mode = 'manual' | 'ocr' | 'csv'
 
