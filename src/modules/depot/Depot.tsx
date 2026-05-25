@@ -236,6 +236,7 @@ function PendingDeposits() {
         source: 'depot',
         client_data: parsed.clientData,
         ve_entries: parsed.veEntries,
+        cash_moves: parsed.cashMoves,
       }, { onConflict: 'tenant_id,company_key,period' })
 
       if (upsertErr) throw upsertErr
