@@ -11,6 +11,8 @@ interface EcrituresModalProps {
 
 type SortDir = 1 | -1
 const fmt2 = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+// Affichage JJ/MM/AAAA pour une date interne AAAA-MM-JJ (le tri se fait sur la valeur interne triable).
+const fmtD = (d: any) => /^\d{4}-\d{2}-\d{2}/.test(String(d)) ? String(d).slice(0, 10).split('-').reverse().join('/') : String(d ?? '')
 
 export function EcrituresModal({ title, entries, cumN, cumN1, onClose }: EcrituresModalProps) {
   const [search,  setSearch]  = useState('')
@@ -29,8 +31,8 @@ export function EcrituresModal({ title, entries, cumN, cumN1, onClose }: Ecritur
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     let rows = entries.filter(e =>
-      !q || String(e[0]).includes(q) || String(e[1]).toLowerCase().includes(q) ||
-      String(e[4]).toLowerCase().includes(q)
+      !q || String(e[0]).includes(q) || fmtD(e[0]).includes(q) ||
+      String(e[1]).toLowerCase().includes(q) || String(e[4]).toLowerCase().includes(q)
     )
     rows = [...rows].sort((a, b) => {
       const va = sortCol === 6 ? ((b[3] || 0) - (b[2] || 0)) : a[sortCol]
@@ -147,14 +149,18 @@ export function EcrituresModal({ title, entries, cumN, cumN1, onClose }: Ecritur
                     background: isOD ? 'rgba(245,158,11,0.04)' : isN1 ? 'rgba(148,163,184,0.03)' : 'transparent',
                     opacity: isOD ? 0.75 : 1,
                   }}>
-                    <td style={{ padding:'5px 8px', fontFamily:'monospace', color:'var(--text-2)', whiteSpace:'nowrap' }}>{e[0]}</td>
-                    <td style={{ padding:'5px 8px', color:'var(--text-1)', maxWidth:300, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    <td style={{ padding:'5px 8px', fontFamily:'monospace', color:'var(--text-2)', whiteSpace:'nowrap' }}>{fmtD(e[0])}</td>
+                    <td style={{ padding:'5px 8px', color:'var(--text-1)', maxWidth:340, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {e[1] || '—'}
                       {e[7] && (
                         <a href={e[7]} target="_blank" rel="noopener noreferrer"
                           onClick={ev => ev.stopPropagation()}
-                          title="Voir la facture"
-                          style={{ marginLeft:6, color:'var(--blue)', fontSize:11, textDecoration:'none' }}>📎</a>
+                          title="Voir / télécharger la facture"
+                          style={{ marginLeft:8, display:'inline-flex', alignItems:'center', gap:3, padding:'1px 7px',
+                            borderRadius:6, background:'rgba(59,130,246,0.18)', color:'#93c5fd', fontSize:10, fontWeight:600,
+                            textDecoration:'none', boxShadow:'inset 0 0 0 1px rgba(59,130,246,0.35)', verticalAlign:'middle' }}>
+                          📎 Facture
+                        </a>
                       )}
                     </td>
                     <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', color: e[2] > 0 ? 'var(--text-0)' : 'var(--text-3)' }}>
