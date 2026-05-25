@@ -252,12 +252,13 @@ export function Tresorerie() {
           const label = me.subcategory || key
           const isVente = me.category === 'Vente'
           // Écriture d'échéance pour le modal : [date(AAAA-MM-JJ, triable), libellé, débit, crédit, réf, isOD, tag, invoice_url]
+          const invNum = (me as any).invoice_number
           const factureRow = (d: string, amt: number) => [
             d,
-            `${me.label || me.counterpart || label}${me.echeancier_data ? ' (échéance)' : ''}`,
+            `${me.label || me.counterpart || label}${invNum ? ` · Fact. ${invNum}` : ''}${me.echeancier_data ? ' (échéance)' : ''}`,
             isVente ? 0 : amt,           // décaissement → débit
             isVente ? amt : 0,           // encaissement → crédit
-            (me as any).invoice_number || me.counterpart || '',   // réf = n° de facture si présent
+            me.counterpart || '',        // réf = contrepartie (conservée)
             0, '',
             (me as any).invoice_url || '',
           ]
