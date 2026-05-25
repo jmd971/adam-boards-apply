@@ -148,7 +148,15 @@ export function EcrituresModal({ title, entries, cumN, cumN1, onClose }: Ecritur
                     opacity: isOD ? 0.75 : 1,
                   }}>
                     <td style={{ padding:'5px 8px', fontFamily:'monospace', color:'var(--text-2)', whiteSpace:'nowrap' }}>{e[0]}</td>
-                    <td style={{ padding:'5px 8px', color:'var(--text-1)', maxWidth:300, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{e[1] || '—'}</td>
+                    <td style={{ padding:'5px 8px', color:'var(--text-1)', maxWidth:300, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {e[1] || '—'}
+                      {e[7] && (
+                        <a href={e[7]} target="_blank" rel="noopener noreferrer"
+                          onClick={ev => ev.stopPropagation()}
+                          title="Voir la facture"
+                          style={{ marginLeft:6, color:'var(--blue)', fontSize:11, textDecoration:'none' }}>📎</a>
+                      )}
+                    </td>
                     <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', color: e[2] > 0 ? 'var(--text-0)' : 'var(--text-3)' }}>
                       {e[2] > 0 ? fmt2(e[2]) : '—'}
                     </td>
