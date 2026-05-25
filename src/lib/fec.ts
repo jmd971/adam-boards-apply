@@ -1,4 +1,5 @@
-import type { FecAccount, BilanAccount, ClientInfo, VeEntry } from '@/types'
+import type { FecAccount, BilanAccount, ClientInfo, VeEntry, CashMove } from '@/types'
+import { isTreasuryAccount, cashCategoryOf } from '@/lib/tresoCats'
 
 // ─── Types internes ────────────────────────────────────────────────────────
 
@@ -15,8 +16,22 @@ export interface ParsedFEC {
   entryCount: number
   clientData: Record<string, ClientInfo>
   veEntries: VeEntry[]
+  cashMoves: CashMove[]
   warnings: ParseWarning[]
   skippedLines: number
+}
+
+// Ligne brute collectée pour reconstruire les mouvements de trésorerie (regroupement
+// par journal+pièce). Indépendant du parsing P&L/bilan existant (non invasif).
+interface RawLine {
+  journal: string
+  piece: string
+  acc: string
+  debit: number
+  credit: number
+  date: string      // YYYY-MM-DD
+  lettrage: string
+  label: string
 }
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────
@@ -239,6 +254,7 @@ export function parseFEC(text: string): ParsedFEC | null {
   const months = new Set<string>()
   const clientData: Record<string, ClientInfo> = {}
   const veEntries: VeEntry[] = []
+  const rawLines: RawLine[] = []   // collecte pour la reconstruction des mouvements de trésorerie
   let entryCount = 0
   let skippedLines = 0
 
@@ -289,6 +305,18 @@ export function parseFEC(text: string): ParsedFEC | null {
     const piece  = ci.piece >= 0 ? (cols[ci.piece] || '') : ''
     const compAux = ci.compAux >= 0 ? (cols[ci.compAux] || '') : ''
     const lettrage = ci.lettrage >= 0 ? (cols[ci.lettrage] || '') : ''
+
+    // Collecte brute (toutes classes) pour reconstruire les mouvements de trésorerie.
+    // Non invasif : n'altère pas le parsing P&L/bilan ci-dessous.
+    rawLines.push({
+      journal:  ci.journal >= 0 ? (cols[ci.journal] || '') : '',
+      piece:    piece,
+      acc,
+      debit, credit,
+      date:     parseDate(cols[dateCol] || ''),
+      lettrage,
+      label:    ecLib || label,
+    })
 
     // Comptes de classes 6 et 7 → compte de résultat
     if (acc[0] === '6' || acc[0] === '7') {
@@ -377,9 +405,74 @@ export function parseFEC(text: string): ParsedFEC | null {
     entryCount,
     clientData,
     veEntries,
+    cashMoves: buildCashMoves(rawLines),
     warnings,
     skippedLines,
   }
+}
+
+/**
+ * Reconstruit les mouvements de trésorerie réels (cash, TTC) depuis les lignes brutes.
+ * - Regroupe par (journal, pièce) ; ignore le journal "À-Nouveaux" (soldes d'ouverture).
+ * - Une écriture 100% trésorerie = virement interne → ignorée.
+ * - Sinon, chaque ligne de trésorerie = un mouvement ; la contrepartie donne la catégorie.
+ * - Catégorie fine via lettrage : on retrouve le compte P&L de la facture lettrée.
+ */
+function buildCashMoves(rawLines: RawLine[]): CashMove[] {
+  const isAN = (j: string) => /a.?nouveaux|^an$|^\[an\]$|report/i.test(j)
+
+  // Grouper par (journal, pièce), hors À-Nouveaux
+  const groups = new Map<string, RawLine[]>()
+  for (const r of rawLines) {
+    if (isAN(r.journal)) continue
+    const k = `${r.journal}|${r.piece}`
+    const g = groups.get(k); if (g) g.push(r); else groups.set(k, [r])
+  }
+
+  // Map lettrage → compte P&L : pour chaque écriture ayant une ligne tiers lettrée
+  // ET une ligne P&L, on retient (compte tiers + code lettrage) → compte P&L de la facture.
+  const lettrageToPnl = new Map<string, string>()
+  for (const g of groups.values()) {
+    const pnl = g.find(r => r.acc[0] === '6' || r.acc[0] === '7')
+    if (!pnl) continue
+    for (const r of g) {
+      if (/^4[01]/.test(r.acc) && r.lettrage) lettrageToPnl.set(`${r.acc}|${r.lettrage}`, pnl.acc)
+    }
+  }
+
+  const moves: CashMove[] = []
+  for (const g of groups.values()) {
+    const treso = g.filter(r => isTreasuryAccount(r.acc))
+    if (treso.length === 0) continue
+    if (treso.length === g.length) continue          // virement interne → ignoré
+
+    const others = g.filter(r => !isTreasuryAccount(r.acc))
+    // Contrepartie principale = plus gros montant, hors TVA (445x)
+    const ranked = [...others].sort((a, b) =>
+      Math.abs(b.debit - b.credit) - Math.abs(a.debit - a.credit))
+    const main = ranked.find(r => !r.acc.startsWith('445')) ?? ranked[0]
+    if (!main) continue
+
+    // Résolution du compte P&L (direct ou via lettrage) → catégorie fine
+    let pnlAcc: string | null = null
+    if (main.acc[0] === '6' || main.acc[0] === '7') pnlAcc = main.acc
+    else if (/^4[01]/.test(main.acc) && main.lettrage) {
+      pnlAcc = lettrageToPnl.get(`${main.acc}|${main.lettrage}`) ?? null
+    }
+    const category = cashCategoryOf(main.acc, pnlAcc)
+
+    for (const t of treso) {
+      const amt = t.debit - t.credit
+      if (Math.abs(amt) < 0.005) continue
+      moves.push({
+        date: t.date, acc: t.acc, counterpart: main.acc,
+        amount: Math.round(Math.abs(amt) * 100) / 100,
+        dir: amt > 0 ? 'enc' : 'dec',
+        category, piece: t.piece, lettrage: main.lettrage, label: t.label,
+      })
+    }
+  }
+  return moves
 }
 
 // ─── Détection société / période ──────────────────────────────────────────
