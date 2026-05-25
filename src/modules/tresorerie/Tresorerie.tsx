@@ -257,7 +257,7 @@ export function Tresorerie() {
             `${me.label || me.counterpart || label}${me.echeancier_data ? ' (échéance)' : ''}`,
             isVente ? 0 : amt,           // décaissement → débit
             isVente ? amt : 0,           // encaissement → crédit
-            me.counterpart || '',
+            (me as any).invoice_number || me.counterpart || '',   // réf = n° de facture si présent
             0, '',
             (me as any).invoice_url || '',
           ]
