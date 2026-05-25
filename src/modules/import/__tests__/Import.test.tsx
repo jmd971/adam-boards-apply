@@ -8,6 +8,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 const storeState = {
   role: 'admin',
   tenantId: 't1',
+  fiscalSettings: {} as Record<string, number>,
+  setFiscalSettings: vi.fn(),
+  RAW: null,
 }
 vi.mock('@/store', () => ({
   useAppStore: (selector: (s: typeof storeState) => unknown) => selector(storeState),
