@@ -1,41 +1,13 @@
 import React, { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { ENC_CATS, DEC_CATS, catOf, vatRateForAccount } from '@/lib/tresoCats'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { KpiCard, EcrituresModal } from '@/components/ui'
 import { BankAccountsPanel } from './BankAccountsPanel'
 import { useBankAccounts } from './useBankAccounts'
 
 const MS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
-
-const ENC_CATS = [
-  { label:'Ventes prestations',     accs:['706','7061','70611'] },
-  { label:'Ventes marchandises',    accs:['707','7072'] },
-  { label:'Activités annexes',      accs:['708','7080'] },
-  { label:'Subventions',            accs:['74'] },
-  { label:'Produits financiers',    accs:['76'] },
-  { label:'Produits exceptionnels', accs:['77'] },
-  { label:'Autres produits',        accs:['70','71','72','73','75','78','79'] },
-]
-const DEC_CATS = [
-  { label:'Achats marchandises',    accs:['607','6071','6087','6097'] },
-  { label:'Achats mat. premières',  accs:['601','6031','6081','602','603'] },
-  { label:'Sous-traitance',         accs:['604'] },
-  { label:'Services extérieurs',    accs:['61','62'] },
-  { label:'Impôts & taxes',         accs:['63'] },
-  { label:'Salaires',               accs:['641','642','643','644'] },
-  { label:'Charges sociales',       accs:['645','646','647'] },
-  { label:'Amortissements',         accs:['681','682','686','687'] },
-  { label:'Charges financières',    accs:['66'] },
-  { label:'Charges except.',        accs:['67'] },
-  { label:'Impôt bénéfices',        accs:['695','696','697','698','699'] },
-  { label:'Autres charges',         accs:['60','65','68','69'] },
-]
-
-function catOf(acc: string, cats: { label:string; accs:string[] }[]): string|null {
-  for (const c of cats) { if (c.accs.some(a => acc.startsWith(a))) return c.label }
-  return null
-}
 
 type AD = { vals:number[]; label:string }
 
@@ -51,6 +23,7 @@ export function Tresorerie() {
   const filters       = useAppStore(s => s.filters)
   const manualEntries = useAppStore(s => s.manualEntries)
   const budData       = useAppStore(s => s.budData)
+  const vatSettings   = useAppStore(s => s.vatSettings)
   const { selectedMs } = usePeriodFilter()
 
   const [view,     setView]     = useState<'realise'|'prev'>('realise')
@@ -217,14 +190,26 @@ export function Tresorerie() {
   }, [RAW, selCo.join(','), months.join(','), manualEntries])
 
   // ── Données prévisionnelles ────────────────────────────────────────────
+  // Le prévisionnel démarre à la date de solde bancaire la PLUS ANCIENNE parmi les sociétés
+  // sélectionnées (point de trésorerie connu d'où l'on projette). Fallback : mois courant
+  // si aucun solde saisi → comportement historique préservé.
   const forecastMs = useMemo(() => {
-    const now=new Date(), ms: string[]=[]
+    let startYM: string | null = null
+    for (const a of (bank?.all ?? [])) {
+      if (!selCo.includes(a.company_key)) continue
+      const ym = (a.balance_date || '').slice(0, 7)
+      if (ym && (!startYM || ym < startYM)) startYM = ym
+    }
+    const base = startYM
+      ? new Date(parseInt(startYM.slice(0, 4)), parseInt(startYM.slice(5, 7)) - 1, 1)
+      : new Date()
+    const ms: string[] = []
     for (let i=0;i<12;i++) {
-      const d=new Date(now.getFullYear(),now.getMonth()+i,1)
+      const d=new Date(base.getFullYear(),base.getMonth()+i,1)
       ms.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)
     }
     return ms
-  }, [])
+  }, [bank?.all, selCo.join(',')])
 
   const forecast = useMemo(() => {
     // Mois déjà présents dans le réalisé → ne pas les compter en double dans le prévisionnel
@@ -234,12 +219,16 @@ export function Tresorerie() {
       let enc=0, dec=0
       for (const co of selCo) {
         const bd=(budData as any)[co]??{}, p=getP(co)
+        const vat = vatSettings[co]
         const dC=Math.max(0,Math.round(p.delaiClient/30)), dF=Math.max(0,Math.round(p.delaiFourn/30))
         const fiC=fiscalIndex(monthShift(forecastMs[mi], -dC)), fiF=fiscalIndex(monthShift(forecastMs[mi], -dF))
-        for (const bv of Object.values(bd)) {
+        for (const [acc, bv] of Object.entries(bd)) {
           const b=(bv as any).b??[]; const t=(bv as any).t
-          if (t==='p') enc+=b[fiC]||0
-          if (t==='c') dec+=b[fiF]||0
+          // Budget stocké en HT → converti en TTC (cash réel) selon le taux TVA de la catégorie.
+          // Si société non assujettie / pas de taux → rate=0 → ttc=ht (comportement historique).
+          const mult = 1 + vatRateForAccount(acc, vat) / 100
+          if (t==='p') enc+=(b[fiC]||0)*mult
+          if (t==='c') dec+=(b[fiF]||0)*mult
         }
         dec+=p.remb
       }
@@ -275,7 +264,7 @@ export function Tresorerie() {
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
-  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
 
   // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
   const forecastDetail = useMemo(() => {
@@ -286,19 +275,22 @@ export function Tresorerie() {
       const m = forecastMs[mi]
       for (const co of selCo) {
         const bd = (budData as any)[co] ?? {}, p = getP(co)
+        const vat = vatSettings[co]
         const dC = Math.max(0, Math.round(p.delaiClient/30))
         const dF = Math.max(0, Math.round(p.delaiFourn/30))
         const fiC = fiscalIndex(monthShift(forecastMs[mi], -dC))
         const fiF = fiscalIndex(monthShift(forecastMs[mi], -dF))
         for (const [acc, bv] of Object.entries(bd)) {
           const b = (bv as any).b ?? [], t = (bv as any).t, l = (bv as any).l || acc
+          // Budget HT → TTC (cash) selon le taux TVA de la catégorie (0 si non assujetti).
+          const mult = 1 + vatRateForAccount(acc, vat) / 100
           if (t === 'p') {
-            const v = Math.round(b[fiC] || 0)
+            const v = Math.round((b[fiC] || 0) * mult)
             if (!enc[acc]) enc[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
             enc[acc].vals[mi] += v
           }
           if (t === 'c') {
-            const v = Math.round(b[fiF] || 0)
+            const v = Math.round((b[fiF] || 0) * mult)
             if (!dec[acc]) dec[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
             dec[acc].vals[mi] += v
           }
@@ -342,7 +334,7 @@ export function Tresorerie() {
       }
     }
     return { enc, dec }
-  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
 
   // ── Vue journalière ────────────────────────────────────────────────────
   const dayForecast = useMemo(() => {
