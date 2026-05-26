@@ -11,6 +11,22 @@ const SCORE_ICON = ['', '❄️', '🌡️', '🌤️', '☀️'] as const
 
 const ALL_SEGS: (RFMSegment | 'all')[] = ['all','champion','fidele','potentiel','one_shot','a_risque','perdu']
 
+/** 'YYYY-MM-DD' -> 'DD/MM/YYYY' (format français) */
+function frDate(iso?: string): string {
+  if (!iso) return '—'
+  const [y, m, d] = iso.slice(0, 10).split('-')
+  return (y && m && d) ? `${d}/${m}/${y}` : iso
+}
+
+const SEGMENT_DESC: Record<RFMSegment, string> = {
+  champion:  'Récents, fréquents et gros CA — vos meilleurs clients, à choyer.',
+  fidele:    'Reviennent souvent avec un bon panier — à fidéliser et faire monter en gamme.',
+  potentiel: 'Venus récemment mais encore peu — à développer pour les transformer en réguliers.',
+  one_shot:  'Une seule visite — à réactiver pour créer une habitude.',
+  a_risque:  'Bons clients qui ne sont pas revenus depuis longtemps — à relancer vite.',
+  perdu:     'Anciens et inactifs depuis longtemps — tentative de dernière chance.',
+}
+
 export function SegmentsView({ clients }: Props) {
   const [filterSeg,  setFilterSeg]  = useState<RFMSegment | 'all'>('all')
   const [sort,       setSort]       = useState<SortKey>('ca')
@@ -106,7 +122,7 @@ export function SegmentsView({ clients }: Props) {
           style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'var(--text-3)', padding:0, display:'flex', alignItems:'center', gap:4 }}
         >
           <span>{showLegend ? '▾' : '▸'}</span>
-          <span>Comprendre les scores R · F · M</span>
+          <span>Comprendre les scores R · F · M et les segments</span>
         </button>
         {showLegend && (
           <div style={{
@@ -114,6 +130,9 @@ export function SegmentsView({ clients }: Props) {
             background:'var(--bg-1)', border:'1px solid var(--border-1)',
             display:'flex', gap:24, flexWrap:'wrap',
           }}>
+            <div style={{ flexBasis:'100%', fontSize:11, color:'var(--text-2)', lineHeight:1.6 }}>
+              <strong style={{ color:'var(--text-1)' }}>RFM</strong> = Récence · Fréquence · Montant. Chaque client reçoit une note de 1 (❄️) à 4 (☀️) sur ces 3 axes&nbsp;; la combinaison détermine son segment.
+            </div>
             {/* Icônes */}
             <div style={{ minWidth:160 }}>
               <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>Légende des icônes</div>
@@ -157,12 +176,32 @@ export function SegmentsView({ clients }: Props) {
                 ❄️ = quartile inférieur
               </div>
             </div>
+
+            {/* Signification des segments */}
+            <div style={{ flexBasis:'100%', borderTop:'1px solid var(--border-1)', marginTop:4, paddingTop:14 }}>
+              <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
+                Signification des segments
+              </div>
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:'8px 24px' }}>
+                {(['champion','fidele','potentiel','one_shot','a_risque','perdu'] as RFMSegment[]).map(seg => (
+                  <div key={seg} style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
+                    <span style={{
+                      flexShrink:0, marginTop:1, display:'inline-block', padding:'2px 8px', borderRadius:12,
+                      fontSize:10, fontWeight:700,
+                      background: SEGMENT_COLORS[seg] + '22', color: SEGMENT_COLORS[seg],
+                      border:`1px solid ${SEGMENT_COLORS[seg]}44`,
+                    }}>{SEGMENT_LABELS[seg]}</span>
+                    <span style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.5 }}>{SEGMENT_DESC[seg]}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
 
       {/* Tableau */}
-      <div style={{ borderRadius:'var(--radius-lg)', border:'1px solid var(--border-1)', overflow:'auto' }}>
+      <div style={{ borderRadius:'var(--radius-lg)', border:'1px solid var(--border-1)', overflow:'auto', maxHeight:'calc(100vh - 250px)' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
           <thead>
             <tr>
@@ -195,7 +234,7 @@ export function SegmentsView({ clients }: Props) {
                 </td>
                 <td style={{ padding:'9px 10px', textAlign:'right', color:'var(--text-1)' }}>{c.nbVisites}</td>
                 <td style={{ padding:'9px 10px', textAlign:'right', fontFamily:'monospace', color: c.daysSinceLast > 180 ? 'var(--red)' : c.daysSinceLast > 90 ? 'var(--amber)' : 'var(--text-1)' }}>
-                  {c.lastDate}
+                  {frDate(c.lastDate)}
                   <div style={{ fontSize:9, color:'var(--text-3)' }}>J-{c.daysSinceLast}</div>
                 </td>
                 <td style={{ padding:'9px 10px', textAlign:'center', fontSize:14, letterSpacing:2 }}>
