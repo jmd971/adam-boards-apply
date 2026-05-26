@@ -67,8 +67,9 @@ export function Ventes() {
     )
   }
 
+  const fecClients = diagFec.clientsN + diagFec.clientsN1
   const sourceBadge = source === 'factures'
-    ? { icon: '📄', label: 'FEC + Saisie' }
+    ? { icon: '📄', label: `FEC ${fecClients} client${fecClients > 1 ? 's' : ''} · Saisie ${diagSaisie.eligibles}` }
     : { icon: '🛒', label: `Fichier POS · ${posTxs.length} lignes` }
 
   const tabSt = (on: boolean): React.CSSProperties => ({
