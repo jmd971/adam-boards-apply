@@ -165,6 +165,19 @@ describe('parseFEC', () => {
     expect(r.clientData['4110001'].n).toBe('DUPONT SAS')
     expect(r.clientData['4110001'].entries).toBe(2)
   })
+
+  it('extrait un compte auxiliaire alphanumérique (ex 411DIVERS) comme client', () => {
+    const text = buildFEC([
+      { date: '20260115', acc: '411DIVERS', lib: 'Clients divers', ecLib: 'F-010', debit: 700 },
+      { date: '20260210', acc: '411DIVERS', lib: 'Clients divers', ecLib: 'F-011', debit: 300 },
+      { date: '20260115', acc: '707', credit: 1000 },
+    ])
+    const r = parseFEC(text)!
+    expect(r.clientData['411DIVERS']).toBeDefined()
+    expect(r.clientData['411DIVERS'].ca).toBe(1000)
+    expect(r.clientData['411DIVERS'].n).toBe('Clients divers')
+    expect(r.clientData['411DIVERS'].entries).toBe(2)
+  })
 })
 
 /* ─── detectPeriod / detectCompany / detectCompanyName ────────────────────── */

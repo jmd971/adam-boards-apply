@@ -77,7 +77,7 @@ function parseMonth(raw: string): string {
 
 function isValidAccount(acc: string): boolean {
   if (!acc || acc.length < 1 || acc.length > 12) return false
-  return /^[1-9]\d*$/.test(acc)
+  return /^[1-9][0-9A-Za-z]*$/.test(acc)
 }
 
 function isValidMonth(m: string): boolean {
