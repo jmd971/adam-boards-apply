@@ -119,34 +119,34 @@ export function SegmentsView({ clients }: Props) {
       <div style={{ marginBottom:12 }}>
         <button
           onClick={() => setShowLegend(v => !v)}
-          style={{ background:'none', border:'none', cursor:'pointer', fontSize:11, color:'var(--text-3)', padding:0, display:'flex', alignItems:'center', gap:4 }}
+          style={{ background:'none', border:'none', cursor:'pointer', fontSize:13, color:'var(--text-2)', padding:0, display:'flex', alignItems:'center', gap:4 }}
         >
           <span>{showLegend ? '▾' : '▸'}</span>
           <span>Comprendre les scores R · F · M et les segments</span>
         </button>
         {showLegend && (
           <div style={{
-            marginTop:8, padding:'14px 16px', borderRadius:'var(--radius-md)',
+            marginTop:8, padding:'20px 24px', borderRadius:'var(--radius-md)',
             background:'var(--bg-1)', border:'1px solid var(--border-1)',
-            display:'flex', gap:24, flexWrap:'wrap',
+            display:'flex', gap:'24px 40px', flexWrap:'wrap',
           }}>
-            <div style={{ flexBasis:'100%', fontSize:11, color:'var(--text-2)', lineHeight:1.6 }}>
+            <div style={{ flexBasis:'100%', fontSize:14, color:'var(--text-1)', lineHeight:1.6 }}>
               <strong style={{ color:'var(--text-1)' }}>RFM</strong> = Récence · Fréquence · Montant. Chaque client reçoit une note de 1 (❄️) à 4 (☀️) sur ces 3 axes&nbsp;; la combinaison détermine son segment.
             </div>
             {/* Icônes */}
-            <div style={{ minWidth:160 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>Légende des icônes</div>
+            <div style={{ minWidth:180 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>Légende des icônes</div>
               {([['❄️','1 — Faible'],['🌡️','2 — Moyen'],['🌤️','3 — Bon'],['☀️','4 — Excellent']] as const).map(([icon, label]) => (
-                <div key={label} style={{ display:'flex', alignItems:'center', gap:8, marginBottom:4 }}>
-                  <span style={{ fontSize:14, width:20 }}>{icon}</span>
-                  <span style={{ fontSize:11, color:'var(--text-2)' }}>{label}</span>
+                <div key={label} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:7 }}>
+                  <span style={{ fontSize:20, width:28 }}>{icon}</span>
+                  <span style={{ fontSize:13, color:'var(--text-1)' }}>{label}</span>
                 </div>
               ))}
             </div>
             {/* R */}
-            <div style={{ minWidth:200 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>R — Récence</div>
-              <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.7 }}>
+            <div style={{ minWidth:220 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>R — Récence</div>
+              <div style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.95 }}>
                 Temps depuis la dernière visite.<br/>
                 ☀️ = venu il y a moins de 30 j<br/>
                 🌤️ = entre 30 et 90 j<br/>
@@ -155,9 +155,9 @@ export function SegmentsView({ clients }: Props) {
               </div>
             </div>
             {/* F */}
-            <div style={{ minWidth:200 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>F — Fréquence</div>
-              <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.7 }}>
+            <div style={{ minWidth:220 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>F — Fréquence</div>
+              <div style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.95 }}>
                 Nombre de visites distinctes.<br/>
                 ☀️ = 8 visites ou plus<br/>
                 🌤️ = 4 à 7 visites<br/>
@@ -166,9 +166,9 @@ export function SegmentsView({ clients }: Props) {
               </div>
             </div>
             {/* M */}
-            <div style={{ minWidth:200 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>M — Montant (CA)</div>
-              <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.7 }}>
+            <div style={{ minWidth:220 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>M — Montant (CA)</div>
+              <div style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.95 }}>
                 CA total par rapport aux autres clients.<br/>
                 ☀️ = top 25% des meilleurs clients<br/>
                 🌤️ = entre 50% et 75%<br/>
@@ -179,19 +179,19 @@ export function SegmentsView({ clients }: Props) {
 
             {/* Signification des segments */}
             <div style={{ flexBasis:'100%', borderTop:'1px solid var(--border-1)', marginTop:4, paddingTop:14 }}>
-              <div style={{ fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
                 Signification des segments
               </div>
               <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(260px, 1fr))', gap:'8px 24px' }}>
                 {(['champion','fidele','potentiel','one_shot','a_risque','perdu'] as RFMSegment[]).map(seg => (
                   <div key={seg} style={{ display:'flex', alignItems:'flex-start', gap:8 }}>
                     <span style={{
-                      flexShrink:0, marginTop:1, display:'inline-block', padding:'2px 8px', borderRadius:12,
-                      fontSize:10, fontWeight:700,
+                      flexShrink:0, marginTop:1, display:'inline-block', padding:'3px 10px', borderRadius:12,
+                      fontSize:12, fontWeight:700,
                       background: SEGMENT_COLORS[seg] + '22', color: SEGMENT_COLORS[seg],
                       border:`1px solid ${SEGMENT_COLORS[seg]}44`,
                     }}>{SEGMENT_LABELS[seg]}</span>
-                    <span style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.5 }}>{SEGMENT_DESC[seg]}</span>
+                    <span style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.55 }}>{SEGMENT_DESC[seg]}</span>
                   </div>
                 ))}
               </div>
