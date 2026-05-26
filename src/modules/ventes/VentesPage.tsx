@@ -38,11 +38,12 @@ export function Ventes() {
 
   const transactions = useMemo<SaleTransaction[]>(() => {
     if (source === 'factures') {
-      // Priorité au FEC (extraction automatique depuis 411xxx). Fallback Saisie
-      // pour les tenants qui n'ont pas (encore) ré-importé un FEC avec compAux.
-      const fec = fecToSaleTransactions(RAW, selCo)
-      if (fec.length > 0) return fec
-      return manualEntriesToTransactions(manualEntries, selCo)
+      // Segmentation = FEC + Saisie combinés. Un FEC et la saisie ne couvrent
+      // jamais le même exercice (si un FEC existe pour l'exercice en cours,
+      // l'utilisateur n'utilise pas la Saisie), donc l'union ne double-compte pas.
+      const fec    = fecToSaleTransactions(RAW, selCo)
+      const saisie = manualEntriesToTransactions(manualEntries, selCo)
+      return [...fec, ...saisie]
     }
     if (source === 'pos') return posTxs
     return []
@@ -67,7 +68,7 @@ export function Ventes() {
   }
 
   const sourceBadge = source === 'factures'
-    ? { icon: '📄', label: 'Factures saisies' }
+    ? { icon: '📄', label: 'FEC + Saisie' }
     : { icon: '🛒', label: `Fichier POS · ${posTxs.length} lignes` }
 
   const tabSt = (on: boolean): React.CSSProperties => ({
@@ -160,7 +161,7 @@ export function Ventes() {
             padding: '14px 18px',
           }}>
             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
-              Source 2 — Saisie manuelle (fallback)
+              Source 2 — Saisie manuelle
             </div>
             {[
               { label: 'Entrées de saisie au total',         value: diagSaisie.total,         color: 'var(--text-1)' },

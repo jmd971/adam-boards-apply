@@ -57,7 +57,7 @@ describe('<Ventes>', () => {
     // Aucune source → empty state diagnostique FEC + Saisie
     expect(screen.getByText(/Aucune facture exploitable/i)).toBeInTheDocument()
     expect(screen.getByText(/FEC \(extraction automatique\)/i)).toBeInTheDocument()
-    expect(screen.getByText(/Saisie manuelle \(fallback\)/i)).toBeInTheDocument()
+    expect(screen.getByText(/Saisie manuelle/i)).toBeInTheDocument()
   })
 
   it('après clic sur "Fichier caisse / POS", ouvre directement l\'import wizard', () => {
