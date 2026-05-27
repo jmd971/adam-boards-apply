@@ -17,9 +17,12 @@ const TAB_META: Record<string, { label: string; icon: string }> = {
   tresorerie:     { label:'Trésorerie',           icon:'💧' },
   creances:       { label:'Créances clients',      icon:'📋' },
   aide:           { label:'Aide',                 icon:'❓' },
+  parametres:     { label:'Paramètres',           icon:'⚙️' },
 }
 
 const PL_TABS       = ['cr','sig','equilibre']
+// Pages où « Hors OD » a un effet (toutes celles qui calculent via computePlCalc).
+const OD_TABS       = ['cr','sig','equilibre','ratios']
 const ANALYSIS_TABS = ['dashboard','cr','sig','equilibre','objectifs','bilan','ratios','budget','tresorerie']
 
 interface TopBarProps {
@@ -34,10 +37,12 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
   const filters     = useAppStore(s => s.filters)
   const setFilters  = useAppStore(s => s.setFilters)
   const budVersions = useAppStore(s => s.budVersions)
+  const RAW         = useAppStore(s => s.RAW)
 
   const meta       = TAB_META[tab] || { label: tab, icon: '📊' }
   const isAnalysis = ANALYSIS_TABS.includes(tab)
   const isPL       = PL_TABS.includes(tab)
+  const isOD       = OD_TABS.includes(tab)
 
   const selSt: React.CSSProperties = {
     background:'transparent', border:'none', color:'var(--text-0)',
@@ -111,8 +116,9 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
               <>
                 <select value={filters.startM} onChange={e => setFilters({ startM: e.target.value })} style={selSt}>
                   {allMonths.map(m => {
-                    const yr = parseInt(m.slice(0, 4)), cy = new Date().getFullYear()
-                    const tag = yr === cy ? ' ·N' : yr === cy - 1 ? ' ·N-1' : yr <= cy - 2 ? ' ·N-2' : ''
+                    // Tag basé sur l'appartenance aux sets RAW (classés par exercice fiscal
+                    // dans buildRAW) — fiable pour les exercices décalés (oct→sep) comme civils.
+                    const tag = RAW?.mn?.includes(m) ? ' ·N' : RAW?.m1?.includes(m) ? ' ·N-1' : RAW?.m2?.includes(m) ? ' ·N-2' : ''
                     return <option key={m} value={m} style={{ background:'#0d1424' }}>
                       {monthLabel(m)}{tag}
                     </option>
@@ -121,8 +127,9 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
                 <span style={{ color:'var(--text-3)', fontSize:12 }}>→</span>
                 <select value={filters.endM} onChange={e => setFilters({ endM: e.target.value })} style={selSt}>
                   {allMonths.filter(m => monthIdx(m) >= monthIdx(filters.startM)).map(m => {
-                    const yr = parseInt(m.slice(0, 4)), cy = new Date().getFullYear()
-                    const tag = yr === cy ? ' ·N' : yr === cy - 1 ? ' ·N-1' : yr <= cy - 2 ? ' ·N-2' : ''
+                    // Tag basé sur l'appartenance aux sets RAW (classés par exercice fiscal
+                    // dans buildRAW) — fiable pour les exercices décalés (oct→sep) comme civils.
+                    const tag = RAW?.mn?.includes(m) ? ' ·N' : RAW?.m1?.includes(m) ? ' ·N-1' : RAW?.m2?.includes(m) ? ' ·N-2' : ''
                     return <option key={m} value={m} style={{ background:'#0d1424' }}>
                       {monthLabel(m)}{tag}
                     </option>
@@ -135,13 +142,16 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
           </div>
         )}
 
-        {/* Toggles P&L */}
+        {/* Toggles affichage tableau P&L (CR/SIG/Équilibre) */}
         {isPL && (
           <div style={{ display:'flex', gap:5 }}>
-            <Toggle label="Mois"    k="showMonths" />
-            <Toggle label="N-1"     k="showN1Full" />
-            <Toggle label="Hors OD" k="excludeOD"  />
+            <Toggle label="Mois" k="showMonths" />
+            <Toggle label="N-1"  k="showN1Full" />
           </div>
+        )}
+        {/* Hors OD : aussi sur Ratios (toutes les pages calculées via computePlCalc) */}
+        {isOD && (
+          <Toggle label="Hors OD" k="excludeOD" />
         )}
         {isAnalysis && (
           <Toggle label="Budget" k="showBudget" />

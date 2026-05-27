@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { sb, getUserRoleAndTenant } from '@/lib/supabase'
 import { useAppStore } from '@/store'
+import { allSelectableMonths } from '@/lib/calc'
 import { canAccessTab, type Role } from '@/lib/roles'
 import { Sidebar }          from '@/components/layout/Sidebar'
 import { TopBar }           from '@/components/layout/TopBar'
@@ -26,6 +27,7 @@ import { Depot }            from '@/modules/depot/Depot'
 import { Aide }             from '@/modules/aide/Aide'
 import { Ventes }           from '@/modules/ventes/VentesPage'
 import { SuperadminDashboard } from '@/modules/superadmin/SuperadminDashboard'
+import { Parametres }           from '@/modules/parametres/Parametres'
 import { useCompanyData }   from '@/hooks/useCompanyData'
 import type { User }        from '@supabase/supabase-js'
 
@@ -43,6 +45,7 @@ function AppInner() {
   const switchTenant = useAppStore(s => s.switchTenant)
   const dataLoading  = useAppStore(s => s.dataLoading)
   const RAW          = useAppStore(s => s.RAW)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
   const tab          = useAppStore(s => s.tab)
   const setTab       = useAppStore(s => s.setTab)
 
@@ -91,10 +94,11 @@ function AppInner() {
 
   useCompanyData()
 
-  const allMonths = useMemo(() => {
-    const ms = new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? []), ...(RAW?.m2 ?? [])])
-    return [...ms].sort()
-  }, [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')])
+  // Mois sélectionnables = données (mn/m1/m2) + exercice N complet (projection budget des mois à venir).
+  const allMonths = useMemo(
+    () => allSelectableMonths(RAW, fiscalSettings),
+    [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(','), RAW?.keys?.join(','), JSON.stringify(fiscalSettings)]
+  )
 
   if (!user) return <LoginPage onLogin={(u: User) => {
     setUser(u)
@@ -126,7 +130,7 @@ function AppInner() {
         <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Votre rôle ne permet pas d'accéder à cet onglet. Contactez votre administrateur.</div>
       </div>
     )
-    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances' && tab !== 'depot' && tab !== 'ventes') return (
+    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances' && tab !== 'depot' && tab !== 'ventes' && tab !== 'parametres') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
@@ -152,6 +156,7 @@ function AppInner() {
       rapprochement:  ['Rapprochement',   <Rapprochement />],
       depot:          ['Dépôts',          <Depot />],
       aide:           ['Aide',            <Aide />],
+      parametres:     ['Paramètres',      <Parametres />],
     }
     const entry = modules[tab]
     if (!entry) return null

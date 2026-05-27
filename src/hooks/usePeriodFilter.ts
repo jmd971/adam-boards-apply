@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { monthIdx } from '@/lib/calc'
+import { monthIdx, allSelectableMonths } from '@/lib/calc'
 
 /**
  * Hook partagé pour le filtrage des mois et l'alignement N / N-1 / N-2.
@@ -9,12 +9,14 @@ import { monthIdx } from '@/lib/calc'
 export function usePeriodFilter() {
   const RAW     = useAppStore(s => s.RAW)
   const filters = useAppStore(s => s.filters)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
 
   const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
 
+  // Mois sélectionnables = données (mn/m1/m2) + exercice N complet (projection budget des mois à venir).
   const allMonths = useMemo(() =>
-    [...new Set([...(RAW?.mn ?? []), ...(RAW?.m1 ?? []), ...(RAW?.m2 ?? [])])].sort(),
-    [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(',')]
+    allSelectableMonths(RAW, fiscalSettings),
+    [RAW?.mn?.join(','), RAW?.m1?.join(','), RAW?.m2?.join(','), RAW?.keys?.join(','), JSON.stringify(fiscalSettings)]
   )
 
   // Fallback en cascade : N → N-1 → N-2.

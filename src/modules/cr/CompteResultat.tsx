@@ -43,8 +43,12 @@ export function CompteResultat() {
   const caTotal = plCalc['ca_v']?.cumulN ?? plCalc['ca']?.cumulN ?? 0
 
   // KPI data
-  const totalProduits = (plCalc['ca_v']?.cumulN ?? 0) + (plCalc['ca_p']?.cumulN ?? 0) + (plCalc['ca_a']?.cumulN ?? 0) + (plCalc['sub_exp']?.cumulN ?? 0) + (plCalc['autr_prod']?.cumulN ?? 0)
-  const totalCharges = (plCalc['achat_mdse']?.cumulN ?? 0) + (plCalc['achat_mp']?.cumulN ?? 0) + (plCalc['soustr']?.cumulN ?? 0) + (plCalc['serv_ext']?.cumulN ?? 0) + (plCalc['impots']?.cumulN ?? 0) + (plCalc['sal']?.cumulN ?? 0) + (plCalc['cs']?.cumulN ?? 0) + (plCalc['amor']?.cumulN ?? 0) + (plCalc['autr_ch_exp']?.cumulN ?? 0) + (plCalc['is_cr']?.cumulN ?? 0)
+  // Totaux complets calculés par computePlCalc (tot_produits/tot_charges incluent
+  // production stockée, reprises, produits/charges financiers & exceptionnels, achats
+  // non stockés, etc.). On les utilise pour que Produits − Charges = Résultat (rnet_cr
+  // = tot_produits − tot_charges, cf. calc.ts) et que les cartes se réconcilient.
+  const totalProduits = plCalc['tot_produits']?.cumulN ?? 0
+  const totalCharges = plCalc['tot_charges']?.cumulN ?? 0
   const rnet = plCalc['rnet_cr']?.cumulN ?? 0
   const rnetN1 = plCalc['rnet_cr']?.cumulN1S ?? 0
   const txMarge = totalProduits > 0 ? rnet / totalProduits : 0
@@ -137,6 +141,7 @@ export function CompteResultat() {
           struct={CR} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
           showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
+          excludeOD={filters.excludeOD}
           budData={budData as any}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
           maxHeight="calc(100vh - 200px)"

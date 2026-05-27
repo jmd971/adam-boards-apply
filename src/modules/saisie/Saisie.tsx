@@ -3,6 +3,7 @@ import { useAppStore } from '@/store'
 import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
 import { buildRAW } from '@/lib/calc'
+import { readFileText } from '@/lib/fec'
 import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
@@ -68,8 +69,9 @@ Champs requis:
 5. subcategory: sous-catégorie précise
 6. label: description courte
 7. counterpart: nom fournisseur ou client
+8. invoice_number: numéro de la facture (réf. facture / facture n° / invoice number). Chaîne vide "" si absent.
 
-Répondre UNIQUEMENT avec: {"date":"YYYY-MM-DD","amount_ttc":0.00,"amount_ht":0.00,"category":"Depense","subcategory":"Autre dépense","label":"Description","counterpart":"Nom"}`
+Répondre UNIQUEMENT avec: {"date":"YYYY-MM-DD","amount_ttc":0.00,"amount_ht":0.00,"category":"Depense","subcategory":"Autre dépense","label":"Description","counterpart":"Nom","invoice_number":"F2026-001"}`
 
 type Mode = 'manual' | 'ocr' | 'csv'
 
@@ -113,6 +115,7 @@ export function Saisie() {
   const setManualEntries = useAppStore(s => s.setManualEntries)
   const setFilters     = useAppStore(s => s.setFilters)
   const manualEntries  = useAppStore(s => s.manualEntries)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
   const isReadOnly     = !canWrite(role)
   
   const dataLoading    = useAppStore(s => s.dataLoading)
@@ -147,6 +150,7 @@ export function Saisie() {
     category:     'Vente' as ManualEntry['category'],
     subcategory:  '',
     label:        '',
+    invoice_number: '',
     amount_ttc:   '',
     amount_ht:    '',
     counterpart:  '',
@@ -237,6 +241,7 @@ export function Saisie() {
       category:     e.category,
       subcategory:  e.subcategory || '',
       label:        e.label || '',
+      invoice_number: (e as any).invoice_number || '',
       amount_ttc:   e.amount_ttc || '',
       amount_ht:    e.amount_ht || e.amount_ht_saisie || '',
       counterpart:  e.counterpart || '',
@@ -250,7 +255,7 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setMsg(null)
   }
 
@@ -268,7 +273,7 @@ export function Saisie() {
     setManualEntries(newEntries)
     const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
     const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
-    if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, newEntries))
+    if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, newEntries, fiscalSettings))
 
     setSaving(false)
     setConfirmDelete(null)
@@ -324,7 +329,7 @@ export function Saisie() {
     const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
     const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
     if (cd) {
-      const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+      const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries, fiscalSettings)
       setRAW(newRAW)
       // Étendre la période pour inclure le mois de la nouvelle entrée
       if (newRAW.mn.length > 0) {
@@ -450,6 +455,7 @@ export function Saisie() {
         category:    ocrCat,
         subcategory: matchedSub || parsed.subcategory || '',
         label:       parsed.label || '',
+        invoice_number: (parsed as any).invoice_number || (parsed as any).numero_facture || f.invoice_number,
         amount_ttc:  ttc > 0 ? String(ttc) : f.amount_ttc,
         amount_ht:   ht > 0  ? String(ht)  : f.amount_ht,
         counterpart: parsed.counterpart || '',
@@ -468,7 +474,7 @@ export function Saisie() {
     const file = e.target.files?.[0]
     if (!file) return
     setMsg(null)
-    const text = await file.text()
+    const text = await readFileText(file)
     const lines = text.split('\n').filter(l => l.trim())
     if (lines.length < 2) { setMsg('❌ CSV vide ou invalide'); return }
     const sep = lines[0].includes(';') ? ';' : ','
@@ -487,6 +493,7 @@ export function Saisie() {
         category:     row.category || row.categorie || 'Depense',
         subcategory:  row.subcategory || row.sous_categorie || '',
         label:        row.label || row.libelle || '',
+        invoice_number: row.invoice_number || row.numero_facture || row.num_facture || null,
         amount_ttc:   String(ttc),
         amount_ht:    String(ht),
         tva_amount:   String(calcTvaAmount(ht, ttc)),
@@ -513,7 +520,7 @@ export function Saisie() {
       const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
       const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
       if (cd) {
-        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries)
+        const newRAW = buildRAW(cd as any, (bd ?? []) as any, allEntries, fiscalSettings)
         setRAW(newRAW)
         if (newRAW.mn.length > 0) {
           setFilters({
@@ -555,6 +562,7 @@ export function Saisie() {
       category:     form.category,
       subcategory:  form.subcategory,
       label:        form.label,
+      invoice_number: form.invoice_number || null,
       amount_ttc:   String(ttc),
       amount_ht:    String(ht),
       amount_ht_saisie: String(ht),
@@ -598,7 +606,7 @@ export function Saisie() {
       if (tenantId) {
         const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
         const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
-        if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, updated))
+        if (cd) setRAW(buildRAW(cd as any, (bd ?? []) as any, updated, fiscalSettings))
       }
     } else {
       await refreshStore(newEntry)
@@ -606,7 +614,7 @@ export function Saisie() {
 
     setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
     setEchDates([])
     setEchAmounts([])
     setEchAmountsDirty(false)
@@ -772,6 +780,11 @@ export function Saisie() {
             <div>
               <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Libellé</label>
               <input type="text" value={form.label} onChange={e => setForm(f => ({...f, label:e.target.value}))} style={inputSt} placeholder="Description..." />
+            </div>
+
+            <div>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>N° de facture</label>
+              <input type="text" value={form.invoice_number} onChange={e => setForm(f => ({...f, invoice_number:e.target.value}))} style={inputSt} placeholder="Ex : F2026-001" />
             </div>
 
             <div>

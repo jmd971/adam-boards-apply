@@ -25,6 +25,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'import',          label:'Import',             icon:'📁', group:'admin'   },
   { id:'verification',    label:'Vérification',       icon:'🔍', group:'admin'   },
   { id:'aide',            label:'Aide',               icon:'❓', group:'admin'   },
+  { id:'parametres',     label:'Paramètres',         icon:'⚙️',  group:'admin'   },
 ]
 
 const GROUPS = [

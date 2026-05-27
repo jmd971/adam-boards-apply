@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { ENC_CATS, DEC_CATS, catOf, vatRateForAccount } from '@/lib/tresoCats'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { KpiCard, EcrituresModal } from '@/components/ui'
 import { BankAccountsPanel } from './BankAccountsPanel'
@@ -8,36 +9,7 @@ import { useBankAccounts } from './useBankAccounts'
 
 const MS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
-const ENC_CATS = [
-  { label:'Ventes prestations',     accs:['706','7061','70611'] },
-  { label:'Ventes marchandises',    accs:['707','7072'] },
-  { label:'Activités annexes',      accs:['708','7080'] },
-  { label:'Subventions',            accs:['74'] },
-  { label:'Produits financiers',    accs:['76'] },
-  { label:'Produits exceptionnels', accs:['77'] },
-  { label:'Autres produits',        accs:['70','71','72','73','75','78','79'] },
-]
-const DEC_CATS = [
-  { label:'Achats marchandises',    accs:['607','6071','6087','6097'] },
-  { label:'Achats mat. premières',  accs:['601','6031','6081','602','603'] },
-  { label:'Sous-traitance',         accs:['604'] },
-  { label:'Services extérieurs',    accs:['61','62'] },
-  { label:'Impôts & taxes',         accs:['63'] },
-  { label:'Salaires',               accs:['641','642','643','644'] },
-  { label:'Charges sociales',       accs:['645','646','647'] },
-  { label:'Amortissements',         accs:['681','682','686','687'] },
-  { label:'Charges financières',    accs:['66'] },
-  { label:'Charges except.',        accs:['67'] },
-  { label:'Impôt bénéfices',        accs:['695','696','697','698','699'] },
-  { label:'Autres charges',         accs:['60','65','68','69'] },
-]
-
-function catOf(acc: string, cats: { label:string; accs:string[] }[]): string|null {
-  for (const c of cats) { if (c.accs.some(a => acc.startsWith(a))) return c.label }
-  return null
-}
-
-type AD = { vals:number[]; label:string }
+type AD = { vals:number[]; label:string; moves?: any[] }
 
 // Décale un mois YYYY-MM de `shift` mois calendaires (négatif = passé).
 function monthShift(m: string, shift: number): string {
@@ -51,6 +23,7 @@ export function Tresorerie() {
   const filters       = useAppStore(s => s.filters)
   const manualEntries = useAppStore(s => s.manualEntries)
   const budData       = useAppStore(s => s.budData)
+  const vatSettings   = useAppStore(s => s.vatSettings)
   const { selectedMs } = usePeriodFilter()
 
   const [view,     setView]     = useState<'realise'|'prev'>('realise')
@@ -73,158 +46,106 @@ export function Tresorerie() {
 
   const getP = (co: string) => params[co] ?? { delaiClient:45, delaiFourn:30, remb:0, soldeInitial:0 }
 
-  // ── Données réalisées ─────────────────────────────────────────────────
+  // ── Données réalisées (cash réel) ──────────────────────────────────────
+  // Source = mouvements de trésorerie reconstruits du FEC (cashN, classe 5, TTC), groupés
+  // par catégorie (nature) → compte de contrepartie → écritures. « FEC prioritaire » : si la
+  // société a un FEC, on ignore ses factures saisies (déjà reflétées dans le FEC) pour ne pas
+  // double-compter ; sans FEC, on reconstruit le réalisé depuis les paiements des saisies.
+  // Ancré sur l'exercice (months = selectedMs, borné à l'exercice par le filtre TopBar).
   const treso = useMemo(() => {
     if (!RAW || !months.length) return null
     const eB: Record<string,number[]> = {}, eA: Record<string,Record<string,AD>> = {}
     const dB: Record<string,number[]> = {}, dA: Record<string,Record<string,AD>> = {}
-    const eM = Array(months.length).fill(0), dM = Array(months.length).fill(0)
-    ENC_CATS.forEach(c => { eB[c.label]=Array(months.length).fill(0); eA[c.label]={} })
-    DEC_CATS.forEach(c => { dB[c.label]=Array(months.length).fill(0); dA[c.label]={} })
+    const miOf = (m: string) => months.indexOf(m)
+
+    const push = (enc: boolean, cat: string, acc: string, label: string, mi: number, amt: number, entry: any[]) => {
+      const B = enc ? eB : dB, A = enc ? eA : dA
+      if (!B[cat]) B[cat] = Array(months.length).fill(0)
+      if (!A[cat]) A[cat] = {}
+      if (!A[cat][acc]) A[cat][acc] = { vals: Array(months.length).fill(0), label, moves: [] }
+      B[cat][mi] += amt
+      A[cat][acc].vals[mi] += amt
+      ;(A[cat][acc].moves as any[]).push(entry)
+    }
 
     for (const co of selCo) {
-      const pn = RAW.companies[co]?.pn ?? {}
-      for (const [acc, acct] of Object.entries(pn)) {
-        const mo  = (acct as any)?.mo ?? {}
-        const lbl = (acct as any)?.l  ?? acc
-        const ec  = catOf(acc, ENC_CATS)
-        if (ec) {
-          if (!eA[ec][acc]) eA[ec][acc] = { vals: Array(months.length).fill(0), label: lbl }
-          months.forEach((m: string, mi: number) => {
-            const v = mo[m]; if (!v || !Array.isArray(v)) return
-            const net = Math.max(0, (v[1] as number) - (v[0] as number))
-            eB[ec][mi] += net; eA[ec][acc].vals[mi] += net
-          })
-        }
-        const dc = catOf(acc, DEC_CATS)
-        if (dc) {
-          if (!dA[dc][acc]) dA[dc][acc] = { vals: Array(months.length).fill(0), label: lbl }
-          months.forEach((m: string, mi: number) => {
-            const v = mo[m]; if (!v || !Array.isArray(v)) return
-            const net = Math.max(0, (v[0] as number) - (v[1] as number))
-            dB[dc][mi] += net; dA[dc][acc].vals[mi] += net
-          })
-        }
-      }
-    }
-    // Saisies manuelles : éviter le double comptage avec le loop pn ci-dessus
-    // buildRAW fusionne les saisies dans pn → elles sont déjà dans eB/dB si leur compte est
-    // dans ENC_CATS/DEC_CATS. On ne les recompte dans eM/dM que si elles n'y sont pas.
-    // Pour les paiements échelonnés : on retire la contribution au jour de la facture (pn)
-    // et on ré-étale sur les dates d'échéance.
-    for (const me of manualEntries) {
-      if (!me.entry_date) continue
-      // Cash flow réel = TTC (ce qu'on paie/reçoit). HT n'est utilisé que pour
-      // annuler la contribution pn (qui stocke le HT depuis buildRAW).
-      const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
-      const ttc = parseFloat(me.amount_ttc || '0') || ht
-      if (ttc === 0) continue
-      const acc = me.account_num || '658'
-
-      if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
-        // Annuler la contribution pn (HT) au mois de la facture, à la fois sur le total
-        // catégorie (eB) ET sur le sous-compte (eA) — sinon le sous-compte affiche encore
-        // le montant alors que la facture a été ré-étalée via les échéances.
-        const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
-        if (mi_inv >= 0) {
-          const ec = catOf(acc, ENC_CATS)
-          const dc = catOf(acc, DEC_CATS)
-          if (ec) {
-            eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht)
-            if (eA[ec][acc]) eA[ec][acc].vals[mi_inv] = Math.max(0, eA[ec][acc].vals[mi_inv] - ht)
-          }
-          if (dc) {
-            dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht)
-            if (dA[dc][acc]) dA[dc][acc].vals[mi_inv] = Math.max(0, dA[dc][acc].vals[mi_inv] - ht)
-          }
-        }
-        // Répartir TTC sur les dates d'échéance. Si echeancier_data.amounts est défini,
-        // utiliser le montant par échéance — sinon, étalement équitable (ttc / nb).
-        // Si l'acc tombe dans une catégorie standard (ENC_CATS/DEC_CATS), on distribue
-        // dans cette catégorie (eA + eB) pour que le sous-compte affiche les échéances
-        // mois par mois. Sinon, fallback dans eM/dM ("Saisies manuelles").
-        const echDates: string[] = (me.echeancier_data as any).dates
-        const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
-        const equalPart = ttc / echDates.length
-        const ecEch = catOf(acc, ENC_CATS)
-        const dcEch = catOf(acc, DEC_CATS)
-        const lbl   = me.subcategory || acc
-        for (let idx = 0; idx < echDates.length; idx++) {
-          const d = echDates[idx]
-          const part = echAmounts?.[idx] ?? equalPart
-          const mi_pay = months.findIndex((m: string) => d.startsWith(m))
-          if (mi_pay < 0) continue
-          if (me.category === 'Vente' && ecEch) {
-            if (!eA[ecEch][acc]) eA[ecEch][acc] = { vals: Array(months.length).fill(0), label: lbl }
-            eA[ecEch][acc].vals[mi_pay] += part
-            eB[ecEch][mi_pay] += part
-          } else if (me.category !== 'Vente' && dcEch) {
-            if (!dA[dcEch][acc]) dA[dcEch][acc] = { vals: Array(months.length).fill(0), label: lbl }
-            dA[dcEch][acc].vals[mi_pay] += part
-            dB[dcEch][mi_pay] += part
-          } else {
-            if (me.category === 'Vente') eM[mi_pay] += part
-            else dM[mi_pay] += part
-          }
+      // Tous les mouvements de trésorerie (N + N-1 + N-2), filtrés ensuite par les mois
+      // sélectionnés. On NE lit PAS uniquement cashN : selon l'exercice fiscal réglé, les
+      // mois affichés peuvent être classés dans cash1/cash2 — il faut donc les inclure,
+      // le filtre `miOf(...) < 0` ne retenant que les mois de la période.
+      const c = (RAW.companies[co] as any) ?? {}
+      const cash = [...(c.cashN ?? []), ...(c.cash1 ?? []), ...(c.cash2 ?? [])]
+      if (cash.length > 0) {
+        // FEC prioritaire : réalisé = mouvements de trésorerie réels (TTC)
+        for (const cm of cash) {
+          const mi = miOf((cm.date || '').slice(0, 7))
+          if (mi < 0) continue
+          const enc = cm.dir === 'enc'
+          const entry = [cm.date, cm.label || cm.counterpart, enc ? 0 : cm.amount, enc ? cm.amount : 0, cm.piece || '', 0]
+          push(enc, cm.category, cm.counterpart, cm.label || cm.counterpart, mi, cm.amount, entry)
         }
       } else {
-        // Non-échelonné.
-        // Si payment_date défini → utiliser le mois de paiement pour l'impact trésorerie
-        // (la facture est déjà dans pn au mois entry_date → on déplace le montant vers mi_pay).
-        const inStdCat = catOf(acc, ENC_CATS) || catOf(acc, DEC_CATS)
-        if (inStdCat && me.payment_date) {
-          // Déplacer la contribution du mois facture au mois paiement, à la fois sur la
-          // catégorie (eB) et le sous-compte (eA), sinon le sous-compte continue d'afficher
-          // au mois facture.
-          const mi_inv = months.findIndex((m: string) => me.entry_date.startsWith(m))
-          const mi_pay = months.findIndex((m: string) => (me.payment_date as string).startsWith(m))
-          if (mi_inv >= 0 && mi_pay >= 0 && mi_inv !== mi_pay) {
-            const ec = catOf(acc, ENC_CATS)
-            const dc = catOf(acc, DEC_CATS)
-            if (ec) {
-              eB[ec][mi_inv] = Math.max(0, eB[ec][mi_inv] - ht); eB[ec][mi_pay] += ht
-              if (eA[ec][acc]) {
-                eA[ec][acc].vals[mi_inv] = Math.max(0, eA[ec][acc].vals[mi_inv] - ht)
-                eA[ec][acc].vals[mi_pay] += ht
-              }
-            }
-            if (dc) {
-              dB[dc][mi_inv] = Math.max(0, dB[dc][mi_inv] - ht); dB[dc][mi_pay] += ht
-              if (dA[dc][acc]) {
-                dA[dc][acc].vals[mi_inv] = Math.max(0, dA[dc][acc].vals[mi_inv] - ht)
-                dA[dc][acc].vals[mi_pay] += ht
-              }
-            }
+        // Pas de FEC → réalisé reconstruit depuis les paiements des factures saisies (TTC)
+        for (const me of manualEntries) {
+          if (me.company_key !== co || me.source === 'echeance') continue
+          const ttc = parseFloat(me.amount_ttc || me.amount_ht_saisie || me.amount_ht || '0') || 0
+          if (ttc === 0) continue
+          const acc = me.account_num || '658'
+          const enc = me.category === 'Vente'
+          const cat = (enc ? catOf(acc, ENC_CATS) : catOf(acc, DEC_CATS)) || (enc ? 'Encaissements clients' : 'Décaissements fournisseurs')
+          const lbl = me.subcategory || acc
+          const pays: { date: string; amt: number }[] = []
+          if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+            const ds: string[] = (me.echeancier_data as any).dates
+            const amts: number[] | undefined = (me.echeancier_data as any).amounts
+            const eq = ttc / ds.length
+            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] ?? eq }))
+          } else {
+            pays.push({ date: me.payment_date || me.entry_date, amt: ttc })
           }
-        } else if (!inStdCat) {
-          // Hors catégories standard : compter dans eM/dM (cash flow réel = TTC) au mois de paiement (ou de facture)
-          const effDate = me.payment_date || me.entry_date
-          const mi = months.findIndex((m: string) => effDate.startsWith(m))
-          if (mi >= 0) {
-            if (me.category === 'Vente') eM[mi] += ttc
-            else dM[mi] += ttc
+          for (const p of pays) {
+            const mi = miOf((p.date || '').slice(0, 7))
+            if (mi < 0) continue
+            const entry = [p.date, me.label || lbl, enc ? 0 : p.amt, enc ? p.amt : 0, '', 0]
+            push(enc, cat, acc, lbl, mi, p.amt, entry)
           }
         }
       }
     }
-    ENC_CATS.forEach(c => { eB[c.label]=eB[c.label].map(v=>Math.round(v)); Object.values(eA[c.label]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) })
-    DEC_CATS.forEach(c => { dB[c.label]=dB[c.label].map(v=>Math.round(v)); Object.values(dA[c.label]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) })
-    const tE = months.map((_:string,mi:number) => ENC_CATS.reduce((s,c)=>s+eB[c.label][mi],0)+eM[mi])
-    const tD = months.map((_:string,mi:number) => DEC_CATS.reduce((s,c)=>s+dB[c.label][mi],0)+dM[mi])
+
+    const sumA = (a: number[]) => a.reduce((s, v) => s + v, 0)
+    for (const c of Object.keys(eB)) { eB[c] = eB[c].map(v=>Math.round(v)); Object.values(eA[c]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) }
+    for (const c of Object.keys(dB)) { dB[c] = dB[c].map(v=>Math.round(v)); Object.values(dA[c]).forEach(a=>{a.vals=a.vals.map(v=>Math.round(v))}) }
+    const encCats = Object.keys(eB).filter(c => sumA(eB[c]) !== 0).sort((a, b) => sumA(eB[b]) - sumA(eB[a]))
+    const decCats = Object.keys(dB).filter(c => sumA(dB[c]) !== 0).sort((a, b) => sumA(dB[b]) - sumA(dB[a]))
+    const tE = months.map((_:string,mi:number) => encCats.reduce((s,c)=>s+eB[c][mi],0))
+    const tD = months.map((_:string,mi:number) => decCats.reduce((s,c)=>s+dB[c][mi],0))
     const fl = months.map((_:string,mi:number) => tE[mi]-tD[mi])
     let cum=0; const cu = fl.map((v:number)=>{cum+=v;return cum})
-    return { eB, eA, dB, dA, eM, dM, tE, tD, fl, cu }
+    return { eB, eA, dB, dA, encCats, decCats, tE, tD, fl, cu }
   }, [RAW, selCo.join(','), months.join(','), manualEntries])
 
   // ── Données prévisionnelles ────────────────────────────────────────────
+  // Le prévisionnel démarre à la date de solde bancaire la PLUS ANCIENNE parmi les sociétés
+  // sélectionnées (point de trésorerie connu d'où l'on projette). Fallback : mois courant
+  // si aucun solde saisi → comportement historique préservé.
   const forecastMs = useMemo(() => {
-    const now=new Date(), ms: string[]=[]
+    let startYM: string | null = null
+    for (const a of (bank?.all ?? [])) {
+      if (!selCo.includes(a.company_key)) continue
+      const ym = (a.balance_date || '').slice(0, 7)
+      if (ym && (!startYM || ym < startYM)) startYM = ym
+    }
+    const base = startYM
+      ? new Date(parseInt(startYM.slice(0, 4)), parseInt(startYM.slice(5, 7)) - 1, 1)
+      : new Date()
+    const ms: string[] = []
     for (let i=0;i<12;i++) {
-      const d=new Date(now.getFullYear(),now.getMonth()+i,1)
+      const d=new Date(base.getFullYear(),base.getMonth()+i,1)
       ms.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`)
     }
     return ms
-  }, [])
+  }, [bank?.all, selCo.join(',')])
 
   const forecast = useMemo(() => {
     // Mois déjà présents dans le réalisé → ne pas les compter en double dans le prévisionnel
@@ -234,12 +155,16 @@ export function Tresorerie() {
       let enc=0, dec=0
       for (const co of selCo) {
         const bd=(budData as any)[co]??{}, p=getP(co)
+        const vat = vatSettings[co]
         const dC=Math.max(0,Math.round(p.delaiClient/30)), dF=Math.max(0,Math.round(p.delaiFourn/30))
         const fiC=fiscalIndex(monthShift(forecastMs[mi], -dC)), fiF=fiscalIndex(monthShift(forecastMs[mi], -dF))
-        for (const bv of Object.values(bd)) {
+        for (const [acc, bv] of Object.entries(bd)) {
           const b=(bv as any).b??[]; const t=(bv as any).t
-          if (t==='p') enc+=b[fiC]||0
-          if (t==='c') dec+=b[fiF]||0
+          // Budget stocké en HT → converti en TTC (cash réel) selon le taux TVA de la catégorie.
+          // Si société non assujettie / pas de taux → rate=0 → ttc=ht (comportement historique).
+          const mult = 1 + vatRateForAccount(acc, vat) / 100
+          if (t==='p') enc+=(b[fiC]||0)*mult
+          if (t==='c') dec+=(b[fiF]||0)*mult
         }
         dec+=p.remb
       }
@@ -275,37 +200,42 @@ export function Tresorerie() {
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
-  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
 
   // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
   const forecastDetail = useMemo(() => {
-    const enc: Record<string, { label:string; vals:number[] }> = {}
-    const dec: Record<string, { label:string; vals:number[] }> = {}
+    // `factures` = écritures prévues issues des saisies (échéances/paiements), avec lien facture
+    // (invoice_url). Affichées au clic sur une ligne du détail prévisionnel.
+    const enc: Record<string, { label:string; vals:number[]; factures:any[] }> = {}
+    const dec: Record<string, { label:string; vals:number[]; factures:any[] }> = {}
     const realisedMonthsSet = new Set(months)
     for (let mi = 0; mi < forecastMs.length; mi++) {
       const m = forecastMs[mi]
       for (const co of selCo) {
         const bd = (budData as any)[co] ?? {}, p = getP(co)
+        const vat = vatSettings[co]
         const dC = Math.max(0, Math.round(p.delaiClient/30))
         const dF = Math.max(0, Math.round(p.delaiFourn/30))
         const fiC = fiscalIndex(monthShift(forecastMs[mi], -dC))
         const fiF = fiscalIndex(monthShift(forecastMs[mi], -dF))
         for (const [acc, bv] of Object.entries(bd)) {
           const b = (bv as any).b ?? [], t = (bv as any).t, l = (bv as any).l || acc
+          // Budget HT → TTC (cash) selon le taux TVA de la catégorie (0 si non assujetti).
+          const mult = 1 + vatRateForAccount(acc, vat) / 100
           if (t === 'p') {
-            const v = Math.round(b[fiC] || 0)
-            if (!enc[acc]) enc[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            const v = Math.round((b[fiC] || 0) * mult)
+            if (!enc[acc]) enc[acc] = { label: l, vals: Array(forecastMs.length).fill(0), factures: [] }
             enc[acc].vals[mi] += v
           }
           if (t === 'c') {
-            const v = Math.round(b[fiF] || 0)
-            if (!dec[acc]) dec[acc] = { label: l, vals: Array(forecastMs.length).fill(0) }
+            const v = Math.round((b[fiF] || 0) * mult)
+            if (!dec[acc]) dec[acc] = { label: l, vals: Array(forecastMs.length).fill(0), factures: [] }
             dec[acc].vals[mi] += v
           }
         }
         if (p.remb > 0) {
           const k = `__remb_${co}`
-          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW?.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0) }
+          if (!dec[k]) dec[k] = { label: `Remboursement — ${RAW?.companies[co]?.name||co}`, vals: Array(forecastMs.length).fill(0), factures: [] }
           dec[k].vals[mi] += Math.round(p.remb)
         }
       }
@@ -320,6 +250,18 @@ export function Tresorerie() {
           if (ttc === 0) continue
           const key = me.account_num || '658'
           const label = me.subcategory || key
+          const isVente = me.category === 'Vente'
+          // Écriture d'échéance pour le modal : [date(AAAA-MM-JJ, triable), libellé, débit, crédit, réf, isOD, tag, invoice_url]
+          const invNum = (me as any).invoice_number
+          const factureRow = (d: string, amt: number) => [
+            d,
+            `${me.label || me.counterpart || label}${invNum ? ` · Fact. ${invNum}` : ''}${me.echeancier_data ? ' (échéance)' : ''}`,
+            isVente ? 0 : amt,           // décaissement → débit
+            isVente ? amt : 0,           // encaissement → crédit
+            me.counterpart || '',        // réf = contrepartie (conservée)
+            0, '',
+            (me as any).invoice_url || '',
+          ]
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
             const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
@@ -328,21 +270,23 @@ export function Tresorerie() {
               const d = echDates[idx]
               if (d.startsWith(m)) {
                 const part = echAmounts?.[idx] ?? equalPart
-                const bucket = me.category === 'Vente' ? enc : dec
-                if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+                const bucket = isVente ? enc : dec
+                if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
                 bucket[key].vals[mi] += part
+                bucket[key].factures.push(factureRow(d, Math.round(part)))
               }
             }
           } else if (me.payment_date?.startsWith(m)) {
-            const bucket = me.category === 'Vente' ? enc : dec
-            if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0) }
+            const bucket = isVente ? enc : dec
+            if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
             bucket[key].vals[mi] += ttc
+            bucket[key].factures.push(factureRow(me.payment_date, Math.round(ttc)))
           }
         }
       }
     }
     return { enc, dec }
-  }, [selCo.join(','), budData, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
 
   // ── Vue journalière ────────────────────────────────────────────────────
   const dayForecast = useMemo(() => {
@@ -409,7 +353,9 @@ export function Tresorerie() {
         </tr>
         {isOpen && accList.sort(([,a],[,b])=>b.vals.reduce((s:number,v:number)=>s+v,0)-a.vals.reduce((s:number,v:number)=>s+v,0)).map(([acc,a])=>{
           const tot=a.vals.reduce((s:number,v:number)=>s+v,0)
-          const ents=mergeEntries(RAW!,selCo,'pn',acc)
+          // Détail = les mouvements de trésorerie (cash réel) rattachés à ce compte/facture.
+          // Fallback mergeEntries (pn) pour les sociétés sans FEC dont le réalisé vient des saisies.
+          const ents=(a.moves && a.moves.length) ? a.moves : mergeEntries(RAW!,selCo,'pn',acc)
           return (
             <tr key={acc} onClick={()=>setModal({title:`${acc} — ${a.label}`,entries:ents,cumN:tot,cumN1:0})}
               style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:'pointer'}}>
@@ -556,15 +502,17 @@ export function Tresorerie() {
                       )}
                       {isOpen&&detail.map(([acc,a])=>{
                         const dTot=a.vals.reduce((s:number,v:number)=>s+v,0)
-                        const ents=!acc.startsWith('__')?mergeEntries(RAW!,selCo,'pn',acc):[]
+                        // Détail prévisionnel = les factures saisies (échéances/paiements prévus)
+                        // avec leur lien facture, pas les écritures P&L passées.
+                        const ents=(a as any).factures ?? []
                         return (
                           <tr key={acc}
-                            onClick={ents.length>0?()=>setModal({title:`${acc} — ${a.label}`,entries:ents,cumN:dTot,cumN1:0}):undefined}
+                            onClick={ents.length>0?()=>setModal({title:`${a.label} — échéances prévues`,entries:ents,cumN:dTot,cumN1:0}):undefined}
                             style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:ents.length>0?'pointer':'default'}}>
                             <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>
                               {!acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{acc}</span>}
                               {a.label}
-                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--text-3)',background:'rgba(255,255,255,0.06)',padding:'1px 5px',borderRadius:10}}>{ents.length} éc.</span>}
+                              {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--blue)',background:'rgba(59,130,246,0.12)',padding:'1px 5px',borderRadius:10}}>{ents.length} échéance{ents.length>1?'s':''}</span>}
                             </td>
                             {a.vals.map((v:number,i:number)=>(
                               <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
@@ -649,23 +597,15 @@ export function Tresorerie() {
                 </thead>
                 <tbody>
                   <Sec label="📥 Encaissements" color="var(--green)" onToggle={()=>setSecOpen(s=>({...s,enc:!s.enc}))} isOpen={secOpen.enc}/>
-                  {secOpen.enc&&ENC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.eB[c.label]} color="#34d399" accMap={treso.eA[c.label]} k={`e_${c.label}`}/>)}
-                  {secOpen.enc&&treso.eM.some((v:number)=>v>0)&&(
-                    <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-                      <td style={{padding:'8px 12px 8px 24px',color:'var(--purple)',fontSize:11,fontStyle:'italic',position:'sticky',left:0,background:'var(--bg-0)',zIndex:2}}>Saisies manuelles</td>
-                      {treso.eM.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontSize:11,color:v===0?'var(--text-3)':'var(--purple)'}}>{v!==0?fmt(v):'—'}</td>)}
-                      <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontSize:11,fontWeight:600,color:'var(--purple)'}}>{fmt(treso.eM.reduce((s:number,v:number)=>s+v,0))}</td>
-                    </tr>
+                  {secOpen.enc&&treso.encCats.map(cat=><Cat key={cat} label={cat} vals={treso.eB[cat]} color="#34d399" accMap={treso.eA[cat]} k={`e_${cat}`}/>)}
+                  {secOpen.enc&&treso.encCats.length===0&&(
+                    <tr><td colSpan={99} style={{padding:'10px 24px',color:'var(--text-3)',fontSize:11,fontStyle:'italic'}}>Aucun encaissement sur la période.</td></tr>
                   )}
                   <Tot label="TOTAL ENCAISSEMENTS" vals={treso.tE} color="var(--green)" top/>
                   <Sec label="📤 Décaissements" color="var(--red)" onToggle={()=>setSecOpen(s=>({...s,dec:!s.dec}))} isOpen={secOpen.dec}/>
-                  {secOpen.dec&&DEC_CATS.map(c=><Cat key={c.label} label={c.label} vals={treso.dB[c.label]} color="#fca5a5" accMap={treso.dA[c.label]} k={`d_${c.label}`}/>)}
-                  {secOpen.dec&&treso.dM.some((v:number)=>v>0)&&(
-                    <tr style={{borderBottom:'1px solid rgba(255,255,255,0.04)'}}>
-                      <td style={{padding:'8px 12px 8px 24px',color:'var(--purple)',fontSize:11,fontStyle:'italic',position:'sticky',left:0,background:'var(--bg-0)',zIndex:2}}>Saisies manuelles</td>
-                      {treso.dM.map((v:number,i:number)=><td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontSize:11,color:v===0?'var(--text-3)':'var(--purple)'}}>{v!==0?fmt(v):'—'}</td>)}
-                      <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontSize:11,fontWeight:600,color:'var(--purple)'}}>{fmt(treso.dM.reduce((s:number,v:number)=>s+v,0))}</td>
-                    </tr>
+                  {secOpen.dec&&treso.decCats.map(cat=><Cat key={cat} label={cat} vals={treso.dB[cat]} color="#fca5a5" accMap={treso.dA[cat]} k={`d_${cat}`}/>)}
+                  {secOpen.dec&&treso.decCats.length===0&&(
+                    <tr><td colSpan={99} style={{padding:'10px 24px',color:'var(--text-3)',fontSize:11,fontStyle:'italic'}}>Aucun décaissement sur la période.</td></tr>
                   )}
                   <Tot label="TOTAL DÉCAISSEMENTS" vals={treso.tD} color="var(--red)" top/>
                   <Sec label="💰 Flux de trésorerie" color="var(--blue)"/>

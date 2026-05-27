@@ -18,6 +18,60 @@ export function monthLabel(m: string): string {
 
 export const fiscalIndex = (m: string): number => parseInt(m.split('-')[1]) - 1
 
+// ── Exercice fiscal (non forcément calendaire) ──────────────────────────────
+// startMonth : mois de début d'exercice, 1..12 (1 = janvier = année civile).
+
+/**
+ * Position d'un mois dans l'exercice fiscal, 0..11.
+ * startMonth=1  → janvier=0 … décembre=11 (identique à fiscalIndex).
+ * startMonth=10 → octobre=0, novembre=1, … septembre=11.
+ */
+export const fiscalMonthIndex = (m: string, startMonth = 1): number => {
+  const mo = parseInt(m.split('-')[1])      // 1..12
+  return (mo - startMonth + 12) % 12
+}
+
+/**
+ * Exercice fiscal auquel appartient un mois. Convention : libellé = année de CLÔTURE.
+ * startMonth=1  → exercice = année civile (clôture = l'année elle-même).
+ * startMonth=10 → oct 2025..sep 2026 = exercice "2026".
+ */
+export const fiscalYearOf = (m: string, startMonth = 1): number => {
+  const [y, mo] = m.split('-').map(Number)
+  if (startMonth === 1) return y
+  return mo >= startMonth ? y + 1 : y
+}
+
+/** Exercice fiscal courant (basé sur la date du jour par défaut). */
+export const currentFiscalYear = (startMonth = 1, today: Date = new Date()): number => {
+  const m = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
+  return fiscalYearOf(m, startMonth)
+}
+
+/** Les 12 mois (YYYY-MM) de l'exercice fiscal `cfy` qui commence au mois `startMonth`. */
+export const fiscalExerciseMonths = (startMonth: number, cfy: number): string[] => {
+  const startYear = startMonth === 1 ? cfy : cfy - 1
+  const out: string[] = []
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(startYear, (startMonth - 1) + i, 1)
+    out.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+  }
+  return out
+}
+
+/**
+ * Mois sélectionnables dans le filtre de période : mois avec données (mn/m1/m2) +
+ * l'exercice N COMPLET de chaque société (pour pouvoir projeter les mois à venir au budget).
+ */
+export const allSelectableMonths = (RAW: RAWData | null, fiscalSettings: Record<string, number> = {}): string[] => {
+  const set = new Set<string>([...(RAW?.mn ?? []), ...(RAW?.m1 ?? []), ...(RAW?.m2 ?? [])])
+  for (const co of (RAW?.keys ?? [])) {
+    const sm = fiscalSettings[co] ?? 1
+    for (const m of fiscalExerciseMonths(sm, currentFiscalYear(sm))) set.add(m)
+  }
+  return [...set].sort()
+}
+
 export const monthIdx = (m: string): number => {
   const [y, mo] = m.split('-')
   return parseInt(y) * 12 + parseInt(mo)
@@ -53,7 +107,16 @@ export function mergeLabel(RAW: RAWData, keys: string[], field: 'pn' | 'p1' | 'p
 export const sumArr = (arr: number[]): number => arr.reduce((s, v) => s + v, 0)
 export const solde  = (adj: [number, number][], isCharge: boolean): number[] => adj.map(([d, c]) => isCharge ? d - c : c - d)
 
-export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, acc: string, _excludeOD: boolean): [number, number][] {
+// ── OD de clôture (opérations d'inventaire) ─────────────────────────────────
+// Comptes générés UNIQUEMENT en fin d'exercice (variation de stocks, dotations,
+// reprises, provisions congés payés, transferts de charges). Tant que N est en
+// cours, ils existent dans N-1 (clos) mais pas dans N → fausse la comparaison.
+// Le toggle « Hors OD » les neutralise des DEUX côtés (N et N-1).
+export const OD_ACCOUNT_PREFIXES = ['603', '713', '681', '686', '687', '781', '787', '6412', '64582', '791']
+export const isODAccount = (acc: string): boolean =>
+  OD_ACCOUNT_PREFIXES.some(p => acc.startsWith(p))
+
+export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, acc: string, excludeOD: boolean): [number, number][] {
   return selectedMs.map((m, i) => {
     const field: 'pn' | 'p1' | 'p2' = msSrc[i] === 'p2' ? 'p2' : msSrc[i] === 'p1' ? 'p1' : 'pn'
     let d = 0, c = 0
@@ -64,10 +127,10 @@ export function getAdjMixed(RAW: RAWData, keys: string[], selectedMs: string[], 
       // and all sub-accounts. This ensures manual entries at 6262 are found even when FEC
       // also has a summary entry at 626.
       for (const k of Object.keys(src)) {
-        if (k.startsWith(acc)) {
-          const v = src[k]?.mo?.[m]
-          if (v) { d += v[0]; c += v[1] }
-        }
+        if (!k.startsWith(acc)) continue
+        if (excludeOD && isODAccount(k)) continue   // « Hors OD » : ignorer les comptes d'inventaire
+        const v = src[k]?.mo?.[m]
+        if (v) { d += v[0]; c += v[1] }
       }
     }
     return [d, c]
@@ -81,13 +144,14 @@ export function getBudget(selCo: string[], budData: Record<string, BudgetData>, 
 // Variante par préfixes : utilisée pour totaliser le budget d'une catégorie/section
 // (ex: accs=['628'] doit inclure le budget '628', '6280000000', '6280001' ajouté manuellement…)
 // Pas d'usage pour le rendu d'une sous-ligne précise — qui doit rester en lookup exact.
-export function getBudgetByPrefixes(selCo: string[], budData: Record<string, BudgetData>, prefixes: string[], fiscalIndices: number[]): number[] {
+export function getBudgetByPrefixes(selCo: string[], budData: Record<string, BudgetData>, prefixes: string[], fiscalIndices: number[], excludeOD = false): number[] {
   return fiscalIndices.map(fi => {
     let s = 0
     for (const co of selCo) {
       const bd = budData[co] ?? {}
       for (const [acc, bv] of Object.entries(bd)) {
         if (!prefixes.some(p => acc.startsWith(p))) continue
+        if (excludeOD && isODAccount(acc)) continue   // « Hors OD » : cohérent avec le réel
         s += (bv as any)?.b?.[fi] ?? 0
       }
     }
@@ -101,7 +165,12 @@ export function getCoColor(key: string): string {
   let h = 0; for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) & 0xffff; return CO_PALETTE[h % CO_PALETTE.length]
 }
 
-export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: string; data: BudgetData; status: string }[], manualEntries: ManualEntry[] = []): RAWData {
+export function buildRAW(
+  companyData: CompanyDataRow[],
+  budgets: { company_key: string; data: BudgetData; status: string }[],
+  manualEntries: ManualEntry[] = [],
+  fiscalSettings: Record<string, number> = {},
+): RAWData {
   const companies: Record<string, CompanyRaw> = {}
   const allMsN = new Set<string>(), allMsN1 = new Set<string>(), allMsN2 = new Set<string>()
   const allKeys = [...new Set(companyData.map(r => r.company_key).filter(Boolean))]
@@ -110,58 +179,67 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
     const rows = companyData.filter(r => r.company_key === co)
     const budget = budgets.find(b => b.company_key === co)
     const coName = (rows.find(r => (r as any).company_name) as any)?.company_name || co.replace(/_/g, ' ')
-    companies[co] = { name: coName, pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: budget?.data ?? {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }
+    companies[co] = { name: coName, pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: budget?.data ?? {}, cdN: {}, cdN1: {}, veN: [], veN1: [], cashN: [], cash1: [], cash2: [] }
+
+    // Exercice fiscal de CETTE société. startMonth=1 ⇒ année civile (rétro-compat).
+    const startMonth = fiscalSettings[co] ?? 1
+    const cfy = currentFiscalYear(startMonth)
+    // Champ pn/p1/p2 selon l'exercice fiscal d'un mois donné.
+    const fieldForMonth = (m: string): 'pn' | 'p1' | 'p2' => {
+      const fy = fiscalYearOf(m, startMonth)
+      return fy >= cfy ? 'pn' : fy === cfy - 1 ? 'p1' : 'p2'
+    }
+    const setForField = (f: 'pn' | 'p1' | 'p2') => f === 'pn' ? allMsN : f === 'p1' ? allMsN1 : allMsN2
+
     for (const row of rows) {
-      const plField = row.period === 'N' ? 'pn' : row.period === 'N-1' ? 'p1' : 'p2'
-      const bField  = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
-      const msSet   = row.period === 'N' ? allMsN : row.period === 'N-1' ? allMsN1 : allMsN2
-      const cy      = new Date().getFullYear()
+      const bField = row.period === 'N' ? 'bn' : row.period === 'N-1' ? 'b1' : 'b2'
+      // P&L (mois-indexé) : classer CHAQUE mois par exercice fiscal de la société.
+      // Indépendant du tag row.period (qui était calendaire et faux pour un exercice à cheval).
       for (const [acc, acct] of Object.entries(row.pl_data ?? {})) {
-        if (row.period === 'N') {
-          // FEC multi-années tagué N : reclasser chaque mois par année calendaire.
-          // Ex : FEC Jan 2025–Mai 2026 → mois 2025 vont en p1/allMsN1, mois 2026 en pn/allMsN.
-          const src = acct as any
-          for (const [m, v] of Object.entries(src.mo ?? {} as Record<string, unknown>)) {
-            const yr = parseInt(m.slice(0, 4))
-            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
-            const ms = yr >= cy ? allMsN : yr === cy - 1 ? allMsN1 : allMsN2
-            ms.add(m)
-            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
-            ;(companies[co][f][acc] as any).mo[m] = v
-          }
-          for (const e of (src.e ?? [])) {
-            const yr = parseInt((e[0] as string || '').slice(0, 4)) || cy
-            const f: 'pn' | 'p1' | 'p2' = yr >= cy ? 'pn' : yr === cy - 1 ? 'p1' : 'p2'
-            if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
-            ;(companies[co][f][acc] as any).e.push(e)
-          }
-        } else {
-          companies[co][plField][acc] = acct as any
-          for (const m of Object.keys((acct as any).mo ?? {})) msSet.add(m)
+        const src = acct as any
+        for (const [m, v] of Object.entries(src.mo ?? {} as Record<string, unknown>)) {
+          const f = fieldForMonth(m)
+          setForField(f).add(m)
+          if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+          ;(companies[co][f][acc] as any).mo[m] = v
+        }
+        for (const e of (src.e ?? [])) {
+          const em = (e[0] as string || '').slice(0, 7)
+          const f = em ? fieldForMonth(em) : 'pn'
+          if (!companies[co][f][acc]) companies[co][f][acc] = { mo: {}, l: src.l || acc, e: [] }
+          ;(companies[co][f][acc] as any).e.push(e)
         }
       }
+      // Bilan & données clients : snapshots de fin d'exercice → on garde le tag row.period.
       for (const [acc, acct] of Object.entries(row.bilan_data ?? {})) companies[co][bField][acc] = acct as any
       if (row.period === 'N') { companies[co].cdN = row.client_data ?? {}; companies[co].veN = row.ve_entries ?? [] }
       else if (row.period === 'N-1') { companies[co].cdN1 = row.client_data ?? {}; companies[co].veN1 = row.ve_entries ?? [] }
+
+      // Mouvements de trésorerie : classés par exercice fiscal de la date du mouvement
+      // (cohérent avec le P&L ci-dessus). Indépendant du tag row.period.
+      // (cashN/cash1/cash2 sont initialisés à [] à la création de companies[co] → non-null sûr.)
+      for (const cm of ((row as any).cash_moves ?? []) as any[]) {
+        const em = (cm.date as string || '').slice(0, 7)
+        const f = em ? fieldForMonth(em) : 'pn'
+        const target = f === 'pn' ? companies[co].cashN! : f === 'p1' ? companies[co].cash1! : companies[co].cash2!
+        target.push(cm)
+        if (em) setForField(f).add(em)
+      }
     }
   }
 
   for (const me of manualEntries) {
     if (me.source === 'echeance') continue          // entrées-enfants : ignorées du P&L (gérées dans trésorerie)
     const mco = me.company_key; if (!mco) continue
-    if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [] }; allKeys.push(mco) }
+    if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [], cashN: [], cash1: [], cash2: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue
     const mMonth = mDate.slice(0, 7)
-    // Classifier par appartenance exacte aux mois FEC. Priorité : N > N-1 > N-2.
-    // (Range-based check classait à tort les écritures courantes en N-1 quand le FEC N-1
-    //  couvrait plusieurs années.)
-    const inN  = allMsN.has(mMonth)
-    const inN1 = allMsN1.has(mMonth)
-    const inN2 = allMsN2.has(mMonth)
+    // Classer la saisie par l'exercice fiscal de sa société (cohérent avec le P&L ci-dessus).
+    const meStartMonth = fiscalSettings[mco] ?? 1
+    const meCfy = currentFiscalYear(meStartMonth)
+    const meFy  = fiscalYearOf(mMonth, meStartMonth)
     const plField: 'pn' | 'p1' | 'p2' =
-      inN ? 'pn' :
-      inN1 ? 'p1' :
-      inN2 ? 'p2' : 'pn'
+      meFy >= meCfy ? 'pn' : meFy === meCfy - 1 ? 'p1' : 'p2'
     if (plField === 'p2') allMsN2.add(mMonth)
     else if (plField === 'p1') allMsN1.add(mMonth)
     else allMsN.add(mMonth)
@@ -179,6 +257,15 @@ export function buildRAW(companyData: CompanyDataRow[], budgets: { company_key: 
 
 export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[], msSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, allMsN1Same: string[], allMsN1SameSrc: Array<'pn' | 'p1' | 'p2' | 'bud'>, budData: Record<string, BudgetData>, struct: SigRow[], excludeOD: boolean): PlData {
   const result: PlData = {}
+
+  // Le budget b[12] est indexé par mois calendaire (fiscalIndex : jan=0…déc=11). On ne somme
+  // que les mois budgétaires correspondant à la période sélectionnée. Quand la période est
+  // étendue à des mois sans écriture (atterrissage), le budget de ces mois apparaît donc dans
+  // la COLONNE BUDGET (budTotal), tandis que le réel reste à 0 sur ces mois.
+  const selBudIdx = new Set(selectedMs.map(m => fiscalIndex(m)))
+  const sumBudInPeriod = (budMonths: number[]) =>
+    budMonths.reduce((s, v, i) => selBudIdx.has(i) ? s + v : s, 0)
+
   for (const row of struct) {
     if (row.sep || row.header || !row.accs) continue
     const allAccs = row.accs ?? []
@@ -187,17 +274,20 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
     )
     let cumulN = 0, cumulN1S = 0
     const monthsN = new Array(selectedMs.length).fill(0), monthsN1 = new Array(allMsN1Same.length).fill(0), budMonths = new Array(12).fill(0)
-    const budSignRow = row.type === 'charge' ? 1 : -1
+    // Budget stocké en valeur absolue (positive). Le réel (solde) est lui aussi affiché en
+    // magnitude positive pour produits comme charges → le budget doit l'être aussi (sinon les
+    // produits apparaissaient en négatif). Les formules de marge/résultat appliquent les signes
+    // via add() en aval, exactement comme pour le réel.
     // Budget : agrégation par préfixes (inclut les sous-comptes FEC ET les comptes manuels
     // ajoutés depuis la page Budget — ex: accs=['628'] inclut '628', '6280000000', '6280001'…)
-    getBudgetByPrefixes(selCo, budData, accs, Array.from({ length: 12 }, (_, i) => i))
-      .forEach((v, i) => { budMonths[i] += v * budSignRow })
+    getBudgetByPrefixes(selCo, budData, accs, Array.from({ length: 12 }, (_, i) => i), excludeOD)
+      .forEach((v, i) => { budMonths[i] += v })
     for (const acc of accs) {
       const sN = solde(getAdjMixed(RAW, selCo, selectedMs, msSrc, acc, excludeOD), row.type === 'charge')
       sN.forEach((v, i) => { monthsN[i] += v }); cumulN += sumArr(sN)
       cumulN1S += sumArr(solde(getAdjMixed(RAW, selCo, allMsN1Same, allMsN1SameSrc, acc, excludeOD), row.type === 'charge'))
     }
-    result[row.id] = { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: Math.round(budMonths.reduce((s, v) => s + v, 0)), accs: allAccs } as PlCalcRow
+    result[row.id] = { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal: Math.round(sumBudInPeriod(budMonths)), accs: allAccs } as PlCalcRow
   }
 
   // Helper: combine existing result rows with signs into a new summary row
@@ -232,6 +322,7 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           const src = (RAW.companies[co] as any)?.[f]
           if (!src) continue
           for (const k of Object.keys(src)) {
+            if (excludeOD && isODAccount(k)) continue   // « Hors OD » : exclure les comptes d'inventaire du total
             if (prefixes.some(p => k.startsWith(p))) allAccKeys.add(k)
           }
         }
@@ -251,17 +342,19 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
           }
         }
       }
-      // Budget : agrégation par préfixes (parallèle au cumul réel ci-dessus)
-      const budSign = type === 'charge' ? 1 : -1
+      // Budget : agrégation par préfixes (parallèle au cumul réel ci-dessus).
+      // Stocké en valeur absolue positive → ajouté tel quel (produits comme charges),
+      // pour rester cohérent avec le réel affiché en magnitude positive.
       for (const co of selCo) {
         const bd = budData[co] ?? {}
         for (const [acc, bv] of Object.entries(bd)) {
           if (!prefixes.some(p => acc.startsWith(p))) continue
+          if (excludeOD && isODAccount(acc)) continue   // « Hors OD » : exclure aussi du budget
           const b = (bv as any)?.b ?? []
-          for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0) * budSign
+          for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0)
         }
       }
-      const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
+      const budTotal = Math.round(sumBudInPeriod(budMonths))
       return { cumulN: Math.round(cumulN), cumulN1S: Math.round(cumulN1S), cumulN1F: 0, monthsN, monthsN1, budMonths, budTotal, accs: [] } as PlCalcRow
     }
     result['tot_ventes'] = sumByPrefixes(['7'], 'produit')

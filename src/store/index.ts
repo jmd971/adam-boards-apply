@@ -26,12 +26,18 @@ interface DataState {
   budData: Record<string, Record<string, { b: number[]; t: string; l: string }>>
   budStatus: Record<string, string>
   budVersions: BudgetVersionItem[]
+  /** Mois de début d'exercice fiscal par société (company_key → 1..12, défaut 1). */
+  fiscalSettings: Record<string, number>
+  /** TVA par société : assujettissement + taux par catégorie (défaut désactivé). */
+  vatSettings: Record<string, { enabled: boolean; rates: Record<string, number> }>
   dataLoading: boolean
   setRAW: (raw: RAWData | null) => void
   setManualEntries: (entries: ManualEntry[]) => void
   setBudData: (data: DataState['budData']) => void
   setBudStatus: (status: Record<string, string>) => void
   setBudVersions: (v: BudgetVersionItem[]) => void
+  setFiscalSettings: (s: Record<string, number>) => void
+  setVatSettings: (s: Record<string, { enabled: boolean; rates: Record<string, number> }>) => void
   setDataLoading: (loading: boolean) => void
 }
 
@@ -63,7 +69,7 @@ export const useAppStore = create<AppStore>()(
       setTenant: (tenantId, tenantName) => set({ tenantId, tenantName }),
       switchTenant: (tenantId, tenantName, role) => set({
         tenantId, tenantName, role,
-        RAW: null, manualEntries: [], budData: {}, budStatus: {}, budVersions: [],
+        RAW: null, manualEntries: [], budData: {}, budStatus: {}, budVersions: [], fiscalSettings: {}, vatSettings: {},
         dataLoading: tenantId !== null,
       }),
 
@@ -73,12 +79,16 @@ export const useAppStore = create<AppStore>()(
       budData: {},
       budStatus: {},
       budVersions: [],
+      fiscalSettings: {},
+      vatSettings: {},
       dataLoading: true,
       setRAW:          (RAW)           => set({ RAW }),
       setManualEntries:(manualEntries) => set({ manualEntries }),
       setBudData:      (budData)       => set({ budData }),
       setBudStatus:    (budStatus)     => set({ budStatus }),
       setBudVersions:  (budVersions)   => set({ budVersions }),
+      setFiscalSettings: (fiscalSettings) => set({ fiscalSettings }),
+      setVatSettings:  (vatSettings)   => set({ vatSettings }),
       setDataLoading:  (dataLoading)   => set({ dataLoading }),
 
       // UI

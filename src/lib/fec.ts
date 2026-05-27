@@ -1,4 +1,5 @@
-import type { FecAccount, BilanAccount, ClientInfo, VeEntry } from '@/types'
+import type { FecAccount, BilanAccount, ClientInfo, VeEntry, CashMove } from '@/types'
+import { isTreasuryAccount, cashCategoryOf } from '@/lib/tresoCats'
 
 // ─── Types internes ────────────────────────────────────────────────────────
 
@@ -15,11 +16,42 @@ export interface ParsedFEC {
   entryCount: number
   clientData: Record<string, ClientInfo>
   veEntries: VeEntry[]
+  cashMoves: CashMove[]
   warnings: ParseWarning[]
   skippedLines: number
 }
 
+// Ligne brute collectée pour reconstruire les mouvements de trésorerie (regroupement
+// par journal+pièce). Indépendant du parsing P&L/bilan existant (non invasif).
+interface RawLine {
+  journal: string
+  piece: string
+  acc: string
+  debit: number
+  credit: number
+  date: string      // YYYY-MM-DD
+  lettrage: string
+  label: string
+}
+
 // ─── Utilitaires ──────────────────────────────────────────────────────────
+
+/**
+ * Lit un fichier (ou Blob) en détectant son encodage.
+ * Les exports comptables EBP / Sage / Ciel sont souvent en Windows-1252 (Latin-1) :
+ * `file.text()` les décode en UTF-8 et corrompt les accents (Débit → "D�bit"),
+ * ce qui casse la détection des colonnes. On tente UTF-8 strict d'abord,
+ * puis on retombe sur Windows-1252 si le contenu n'est pas de l'UTF-8 valide.
+ */
+export async function readFileText(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer()
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    // UTF-8 invalide → fichier Latin-1 / Windows-1252 (typique EBP)
+    return new TextDecoder('windows-1252').decode(buffer)
+  }
+}
 
 function parseNum(s: string): number {
   if (!s) return 0
@@ -45,7 +77,7 @@ function parseMonth(raw: string): string {
 
 function isValidAccount(acc: string): boolean {
   if (!acc || acc.length < 1 || acc.length > 12) return false
-  return /^[1-9]\d*$/.test(acc)
+  return /^[1-9][0-9A-Za-z]*$/.test(acc)
 }
 
 function isValidMonth(m: string): boolean {
@@ -86,17 +118,30 @@ export function parseFEC(text: string): ParsedFEC | null {
   lastFecHeaders = headers
   const warnings: ParseWarning[] = []
 
+  // Normalisation robuste d'un en-tête : accents + artefacts d'encodage EBP/Windows-1252
+  const normHeader = (s: string): string =>
+    s.toLowerCase()
+      .replace(/[éèêë]/g, 'e')  // ë : EBP encode "È" → U+00CB (PiËce, DÈbit…)
+      .replace(/[àâä]/g, 'a')
+      .replace(/[ùûü]/g, 'u')
+      .replace(/[îï]/g, 'i')
+      .replace(/[ôö]/g, 'o')
+      .replace(/[ç]/g, 'c')
+      .replace(/[∞°]/g, 'o')    // EBP : "N∞ de compte" = "N° de compte" (artefact encodage)
+      .replace(/[^\w\s]/g, ' ') // supprimer tout caractère spécial restant
+      .replace(/\s+/g, ' ').trim()
+
   // Recherche d'en-têtes avec variantes étendues
   const find = (patterns: string[]): number => {
     for (let i = 0; i < headers.length; i++) {
-      const h = headers[i].toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a').replace(/[ùû]/g, 'u')
-      if (patterns.some(p => h.includes(p.toLowerCase()))) return i
+      const h = normHeader(headers[i])
+      if (patterns.some(p => h.includes(normHeader(p)))) return i
     }
     return -1
   }
 
   const ci = {
-    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte', 'n° de compte', 'no de compte', 'numero de compte', 'numero compte', 'n de compte', 'codegl', 'gl code', 'no compte', 'accountnumber', 'account number']),
+    acc:           find(['comptenum', 'compte num', 'numcompte', 'num compte', 'n° compte', 'n° de compte', 'no de compte', 'n de compte', 'de compte', 'numero de compte', 'numero compte', 'codegl', 'gl code', 'no compte', 'accountnumber', 'account number']),
     label:         find(['comptelib', 'libelle compte', 'intitule compte', 'intitule du compte', 'nom compte', 'libellecompte', 'compte lib', 'accountlabel']),
     date:          find(['ecrituredate', 'date ecriture', 'date d\'ecriture', 'date comptable', 'datecomptable', 'date_ecriture', 'datepiece', 'date piece', 'date']),
     debit:         find(['debit', 'montant debit', 'montantdebit', 'debiteur', 'debit eur', 'mouvdebit', 'mouv debit', 'debit €']),
@@ -209,6 +254,7 @@ export function parseFEC(text: string): ParsedFEC | null {
   const months = new Set<string>()
   const clientData: Record<string, ClientInfo> = {}
   const veEntries: VeEntry[] = []
+  const rawLines: RawLine[] = []   // collecte pour la reconstruction des mouvements de trésorerie
   let entryCount = 0
   let skippedLines = 0
 
@@ -321,8 +367,43 @@ export function parseFEC(text: string): ParsedFEC | null {
   }
 
   if (entryCount === 0) {
-    warnings.push({ type: 'format', message: 'Aucune écriture de classe 6/7 trouvée. Le fichier ne contient pas de données P&L.' })
+    // Aide au diagnostic : lister les premières valeurs lues dans la colonne compte
+    const sampleAccs = lines.slice(1, 6).map(l =>
+      l.split(sep)[ci.acc]?.trim().replace(/"/g, '') ?? ''
+    ).filter(Boolean).join(', ')
+    lastFecError = `Aucune écriture de classe 6 ou 7 trouvée — le fichier ne contient pas de données P&L.`
+      + (sampleAccs ? ` Comptes lus (col.${ci.acc + 1}) : ${sampleAccs}.` : '')
+      + ` Vérifiez que le fichier exporte bien toutes les classes de comptes (pas seulement les À-Nouveaux).`
     return null
+  }
+
+  // ── Collecte des lignes pour la trésorerie (cash) ──────────────────────────
+  // Passe dédiée, INDÉPENDANTE du parsing P&L/bilan : validation RELÂCHÉE du compte.
+  // isValidAccount (strict : que des chiffres) rejette les comptes auxiliaires des exports
+  // EBP/Sage (ex "411DIVERS", "401EDF") — or ce sont justement les contreparties clients/
+  // fournisseurs des écritures bancaires. Sans elles, les remises clients sont perdues et
+  // les mouvements tombent en « Autres opérations ». Ici on accepte le 1er chiffre 1-9 + suffixe.
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map(c => c.trim().replace(/"/g, ''))
+    if (cols.length < 3) continue
+    const acc = cols[ci.acc]?.trim()
+    if (!acc || !/^[1-9]/.test(acc)) continue
+    const dateCol = ci.date >= 0 ? ci.date : 2
+    const d = parseDate(cols[dateCol] || '')
+    if (!d) continue
+    const debit = parseNum(cols[ci.debit])
+    const credit = parseNum(cols[ci.credit])
+    if (debit < 0 || credit < 0) continue
+    if (debit === 0 && credit === 0) continue
+    rawLines.push({
+      journal:  ci.journal >= 0 ? (cols[ci.journal] || '') : '',
+      piece:    ci.piece >= 0 ? (cols[ci.piece] || '') : '',
+      acc,
+      debit, credit,
+      date:     d,
+      lettrage: ci.lettrage >= 0 ? (cols[ci.lettrage] || '') : '',
+      label:    ci.ecLib >= 0 ? (cols[ci.ecLib] || '') : (ci.label >= 0 ? (cols[ci.label] || acc) : acc),
+    })
   }
 
   // Warnings de synthèse
@@ -341,9 +422,74 @@ export function parseFEC(text: string): ParsedFEC | null {
     entryCount,
     clientData,
     veEntries,
+    cashMoves: buildCashMoves(rawLines),
     warnings,
     skippedLines,
   }
+}
+
+/**
+ * Reconstruit les mouvements de trésorerie réels (cash, TTC) depuis les lignes brutes.
+ * - Regroupe par (journal, pièce) ; ignore le journal "À-Nouveaux" (soldes d'ouverture).
+ * - Une écriture 100% trésorerie = virement interne → ignorée.
+ * - Sinon, chaque ligne de trésorerie = un mouvement ; la contrepartie donne la catégorie.
+ * - Catégorie fine via lettrage : on retrouve le compte P&L de la facture lettrée.
+ */
+function buildCashMoves(rawLines: RawLine[]): CashMove[] {
+  const isAN = (j: string) => /a.?nouveaux|^an$|^\[an\]$|report/i.test(j)
+
+  // Grouper par (journal, pièce), hors À-Nouveaux
+  const groups = new Map<string, RawLine[]>()
+  for (const r of rawLines) {
+    if (isAN(r.journal)) continue
+    const k = `${r.journal}|${r.piece}`
+    const g = groups.get(k); if (g) g.push(r); else groups.set(k, [r])
+  }
+
+  // Map lettrage → compte P&L : pour chaque écriture ayant une ligne tiers lettrée
+  // ET une ligne P&L, on retient (compte tiers + code lettrage) → compte P&L de la facture.
+  const lettrageToPnl = new Map<string, string>()
+  for (const g of groups.values()) {
+    const pnl = g.find(r => r.acc[0] === '6' || r.acc[0] === '7')
+    if (!pnl) continue
+    for (const r of g) {
+      if (/^4[01]/.test(r.acc) && r.lettrage) lettrageToPnl.set(`${r.acc}|${r.lettrage}`, pnl.acc)
+    }
+  }
+
+  const moves: CashMove[] = []
+  for (const g of groups.values()) {
+    const treso = g.filter(r => isTreasuryAccount(r.acc))
+    if (treso.length === 0) continue
+    if (treso.length === g.length) continue          // virement interne → ignoré
+
+    const others = g.filter(r => !isTreasuryAccount(r.acc))
+    // Contrepartie principale = plus gros montant, hors TVA (445x)
+    const ranked = [...others].sort((a, b) =>
+      Math.abs(b.debit - b.credit) - Math.abs(a.debit - a.credit))
+    const main = ranked.find(r => !r.acc.startsWith('445')) ?? ranked[0]
+    if (!main) continue
+
+    // Résolution du compte P&L (direct ou via lettrage) → catégorie fine
+    let pnlAcc: string | null = null
+    if (main.acc[0] === '6' || main.acc[0] === '7') pnlAcc = main.acc
+    else if (/^4[01]/.test(main.acc) && main.lettrage) {
+      pnlAcc = lettrageToPnl.get(`${main.acc}|${main.lettrage}`) ?? null
+    }
+    const category = cashCategoryOf(main.acc, pnlAcc)
+
+    for (const t of treso) {
+      const amt = t.debit - t.credit
+      if (Math.abs(amt) < 0.005) continue
+      moves.push({
+        date: t.date, acc: t.acc, counterpart: main.acc,
+        amount: Math.round(Math.abs(amt) * 100) / 100,
+        dir: amt > 0 ? 'enc' : 'dec',
+        category, piece: t.piece, lettrage: main.lettrage, label: t.label,
+      })
+    }
+  }
+  return moves
 }
 
 // ─── Détection société / période ──────────────────────────────────────────
@@ -378,4 +524,22 @@ export function detectPeriod(months: string[]): { period: 'N' | 'N-1' | 'N-2'; f
   if (maxY <= cy - 2) return { period: 'N-2', fy: String(maxY) }
   if (maxY < cy)      return { period: 'N-1', fy: String(maxY) }
   return { period: 'N', fy: String(maxY) }
+}
+
+/**
+ * Détecte automatiquement le mois de début d'exercice fiscal à partir des mois d'un FEC.
+ *
+ * Principe : le premier mois chronologique du FEC est le premier mois de l'exercice.
+ * Fiable uniquement si le FEC couvre ≥ 10 mois (sinon pas assez de signal).
+ *
+ * Exemples :
+ *   ["2024-01", ..., "2024-12"]              → 1  (exercice civil)
+ *   ["2024-10", ..., "2024-12", "2025-01", ..., "2025-09"] → 10 (exercice oct→sep)
+ *
+ * @returns Le mois de début (1..12), ou null si le FEC est trop court pour être fiable.
+ */
+export function detectFiscalStart(months: string[]): number | null {
+  if (months.length < 10) return null          // FEC partiel — pas assez fiable
+  const sorted = [...months].sort()
+  return parseInt(sorted[0].split('-')[1])     // mois du premier mois chronologique
 }

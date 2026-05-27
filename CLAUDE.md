@@ -151,11 +151,13 @@ const canEdit = role === 'admin' || role === 'comptable' || role === 'superadmin
 
 Ne jamais retirer `superadmin` de cette liste.
 
-### 5. Parser FEC — BOM et variantes de colonnes
+### 5. Parser FEC — encodage, BOM et variantes de colonnes
 
 `src/lib/fec.ts` doit :
+- **Détecter l'encodage** via `readFileText(blob)` — voir [règle 22](#22-encodage-des-fichiers-comptables-ebp--sage--windows-1252). NE PAS utiliser `file.text()` (force UTF-8 → casse les exports EBP en Windows-1252).
 - Striper le BOM UTF-8 en premier : `text.replace(/^﻿/, '')`
 - Normaliser les fins de ligne : `.replace(/\r\n/g, '\n').replace(/\r/g, '\n')`
+- Détecter les colonnes via `normHeader()` qui neutralise accents + artefacts d'encodage (`°`, `∞`, `ë`…) avant de matcher
 - Supporter les variantes de noms de colonnes (CompteNum, compte_num, accountnum…)
 - Supporter un seul champ `Montant` + `Sens` quand pas de Débit/Crédit séparés
 
@@ -188,14 +190,16 @@ Dans les `useMemo` qui s'exécutent avant le guard `if (!RAW) return` :
 | Fichier | Rôle |
 |---------|------|
 | `src/store/index.ts` | Zustand store : RAW, manualEntries, filters, role, tenantId |
-| `src/lib/calc.ts` | `buildRAW`, `computePlCalc`, `mergeEntries`, `fmt`, `fiscalIndex` |
-| `src/lib/fec.ts` | Parser FEC : `parseFEC`, `detectCompany`, `detectPeriod`, `lastFecError` |
+| `src/lib/calc.ts` | `buildRAW`, `computePlCalc`, `mergeEntries`, `fmt`, `fiscalIndex`, `isODAccount`, `readFileText` |
+| `src/lib/fec.ts` | Parser FEC : `parseFEC`, `detectCompany`, `detectPeriod`, `detectFiscalStart`, `readFileText`, `lastFecError` |
 | `src/lib/roles.ts` | `canWrite(role)` — read-only si viewer/client |
 | `src/lib/structure.ts` | Définition des lignes du plan comptable (SigRow) |
-| `src/hooks/useCompanyData.ts` | TanStack Query → charge company_data + budget + manual_entries |
+| `src/hooks/useCompanyData.ts` | TanStack Query → company_data + budget + manual_entries + company_settings ; pose la période (préservée si valide) |
 | `src/hooks/usePeriodFilter.ts` | Filtre les mois selon `filters.startM`/`filters.endM` |
+| `src/components/ui/PlTable.tsx` | Tableau P&L détaillé (catégories + sous-comptes), props `excludeOD` / `budData` |
 | `src/modules/saisie/Saisie.tsx` | Saisie manuelle + OCR + CSV ; historique via store |
-| `src/modules/import/Import.tsx` | Import FEC ; accessible superadmin + admin + comptable |
+| `src/modules/import/Import.tsx` | Import FEC ; rattachement société existante ; auto-détection exercice |
+| `src/modules/parametres/Parametres.tsx` | Réglage exercice fiscal par société (admin/superadmin) |
 | `src/modules/tresorerie/Tresorerie.tsx` | Tréso réalisée + prévisionnel + vue journalière |
 | `src/modules/equilibre/Equilibre.tsx` | Vue mensuelle par compte PCG |
 | `src/types/index.ts` | Types TypeScript : ManualEntry, RAWData, CompanyRaw… |
@@ -234,6 +238,26 @@ notes, created_at, updated_at
 unique(tenant_id, company_key)
 ```
 Migration : `supabase/migrations/010_company_objectives.sql` — à exécuter manuellement dans Supabase Studio si pas déjà fait. Hook : [useCompanyObjectives.ts](src/hooks/useCompanyObjectives.ts).
+
+### `company_settings`
+```
+tenant_id, company_key, fiscal_year_start_month (1..12, défaut 1),
+vat_enabled (bool, défaut false), vat_rates (jsonb { "<catégorie>": taux% })
+unique(tenant_id, company_key)
+```
+Migrations : `011_company_settings.sql` (exercice fiscal) + `012_company_vat.sql` (TVA). Réglé dans la page Paramètres — voir règles 21 et 26.
+
+### `company_data` — colonne ajoutée
+`cash_moves jsonb` (migration `013`) : mouvements de trésorerie réels reconstruits du FEC (classe 5). **Re-import requis** pour peupler — voir règle 26.
+
+### `manual_entries` — colonne ajoutée
+`invoice_number text` (migration `014`) : numéro de facture (saisie/OCR/CSV) — voir règle 27.
+
+### `bank_accounts`
+```
+tenant_id, company_key, label, balance, balance_date, notes
+```
+Soldes bancaires (prévisionnel de trésorerie). **Lecture avec filtre `tenant_id` explicite obligatoire** (règle 26).
 
 ---
 
@@ -520,22 +544,22 @@ else if (raw.m2.length > 0) setFilters({ startM: raw.m2[0], endM: raw.m2.at(-1) 
 
 ### 13. TopBar — tags ·N / ·N-1 / ·N-2 dans le sélecteur de période
 
-**Bug corrigé 2026-05-18** : les tags dans le dropdown de période (startM / endM) doivent être basés sur l'**année calendaire du mois**, pas sur l'appartenance aux sets `RAW.mn` / `RAW.m1` / `RAW.m2`.
+**⚠️ Règle révisée le 2026-05-19 (exercice fiscal)** — voir l'historique ci-dessous.
 
-**JAMAIS** :
+**Règle ACTUELLE** : les tags du dropdown de période sont basés sur l'**appartenance aux sets `RAW.mn` / `RAW.m1` / `RAW.m2`**.
+
 ```typescript
-const inN = RAW?.mn?.includes(m), inN1 = RAW?.m1?.includes(m)
-{monthLabel(m)}{inN?' ·N':inN1?' ·N-1':''}  // ❌ faux si FEC multi-années (tout dans mn)
+const tag = RAW?.mn?.includes(m) ? ' ·N' : RAW?.m1?.includes(m) ? ' ·N-1' : RAW?.m2?.includes(m) ? ' ·N-2' : ''
+{monthLabel(m)}{tag}  // ✅ buildRAW classe par exercice fiscal → sets fiables
 ```
 
-**TOUJOURS** :
-```typescript
-const yr = parseInt(m.slice(0, 4)), cy = new Date().getFullYear()
-const tag = yr === cy ? ' ·N' : yr === cy - 1 ? ' ·N-1' : yr <= cy - 2 ? ' ·N-2' : ''
-{monthLabel(m)}{tag}  // ✅ basé sur l'année réelle
-```
+C'est correct car depuis le support des **exercices fiscaux non calendaires** (cf règle 21), `buildRAW` classe chaque mois dans `pn/p1/p2` par exercice **réel** de la société (oct→sep aussi bien que jan→déc). Les sets `mn/m1/m2` sont donc fiables, y compris pour les FEC multi-années.
 
-Conséquence : `RAW` n'est plus lu dans `TopBar` — supprimer `const RAW = useAppStore(s => s.RAW)` pour éviter l'erreur TS6133.
+**Historique** :
+- *2026-05-18* : on était passé à l'**année calendaire** (`yr === cy ? ·N`) parce que `buildRAW` dumpait les FEC multi-années dans `mn` → sets non fiables. Cette approche calendaire est désormais **FAUSSE pour les exercices décalés** (oct 2025 = N fiscal mais année civile 2025 = ·N-1).
+- *2026-05-19* : `buildRAW` corrigé pour classer par exercice fiscal → retour aux sets, qui sont la source de vérité.
+
+**JAMAIS** revenir à l'année calendaire (`new Date().getFullYear()`) pour ces tags — ça casserait les sociétés à exercice décalé.
 
 ---
 
@@ -634,21 +658,28 @@ Vérification anti-régression :
 return { ..., budMonths, budTotal: 0, accs: [] } as PlCalcRow  // ❌ budget jamais calculé pour EQ
 ```
 
-**TOUJOURS** : agréger le budget par préfixes en miroir du cumul réel, avec la même convention de signe que le chemin principal (`budSign = type === 'charge' ? 1 : -1`) :
+**TOUJOURS** : agréger le budget par préfixes en miroir du cumul réel.
+
+**Signe du budget — corrigé 2026-05-21** : le budget est stocké en **valeur absolue positive**, et le réel (`solde`) est affiché en **magnitude positive** pour produits comme charges. Le budget doit donc être ajouté **tel quel (positif)**, **JAMAIS** avec un signe `-1` pour les produits :
 ```typescript
+// ❌ ANCIEN BUG : produits affichés en négatif + marge/résultat budgétés faux
 const budSign = type === 'charge' ? 1 : -1
-for (const co of selCo) {
-  const bd = budData[co] ?? {}
-  for (const [acc, bv] of Object.entries(bd)) {
-    if (!prefixes.some(p => acc.startsWith(p))) continue
-    const b = (bv as any)?.b ?? []
-    for (let i = 0; i < 12; i++) budMonths[i] += (b[i] || 0) * budSign
-  }
-}
-const budTotal = Math.round(budMonths.reduce((s, v) => s + v, 0))
+budMonths[i] += (b[i] || 0) * budSign
+// ✅ budget toujours positif ; les signes de marge/résultat sont appliqués par add()
+budMonths[i] += (b[i] || 0)
 ```
 
-Les agrégats `marge_eq` et `resultat_eq` sont calculés via `add()` qui propage automatiquement `budTotal` / `budMonths` une fois les rangées source remplies.
+**Période du budget — corrigé 2026-05-21** : `budTotal` ne doit sommer que les mois budgétaires de la **période sélectionnée** (sinon le budget restait sur l'année entière alors que le réel suit le filtre de mois). Le budget `b[12]` est indexé par mois calendaire (`fiscalIndex` : jan=0…déc=11) :
+```typescript
+const selBudIdx = new Set(selectedMs.map(m => fiscalIndex(m)))
+const sumBudInPeriod = (budMonths: number[]) =>
+  budMonths.reduce((s, v, i) => selBudIdx.has(i) ? s + v : s, 0)
+const budTotal = Math.round(sumBudInPeriod(budMonths))
+```
+
+Ces deux règles s'appliquent **partout où le budget est calculé** : `computePlCalc` (boucle catégories + `sumByPrefixes`), `getBudgetByPrefixes`, et les **sous-lignes de `PlTable`** (qui calculent leur budget indépendamment — voir [règle 22](#22-encodage-des-fichiers-comptables-ebp--sage--windows-1252) et la [règle Hors OD](#23-hors-od--comptes-dinventaire-de-clôture)).
+
+Les agrégats `marge_eq` et `resultat_eq` sont calculés via `add()` qui propage automatiquement `budTotal` / `budMonths` une fois les rangées source remplies (les `budTotal` enfants sont déjà restreints à la période).
 
 ---
 
@@ -738,3 +769,139 @@ Vérification anti-régression :
 1. Budget → "Ajouter un compte" → `6280001` "Cotisation CCI" type Charge → saisir des montants → Sauvegarder
 2. CR / SIG / Équilibre + toggle Budget actif → ligne "Cotisations professionnelles" (628) doit inclure le montant de `6280001` dans la colonne Budget
 3. Déplier cette section → la sous-ligne `6280001 Cotisation CCI` doit apparaître avec son budget (et `—` en Cumul N car pas dans le FEC)
+
+---
+
+### 21. Exercice fiscal non calendaire (oct→sep, etc.)
+
+**Feature 2026-05-19** : une société peut avoir un exercice fiscal qui ne commence pas le 1er janvier (ex : 1er oct → 30 sep). Le réglage est **par société**, stocké dans `company_settings.fiscal_year_start_month` (1..12, défaut 1 = année civile).
+
+#### Architecture
+- **Table** : `company_settings` (migration 011), `unique(tenant_id, company_key)`
+- **Hook** : `useCompanySettings` (lecture + `setFiscalYearStartMonth`)
+- **Store** : `fiscalSettings: Record<company_key, startMonth>` alimenté par `useCompanyData`
+- **Page Paramètres** (`src/modules/parametres/Parametres.tsx`, tab `parametres`, admin/superadmin) : règle le mois de début d'exercice par société sans SQL. Upsert `company_settings` → reconstruit `RAW` + réajuste la période.
+- **Auto-détection à l'import** : `detectFiscalStart(months)` (fec.ts) infère le mois de début depuis un FEC ≥ 10 mois (premier mois chronologique). L'écran Import propose de mettre à jour `company_settings` si la valeur détectée diffère.
+- **Helpers purs** (`calc.ts`) :
+  - `fiscalMonthIndex(m, startMonth)` → position 0..11 dans l'exercice
+  - `fiscalYearOf(m, startMonth)` → exercice de **clôture** (oct 2025→sep 2026 = "2026")
+  - `currentFiscalYear(startMonth, today?)` → exercice courant
+
+#### Invariant central — `buildRAW`
+`buildRAW(companyData, budgets, manualEntries, fiscalSettings)` classe N/N-1/N-2 **par exercice fiscal, société par société** :
+```typescript
+const startMonth = fiscalSettings[co] ?? 1
+const cfy = currentFiscalYear(startMonth)
+const fy  = fiscalYearOf(m, startMonth)
+const field = fy >= cfy ? 'pn' : fy === cfy - 1 ? 'p1' : 'p2'
+```
+- `startMonth = 1` ⇒ comportement calendaire **strictement identique** à l'historique (rétro-compat).
+- La classification se fait par mois, **indépendamment du tag `row.period`** (qui était calendaire et faux pour un exercice à cheval).
+- **Tout appel à `buildRAW` doit passer `fiscalSettings`** (depuis le store). Sinon (défaut `{}`) la société retombe en année civile → classification fausse après une saisie. Appels concernés : `useCompanyData`, `Saisie` (refreshStore + édition + delete + import CSV).
+
+#### Ce qui n'a PAS eu besoin de changer
+- `usePeriodFilter` : `defaultMs = RAW.mn` est déjà le bon exercice (buildRAW a classé correctement). Le décalage N-1 (`année-1`, même mois calendaire) reste valable.
+- Dashboard `fyN` : `RAW.mn[last].slice(0,4)` = année de clôture = libellé correct.
+
+#### Limitation connue — GROUPE multi-exercices
+Si on agrège plusieurs sociétés aux exercices **différents**, un même mois calendaire peut tomber en `mn` pour l'une et `m1` pour l'autre → `getAdjMixed` (qui résout un seul champ par mois via `msSrc`) peut rater des données. Les **cumuls mono-société et groupes homogènes sont corrects**. Le mois-par-mois d'un groupe hétérogène est best-effort. À traiter si un client réel le nécessite.
+
+Vérification anti-régression :
+1. Société calendaire (pas de ligne `company_settings` ou `start_month=1`) → CR/SIG/Équilibre inchangés
+2. `INSERT INTO company_settings(tenant_id, company_key, fiscal_year_start_month) VALUES (<tid>, '<co>', 10)` → recharger → la période N de cette société couvre oct→sep, le cumul N inclut oct-nov-déc
+3. Saisir une facture en novembre → elle tombe bien dans N (pas N-1)
+
+---
+
+### 22. Encodage des fichiers comptables (EBP / Sage / Windows-1252)
+
+**Bug corrigé 2026-05-21** : les exports EBP/Sage/Ciel sont souvent en **Windows-1252 (Latin-1)**, pas UTF-8. `file.text()` du navigateur décode en UTF-8 → les octets accentués deviennent invalides (`Débit` → `D�bit`, `N° de compte` → `N� de compte`) → colonnes introuvables → import vide **sans erreur claire**.
+
+**TOUJOURS** lire les fichiers via `readFileText(blob)` (exporté de `fec.ts`) — jamais `file.text()`/`blob.text()` directement :
+```typescript
+export async function readFileText(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer()
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer) }
+  catch { return new TextDecoder('windows-1252').decode(buffer) }  // EBP/Sage Latin-1
+}
+```
+Utilisé dans : `Import.tsx` (FEC), `Depot.tsx` (FEC déposés), `Saisie.tsx` (CSV).
+
+`normHeader()` dans `parseFEC` neutralise aussi les artefacts d'encodage résiduels (`°`/`∞` → `o`, `ë` → `e`, etc.) avant de matcher les colonnes — ne pas le retirer.
+
+---
+
+### 23. Hors OD — comptes d'inventaire de clôture
+
+**Feature 2026-05-21** : le toggle « Hors OD » neutralise les **comptes générés uniquement en fin d'exercice** (variation de stocks, dotations, reprises, provisions congés payés, transferts de charges). But : comparer N (en cours) vs N-1 (clos) sans biais.
+
+- **Liste centralisée** (`calc.ts`) : `OD_ACCOUNT_PREFIXES = ['603','713','681','686','687','781','787','6412','64582','791']` + helper `isODAccount(acc)`.
+- **Avant**, `excludeOD` était passé à `getAdjMixed` mais **ignoré** (`_excludeOD`) → le toggle ne faisait rien. Désormais respecté **partout** où on calcule un montant :
+  - `getAdjMixed`, `sumByPrefixes`, `getBudgetByPrefixes` (calc.ts)
+  - sous-lignes de `PlTable.tsx` (liste des comptes + budget)
+- **Cohérence** : la même fonction `isODAccount()` filtre partout → les totaux restent égaux à la somme des catégories en mode Hors OD.
+- **Affichage du toggle** : `OD_TABS = ['cr','sig','equilibre','ratios']` dans `TopBar.tsx` (Ratios inclus car il calcule aussi via `computePlCalc`). Les toggles **Mois / N-1** restent réservés à `PL_TABS` (options d'affichage du tableau PlTable).
+- **`excludeOD=false` (défaut)** : chemin strictement identique à l'historique (les ajouts sont court-circuités).
+
+---
+
+### 24. Import — rattachement à une société existante
+
+**Feature 2026-05-21** : à l'import, un sélecteur permet de rattacher le FEC à une **société déjà en base** au lieu d'en créer une nouvelle dérivée du nom de fichier (évite les doublons type `MC EXPORT EBP` vs `SFP`).
+
+- **`company_key` vs `company_name`** sont désormais distincts dans `PendingImport` :
+  - `company` = clé identifiante stable (sans espaces), ex `SFP_CONSEIL`
+  - `companyName` = nom d'affichage lisible, ex `SFP Conseil`
+- **Pré-sélection** : si le nom détecté correspond (normalisation casse/espaces) à une société existante → rattachée automatiquement.
+- **`confirmImport`** : pour une société existante, **conserver son `company_name`** (`RAW.companies[co].name`) — ne JAMAIS l'écraser par le nom du fichier. Pour une nouvelle société : utiliser le nom saisi (`companyName`), fallback `detectCompanyName(file.name)`.
+- Le bouton Importer se bloque si une société cible est vide (mode « + Autre nom… » non rempli).
+
+---
+
+### 25. Période — réinitialisation DÉTERMINISTE (cohérence multi-utilisateurs)
+
+**Itération finale 2026-05-21** : `useCompanyData` **réinitialise toujours** `startM`/`endM` à l'exercice par défaut à chaque chargement — la période ne dépend **QUE des données du tenant**, jamais du cache navigateur (localStorage).
+```typescript
+const defaultSet = raw.mn.length ? raw.mn : raw.m1.length ? raw.m1 : raw.m2.length ? raw.m2 : []
+if (defaultSet.length > 0) {
+  setFilters({ startM: defaultSet[0], endM: defaultSet[defaultSet.length - 1] })
+}
+```
+**Pourquoi déterministe et NON préservé** : deux utilisateurs (ex : deux superadmins) sur le **même tenant** doivent voir la **même plage de mois** → donc les mêmes chiffres. Une préservation par navigateur faisait diverger leurs vues (chacun avait une période en cache différente → trésorerie/analyse différentes). L'ancienne plainte « la période revenait sur janvier » venait d'un **exercice fiscal mal réglé** (règle 21) : avec l'exercice correct, `RAW.mn` couvre tout l'exercice, donc la réinitialisation tombe sur la période complète, pas un seul mois.
+
+---
+
+### 26. Trésorerie v2 — réalisé cash réel + prévisionnel TTC
+
+**Refonte 2026-05-21** (5 phases). Le module Trésorerie distingue **cash réel** (réalisé) et **prévisionnel TTC**.
+
+#### Catégories & helpers — `src/lib/tresoCats.ts`
+Les catégories `ENC_CATS`/`DEC_CATS` + `catOf` y sont **centralisées** (partagées Trésorerie + Paramètres). Helpers : `isTreasuryAccount(acc)` (classe 5), `cashCategoryOf(counterpart, pnlAccount)`, `vatRateForAccount(acc, vat)`.
+
+#### Réalisé = mouvements de trésorerie réels (cash)
+- Source : `RAW.companies[co].cashN/cash1/cash2` — mouvements de **classe 5** reconstruits du FEC (`buildCashMoves` dans `fec.ts`), pas les comptes 6/7.
+- **Lire TOUS les buckets** (`cashN+cash1+cash2`) puis filtrer par `selectedMs` — JAMAIS seulement `cashN` (sinon, selon l'exercice fiscal, les mois affichés tombés dans `cash1` seraient perdus).
+- **« FEC prioritaire »** : si la société a des `cashN`, le réalisé = mouvements FEC (les saisies n'alimentent que le prévisionnel, évite le double-compte). Sans FEC → réalisé = paiements des saisies.
+- Catégorisation : contrepartie P&L directe (6/7) → `catOf` ; tiers 411/401 → via **lettrage** vers la facture (sinon générique « Encaissements clients »/« Décaissements fournisseurs »).
+
+#### `buildCashMoves` (`fec.ts`) — invariants
+- Regroupe par **(journal, pièce)** (pas d'`EcritureNum` dans les exports EBP) ; **exclut le journal À-Nouveaux** et les **virements internes** (écriture 100 % trésorerie).
+- **Collecte RELÂCHÉE du compte** : une passe dédiée accepte le 1er chiffre 1-9 + **suffixe alpha** (`411DIVERS`, `401EDF`). `isValidAccount` (strict, que des chiffres) rejette ces comptes auxiliaires → sans cette passe, les contreparties clients/fournisseurs seraient perdues et tout tomberait en « Autres opérations ».
+- `cash_moves` est **figé à l'import** (stocké dans `company_data.cash_moves`, migration 013) → **un ré-import est requis** après toute évolution du parser. Données importées avant Phase 2 = `cash_moves` vides.
+
+#### Prévisionnel
+- Démarre à **MIN(balance_date)** des comptes bancaires (fallback mois courant).
+- Budget **HT → TTC** via la TVA par catégorie (`vatSettings`, migration 012 : `company_settings.vat_enabled` + `vat_rates`). Réglé dans Paramètres.
+- Détail au clic = **échéances prévues issues des saisies** (`forecastDetail[acc].factures`), avec n° de facture + contrepartie + lien 📎 vers le scan (URL signée, bucket privé `invoice`).
+
+#### Anti-régression
+- `bank_accounts` doit être lu avec **filtre `tenant_id` explicite** (le RLS laisse le superadmin lire tous les tenants → sinon soldes mélangés).
+- `EcrituresModal` : dates stockées en **AAAA-MM-JJ** (triable), affichées en JJ/MM/AAAA via `fmtD`.
+
+Tests : `src/lib/__tests__/tresoCash.test.ts` (helpers + reconstruction `cashMoves`).
+
+---
+
+### 27. Numéro de facture sur les saisies
+
+`manual_entries.invoice_number` (migration 014). Saisi dans le formulaire Saisie, extrait par l'**OCR** (champ `invoice_number` du prompt) et l'import CSV. Sert de **référence** dans le détail prévisionnel de trésorerie (ajouté au libellé, la contrepartie restant en colonne réf).
