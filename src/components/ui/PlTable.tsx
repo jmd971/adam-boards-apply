@@ -278,6 +278,25 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           }
           val = Math.round(val)
 
+          // ── N-1 du sous-compte : on cherche, pour chaque mois N sélectionné, son
+          // équivalent N-1 (même mois calendaire, année − 1) dans les sources p1/p2/pn.
+          // Permet d'afficher N-1, Var € et Var % au niveau du compte individuel,
+          // pas seulement à la ligne agrégée parente.
+          let valN1 = 0
+          for (const m of selectedMs) {
+            const mN1 = `${parseInt(m.slice(0,4))-1}-${m.slice(5,7)}`
+            for (const co of selCo) {
+              for (const field of ['pn', 'p1', 'p2'] as const) {
+                const src = (RAW.companies[co] as any)?.[field] ?? {}
+                const mo  = src[acc]?.mo?.[mN1]
+                if (mo && Array.isArray(mo)) valN1 += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
+              }
+            }
+          }
+          valN1 = Math.round(valN1)
+          const accVarAmt = val - valN1
+          const accVarPct = valN1 !== 0 ? accVarAmt / Math.abs(valN1) : null
+
           const allEnts: any[] = []
           let fecLabel = ''
           for (const co of selCo) {
@@ -309,7 +328,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
 
           rows.push(
             <tr key={`${row.id}__${acc}`}
-              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, d.cumulN1S)}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, valN1)}
               style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
               <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
@@ -337,7 +356,19 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, fontWeight:600, color: val < -0.5 ? 'var(--red)' : Math.abs(val) > 0.5 ? 'var(--text-0)' : 'var(--text-3)', borderLeft:'2px solid var(--border-1)' }}>
                 {Math.abs(val) > 0.5 ? fmt(val) : '—'}
               </td>
-              <td colSpan={showN1Full ? 5 : 4} />
+              <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, color:'var(--text-3)', fontFamily:'monospace' }}>
+                {caTotal > 0.5 && Math.abs(val) > 0.5 ? pct(val / caTotal) : '—'}
+              </td>
+              <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', color:'var(--text-3)', borderLeft:'1px solid var(--border-0)' }}>
+                {Math.abs(valN1) > 0.5 ? fmt(valN1) : '—'}
+              </td>
+              <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, color: Math.abs(accVarAmt) < 0.5 ? 'var(--text-3)' : accVarAmt > 0 ? 'var(--green)' : 'var(--red)' }}>
+                {Math.abs(accVarAmt) > 0.5 ? (accVarAmt > 0 ? '+' : '') + fmt(accVarAmt) : '—'}
+              </td>
+              <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, color: accVarPct == null ? 'var(--text-3)' : accVarPct > 0.005 ? 'var(--green)' : accVarPct < -0.005 ? 'var(--red)' : 'var(--text-3)' }}>
+                {accVarPct != null ? (accVarPct > 0 ? '+' : '') + pct(accVarPct) : '—'}
+              </td>
+              {showN1Full && <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, color:'var(--text-3)', borderLeft:'1px solid var(--border-0)' }}>—</td>}
               {showBudget && (() => {
                 // Budget stocké en valeur absolue (positif) ; restreint aux mois de la période.
                 const accBudget = budData
