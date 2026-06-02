@@ -17,7 +17,7 @@ const CATEGORIES = [
   ]},
   { cat: 'Achat', acc: '607', subs: [
     'Achats de marchandises (607)','Matières premières (601)','Matières consommables (602)',
-    'Fournitures non stockées (606)','Emballages (603)','Sous-traitance générale (611)',
+    'Fournitures non stockées (606)','Emballages (603)','Achat de sous-traitance (604)',
     'Variation de stocks (603)','Autre achat (609)',
   ]},
   { cat: 'Depense', acc: '626', subs: [
