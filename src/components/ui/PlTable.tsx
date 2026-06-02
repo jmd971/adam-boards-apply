@@ -13,6 +13,10 @@ interface PlTableProps {
   showN1Full: boolean
   showBudget: boolean
   caTotal: number
+  /** CA total N-1 (somme des cumulN1S des comptes CA) — pour la colonne « % CA N-1 ». */
+  caTotalN1?: number
+  /** CA total Budget (somme des budTotal des comptes CA) — pour la colonne « % CA Bud ». */
+  caTotalBud?: number
   /** « Hors OD » : masquer les comptes d'inventaire (cohérent avec computePlCalc). */
   excludeOD?: boolean
   budData?: Record<string, Record<string, { b: number[] }>>
@@ -55,7 +59,16 @@ const labelFor = (acc: string, fromFec?: string): string => {
 }
 
 
-export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc, showMonths, showN1Full, showBudget, caTotal, excludeOD, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
+export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc, showMonths, showN1Full, showBudget, caTotal, caTotalN1, caTotalBud, excludeOD, budData, onOpenModal, maxHeight, cumulRowKey, collapsible }: PlTableProps) {
+  // Défaut 0 si non fourni → les colonnes « % CA N-1 / Bud » affichent « — » sans crasher.
+  const totN1  = caTotalN1  ?? 0
+  const totBud = caTotalBud ?? 0
+  // Δpts (différence de points de % du CA), distinct du taux de croissance Var %.
+  // Seuil 0.05 pt pour masquer le bruit d'arrondi.
+  const fmtPts = (delta: number | null): string => {
+    if (delta == null || Math.abs(delta) < 0.0005) return '—'
+    return `${delta > 0 ? '+' : ''}${(delta * 100).toFixed(1)} pt`
+  }
   // All rows with sub-accounts start expanded — user can click to collapse
   const [expanded, setExpanded] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(struct.filter(r => (r.accs?.length ?? 0) > 0 && !r.sep && !r.header).map(r => [r.id, true]))
@@ -120,6 +133,12 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
     const varPct   = d.cumulN1S !== 0 ? varAmt / Math.abs(d.cumulN1S) : null
     const budE     = d.cumulN - (d.budTotal || 0)
     const budEP    = d.budTotal ? budE / Math.abs(d.budTotal) : null
+    // Ratios « % du CA » pour les 3 référentiels — pour la lecture structurelle du P&L
+    const pctN     = caTotal > 0.5 ? d.cumulN    / caTotal : null
+    const pctN1    = totN1   > 0.5 ? d.cumulN1S  / totN1   : null
+    const pctBud   = totBud  > 0.5 ? d.budTotal  / totBud  : null
+    const dPctN1   = pctN != null && pctN1  != null ? pctN - pctN1  : null
+    const dPctBud  = pctN != null && pctBud != null ? pctN - pctBud : null
     const isCharge = row.type === 'charge'
 
     // ── Ligne principale ──────────────────────────────────────────────────
@@ -156,6 +175,12 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
         <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', color:'var(--text-2)', borderLeft:'1px solid var(--border-0)', minWidth:88 }}>
           {Math.abs(d.cumulN1S) > 0.5 ? fmt(d.cumulN1S) : '—'}
         </td>
+        <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, color:'var(--text-2)', minWidth:60, fontFamily:'monospace' }}>
+          {pctN1 != null && Math.abs(d.cumulN1S) > 0.5 ? pct(pctN1) : '—'}
+        </td>
+        <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, minWidth:64, color: dPctN1 == null ? 'var(--text-3)' : dPctN1 > 0.0005 ? 'var(--green)' : dPctN1 < -0.0005 ? 'var(--red)' : 'var(--text-3)' }}>
+          {fmtPts(dPctN1)}
+        </td>
         <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, minWidth:78, color: Math.abs(varAmt) < 0.5 ? 'var(--text-3)' : varAmt > 0 ? 'var(--green)' : 'var(--red)' }}>
           {Math.abs(varAmt) > 0.5 ? (varAmt > 0 ? '+' : '') + fmt(varAmt) : '—'}
         </td>
@@ -168,6 +193,12 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
         {showBudget && <>
           <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', color:'var(--purple)', borderLeft:'2px solid rgba(168,85,247,0.15)', minWidth:88 }}>
             {Math.abs(d.budTotal) > 0.5 ? fmt(d.budTotal) : '—'}
+          </td>
+          <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, color:'var(--purple)', minWidth:60, fontFamily:'monospace' }}>
+            {pctBud != null && Math.abs(d.budTotal) > 0.5 ? pct(pctBud) : '—'}
+          </td>
+          <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, minWidth:64, color: dPctBud == null ? 'var(--text-3)' : dPctBud > 0.0005 ? 'var(--green)' : dPctBud < -0.0005 ? 'var(--red)' : 'var(--text-3)' }}>
+            {fmtPts(dPctBud)}
           </td>
           <td style={{ padding:'7px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, minWidth:78, color: Math.abs(budE) < 0.5 ? 'var(--text-3)' : budE > 0 ? 'var(--green)' : 'var(--red)' }}>
             {Math.abs(budE) > 0.5 ? (budE > 0 ? '+' : '') + fmt(budE) : '—'}
@@ -362,6 +393,17 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', color:'var(--text-3)', borderLeft:'1px solid var(--border-0)' }}>
                 {Math.abs(valN1) > 0.5 ? fmt(valN1) : '—'}
               </td>
+              <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, color:'var(--text-3)', fontFamily:'monospace' }}>
+                {totN1 > 0.5 && Math.abs(valN1) > 0.5 ? pct(valN1 / totN1) : '—'}
+              </td>
+              <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, color: (() => {
+                const pa = caTotal > 0.5 ? val / caTotal : null
+                const pb = totN1 > 0.5 ? valN1 / totN1 : null
+                const dp = pa != null && pb != null ? pa - pb : null
+                return dp == null ? 'var(--text-3)' : dp > 0.0005 ? 'var(--green)' : dp < -0.0005 ? 'var(--red)' : 'var(--text-3)'
+              })() }}>
+                {fmtPts(caTotal > 0.5 && totN1 > 0.5 ? (val / caTotal) - (valN1 / totN1) : null)}
+              </td>
               <td style={{ padding:'5px 8px', textAlign:'right', fontSize:11, fontFamily:'monospace', fontWeight:600, color: Math.abs(accVarAmt) < 0.5 ? 'var(--text-3)' : accVarAmt > 0 ? 'var(--green)' : 'var(--red)' }}>
                 {Math.abs(accVarAmt) > 0.5 ? (accVarAmt > 0 ? '+' : '') + fmt(accVarAmt) : '—'}
               </td>
@@ -380,6 +422,17 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
                   <>
                     <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, color:'var(--purple)', borderLeft:'2px solid rgba(168,85,247,0.1)' }}>
                       {Math.abs(accBudget) > 0.5 ? fmt(accBudget) : '—'}
+                    </td>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, color:'var(--purple)' }}>
+                      {totBud > 0.5 && Math.abs(accBudget) > 0.5 ? pct(accBudget / totBud) : '—'}
+                    </td>
+                    <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: (() => {
+                      const pa = caTotal > 0.5 ? val / caTotal : null
+                      const pb = totBud  > 0.5 ? accBudget / totBud : null
+                      const dp = pa != null && pb != null ? pa - pb : null
+                      return dp == null ? 'var(--text-3)' : dp > 0.0005 ? 'var(--green)' : dp < -0.0005 ? 'var(--red)' : 'var(--text-3)'
+                    })() }}>
+                      {fmtPts(caTotal > 0.5 && totBud > 0.5 ? (val / caTotal) - (accBudget / totBud) : null)}
                     </td>
                     <td style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: Math.abs(accEcart) < 0.5 ? 'var(--text-3)' : accEcart > 0 ? 'var(--green)' : 'var(--red)' }}>
                       {Math.abs(accEcart) > 0.5 && Math.abs(accBudget) > 0.5 ? (accEcart > 0 ? '+' : '') + fmt(accEcart) : '—'}
@@ -409,11 +462,15 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
             <th style={{ padding:'8px 10px', textAlign:'right', fontSize:11, fontWeight:700, color:'var(--blue)', borderBottom:'2px solid var(--blue)', minWidth:90, borderLeft:'2px solid var(--border-1)', whiteSpace:'nowrap' }}>Cumul N</th>
             <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--text-2)', borderBottom:'2px solid var(--border-1)', minWidth:52, whiteSpace:'nowrap' }}>% CA</th>
             <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--text-2)', borderBottom:'2px solid var(--border-1)', minWidth:88, borderLeft:'1px solid var(--border-0)', whiteSpace:'nowrap' }}>N-1</th>
+            <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--text-2)', borderBottom:'2px solid var(--border-1)', minWidth:60, whiteSpace:'nowrap' }}>% CA N-1</th>
+            <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--text-2)', borderBottom:'2px solid var(--border-1)', minWidth:64, whiteSpace:'nowrap' }}>Δpts N-1</th>
             <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--text-2)', borderBottom:'2px solid var(--border-1)', minWidth:78, whiteSpace:'nowrap' }}>Var. €</th>
             <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--text-2)', borderBottom:'2px solid var(--border-1)', minWidth:58, whiteSpace:'nowrap' }}>Var. %</th>
             {showN1Full && <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--text-2)', borderBottom:'2px solid var(--border-1)', minWidth:88, borderLeft:'1px solid var(--border-0)', whiteSpace:'nowrap' }}>N-1 An.</th>}
             {showBudget && <>
               <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--purple)', borderBottom:'2px solid rgba(168,85,247,0.4)', minWidth:88, borderLeft:'2px solid rgba(168,85,247,0.15)', whiteSpace:'nowrap' }}>Budget</th>
+              <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--purple)', borderBottom:'2px solid rgba(168,85,247,0.4)', minWidth:60, whiteSpace:'nowrap' }}>% CA Bud</th>
+              <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--purple)', borderBottom:'2px solid rgba(168,85,247,0.4)', minWidth:64, whiteSpace:'nowrap' }}>Δpts Bud</th>
               <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--purple)', borderBottom:'2px solid rgba(168,85,247,0.4)', minWidth:78, whiteSpace:'nowrap' }}>Éc. €</th>
               <th style={{ padding:'8px 8px', textAlign:'right', fontSize:10, fontWeight:600, color:'var(--purple)', borderBottom:'2px solid rgba(168,85,247,0.4)', minWidth:58, whiteSpace:'nowrap' }}>Éc. %</th>
             </>}
