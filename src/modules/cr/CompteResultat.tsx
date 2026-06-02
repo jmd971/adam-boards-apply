@@ -49,6 +49,14 @@ export function CompteResultat() {
     (plCalc['ca_v']?.cumulN ?? 0) +
     (plCalc['ca_p']?.cumulN ?? 0) +
     (plCalc['ca_a']?.cumulN ?? 0)
+  const caTotalN1 =
+    (plCalc['ca_v']?.cumulN1S ?? 0) +
+    (plCalc['ca_p']?.cumulN1S ?? 0) +
+    (plCalc['ca_a']?.cumulN1S ?? 0)
+  const caTotalBud =
+    (plCalc['ca_v']?.budTotal ?? 0) +
+    (plCalc['ca_p']?.budTotal ?? 0) +
+    (plCalc['ca_a']?.budTotal ?? 0)
 
   // KPI data
   // Totaux complets calculés par computePlCalc (tot_produits/tot_charges incluent
@@ -148,7 +156,7 @@ export function CompteResultat() {
         <PlTable
           struct={CR} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
-          showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
+          showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal} caTotalN1={caTotalN1} caTotalBud={caTotalBud}
           excludeOD={filters.excludeOD}
           budData={budData as any}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
