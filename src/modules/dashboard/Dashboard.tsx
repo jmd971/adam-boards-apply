@@ -65,11 +65,27 @@ const DASH_EXPLANATIONS: Record<string, Explanation> = {
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 const CHARGE_COLORS = ['#ef4444','#f97316','#f59e0b','#8b5cf6','#6366f1','#3b82f6','#14b8a6']
 
-// Helpers retirés : Dashboard utilise désormais computePlCalc(SIG, ...) (cf. plCalc useMemo).
-// Cela aligne le KPI « Résultat exploit. » sur le module SIG (formule comptable rigoureuse :
-// VA = Marge − Autres charges ext. ; EBE = VA + Subv − Impôts − Personnel ; REX = EBE
-// + Autres prod./Reprises − Autres charges − Dotations). Avant : whitelists incomplètes
-// (manquait 603, 63x, 648, 65x, 686/787, 75, 78, 79, etc.) qui donnaient un REX divergent.
+// Les KPI principaux (CA, Marge, EBE, REX, VA) viennent désormais de computePlCalc(SIG)
+// — cf. plCalc useMemo. Cela aligne le Dashboard sur SIG (formule comptable rigoureuse).
+// Avant : whitelists incomplètes (CA_ACCS/ACHAT_ACCS/SERV_ACCS/PERS_ACCS/AMORT_ACCS)
+// qui ignoraient 603, 63x, 648, 65x, 686/787, 75, 78, 79… → REX divergent du SIG.
+//
+// Petit helper générique conservé pour le graphe « répartition des charges » (pie) et
+// pour la comparaison cumulée réalisé-vs-budget (CA), qui agrègent par préfixes libres
+// hors du modèle SIG.
+function sumAccs(RAW: any, selCo: string[], field: 'pn'|'p1'|'p2', month: string, prefixes: string[], charge = false): number {
+  let total = 0
+  for (const co of selCo) {
+    const data = RAW.companies[co]?.[field] ?? {}
+    for (const [acc, acct] of Object.entries(data)) {
+      if (!prefixes.some((p: string) => acc.startsWith(p))) continue
+      const mo = (acct as any)?.mo?.[month]
+      if (!mo || !Array.isArray(mo)) continue
+      total += charge ? Math.max(0, mo[0] - mo[1]) : Math.max(0, mo[1] - mo[0])
+    }
+  }
+  return Math.round(total)
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
@@ -262,13 +278,13 @@ export function Dashboard() {
     const budByMonth = new Array(12).fill(0)
     for (const [acc, v] of Object.entries(version.data)) {
       const bv = v as { b: number[]; t: string }
-      if (!bv.b || !CA_ACCS.some(p => acc.startsWith(p))) continue
+      if (!bv.b || !['706','707','708'].some(p => acc.startsWith(p))) continue
       bv.b.forEach((val, i) => { budByMonth[i] += val })
     }
 
     let realCumul = 0, budCumul = 0
     return selectedMs.map((m: string) => {
-      const real = sumAccs(RAW, selCo, 'pn', m, CA_ACCS)
+      const real = sumAccs(RAW, selCo, 'pn', m, ['706','707','708'])
       const bud  = budByMonth[fiscalIndex(m)] ?? 0
       realCumul += real; budCumul += bud
       return {
