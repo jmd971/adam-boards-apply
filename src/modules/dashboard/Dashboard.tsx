@@ -5,7 +5,7 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts'
-import { fmt, pct, monthIdx, fiscalIndex, computePlCalc } from '@/lib/calc'
+import { fmt, pct, fiscalIndex, computePlCalc } from '@/lib/calc'
 import { SIG } from '@/lib/structure'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { computeBilan } from '@/lib/bilan'
