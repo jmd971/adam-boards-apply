@@ -38,7 +38,9 @@ export function Equilibre() {
     return computePlCalc(RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, EQ, filters.excludeOD)
   }, [RAW, selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
-  const ventes   = plCalc['tot_ventes']?.cumulN ?? 0
+  const ventes    = plCalc['tot_ventes']?.cumulN    ?? 0
+  const ventesN1  = plCalc['tot_ventes']?.cumulN1S  ?? 0
+  const ventesBud = plCalc['tot_ventes']?.budTotal  ?? 0
   const achats   = plCalc['tot_achats']?.cumulN ?? 0
   const marge    = plCalc['marge_eq']?.cumulN ?? 0
   const charges  = plCalc['tot_charges_eq']?.cumulN ?? 0
@@ -108,7 +110,7 @@ export function Equilibre() {
       {/* Table détaillée avec catégories/sous-catégories dépliables */}
       <div className="px-2">
         <PlTable struct={EQ} plCalc={plCalc} RAW={RAW} selCo={selCo} selectedMs={selectedMs} msSrc={msSrc}
-          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={ventes}
+          showMonths={filters.showMonths} showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={ventes} caTotalN1={ventesN1} caTotalBud={ventesBud}
           excludeOD={filters.excludeOD}
           budData={budData as any}
           collapsible
