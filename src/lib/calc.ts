@@ -440,6 +440,29 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
     if (result['is_cr']) parts.push(['is_cr', 1])
     add('tot_charges', ...parts)
   }
+  // ── Subtotals PCG-conformes (Compte de Résultat français) ──
+  // Mathématiquement : R.exp + R.fin + R.excep − IS = tot_produits − tot_charges = rnet_cr.
+  // rnet_cr garde sa formule historique (back-compat) ; les subtotals sont calculés à
+  // côté pour l'affichage hiérarchique dans le module CR.
+  if (result['tot_prod_exp'] && result['tot_ch_exp'])
+    add('resultat_exp_cr', ['tot_prod_exp', 1], ['tot_ch_exp', -1])
+  if (result['prod_fin'] || result['ch_fin']) {
+    const parts: [string, number][] = []
+    if (result['prod_fin']) parts.push(['prod_fin', 1])
+    if (result['ch_fin'])   parts.push(['ch_fin', -1])
+    add('resultat_fin_cr', ...parts)
+  }
+  if (result['resultat_exp_cr']) {
+    const parts: [string, number][] = [['resultat_exp_cr', 1]]
+    if (result['resultat_fin_cr']) parts.push(['resultat_fin_cr', 1])
+    add('rcai_cr', ...parts)
+  }
+  if (result['prod_excep'] || result['ch_excep']) {
+    const parts: [string, number][] = []
+    if (result['prod_excep']) parts.push(['prod_excep', 1])
+    if (result['ch_excep'])   parts.push(['ch_excep', -1])
+    add('resultat_excep_cr', ...parts)
+  }
   if (result['tot_produits'] && result['tot_charges']) add('rnet_cr', ['tot_produits', 1], ['tot_charges', -1])
 
   // Auto-cumulate bold summary rows not yet computed (generic fallback for other structs)
@@ -447,6 +470,7 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
     'marge_eq', 'resultat_eq', 'tot_ventes', 'tot_achats', 'tot_charges_eq',
     'marge_comm', 'prod_exercice', 'marge_prod', 'marge', 'va', 'ebe', 're', 'rc', 'rnet',
     'tot_prod_exp', 'tot_produits', 'tot_ch_exp', 'tot_charges', 'rnet_cr',
+    'resultat_exp_cr', 'resultat_fin_cr', 'rcai_cr', 'resultat_excep_cr',
   ])
   for (const row of struct) {
     if (row.sep || row.header || row.accs || result[row.id]) continue
