@@ -40,7 +40,23 @@ export function CompteResultat() {
     return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, CR, filters.excludeOD)
   }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
-  const caTotal = plCalc['ca_v']?.cumulN ?? plCalc['ca']?.cumulN ?? 0
+  // CA total = ca_v (707) + ca_p (706) + ca_a (708) — même définition que SIG.ca
+  // et que Dashboard. Avant : retombait sur ca_v seul (707), produisant des % faux
+  // dans la colonne « % du CA » de PlTable (la ligne 706 pouvait dépasser 100%,
+  // toutes les charges étaient surévaluées en %). Sert aussi de dénominateur des
+  // exports Excel/CSV → harmonisation des 3 vues.
+  const caTotal =
+    (plCalc['ca_v']?.cumulN ?? 0) +
+    (plCalc['ca_p']?.cumulN ?? 0) +
+    (plCalc['ca_a']?.cumulN ?? 0)
+  const caTotalN1 =
+    (plCalc['ca_v']?.cumulN1S ?? 0) +
+    (plCalc['ca_p']?.cumulN1S ?? 0) +
+    (plCalc['ca_a']?.cumulN1S ?? 0)
+  const caTotalBud =
+    (plCalc['ca_v']?.budTotal ?? 0) +
+    (plCalc['ca_p']?.budTotal ?? 0) +
+    (plCalc['ca_a']?.budTotal ?? 0)
 
   // KPI data
   // Totaux complets calculés par computePlCalc (tot_produits/tot_charges incluent
@@ -140,7 +156,7 @@ export function CompteResultat() {
         <PlTable
           struct={CR} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
-          showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
+          showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal} caTotalN1={caTotalN1} caTotalBud={caTotalBud}
           excludeOD={filters.excludeOD}
           budData={budData as any}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}

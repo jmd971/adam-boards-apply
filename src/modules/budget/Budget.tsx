@@ -657,6 +657,57 @@ export function Budget() {
     setTimeout(() => setMsg(null), 4000)
   }
 
+  const handleDuplicateVersion = async (sourceVn: string) => {
+    const source = budVersions.find(
+      v => v.company_key === budCo && v.version_name === sourceVn
+    )
+    if (!source) return
+
+    let suggested = `${sourceVn} (copie)`
+    let i = 2
+    while (coVersions.find(v => v.version_name === suggested)) {
+      suggested = `${sourceVn} (copie ${i++})`
+    }
+
+    const vn = prompt(
+      `Nom de la nouvelle version (basée sur "${sourceVn}") :`,
+      suggested
+    )?.trim()
+    if (!vn) return
+    if (coVersions.find(v => v.version_name === vn)) {
+      setMsg('❌ Une version avec ce nom existe déjà')
+      setTimeout(() => setMsg(null), 3000)
+      return
+    }
+
+    setCreating(true)
+    const clonedData = JSON.parse(JSON.stringify(source.data ?? {}))
+
+    const { data: insertedRows, error } = await sb.from('budget').upsert(
+      { tenant_id: tenantId, company_key: budCo, version_name: vn,
+        data: clonedData, status: 'draft' },
+      { onConflict: 'tenant_id,company_key,version_name' }
+    ).select()
+    setCreating(false)
+
+    if (error) {
+      setMsg('❌ ' + error.message)
+      setTimeout(() => setMsg(null), 6000)
+      return
+    }
+
+    setBudVersions([...budVersions, {
+      id: (insertedRows as any)?.[0]?.id,
+      company_key: budCo,
+      version_name: vn,
+      data: clonedData,
+      status: 'draft' as const,
+    }])
+    setSelVersion(vn)
+    setMsg(`✅ Version "${vn}" créée à partir de "${sourceVn}"`)
+    setTimeout(() => setMsg(null), 4000)
+  }
+
   const handleDeleteVersion = async (vn: string) => {
     if (!confirm(`Supprimer la version "${vn}" ?`)) return
     const { error } = await sb.from('budget')
@@ -770,6 +821,13 @@ export function Budget() {
               <span style={{ flex: 1, fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {v.version_name}
               </span>
+              <button
+                onClick={e => { e.stopPropagation(); handleDuplicateVersion(v.version_name) }}
+                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}
+                title="Dupliquer dans une nouvelle version"
+              >
+                📋
+              </button>
               <button
                 onClick={e => { e.stopPropagation(); handleDeleteVersion(v.version_name) }}
                 style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}

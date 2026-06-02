@@ -5,7 +5,9 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from 'recharts'
-import { fmt, pct, monthIdx, fiscalIndex } from '@/lib/calc'
+import { fmt, pct, fiscalIndex, computePlCalc } from '@/lib/calc'
+import { SIG } from '@/lib/structure'
+import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { computeBilan } from '@/lib/bilan'
 import { KpiCard, ObjectifsChart, ExplainModal } from '@/components/ui'
 import type { Explanation } from '@/components/ui'
@@ -63,12 +65,14 @@ const DASH_EXPLANATIONS: Record<string, Explanation> = {
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 const CHARGE_COLORS = ['#ef4444','#f97316','#f59e0b','#8b5cf6','#6366f1','#3b82f6','#14b8a6']
 
-const CA_ACCS    = ['706','7061','70611','707','708','7080']
-const ACHAT_ACCS = ['601','602','604','607']
-const SERV_ACCS  = ['61','62']
-const PERS_ACCS  = ['641','642','645','646']
-const AMORT_ACCS = ['681']
-
+// Les KPI principaux (CA, Marge, EBE, REX, VA) viennent désormais de computePlCalc(SIG)
+// — cf. plCalc useMemo. Cela aligne le Dashboard sur SIG (formule comptable rigoureuse).
+// Avant : whitelists incomplètes (CA_ACCS/ACHAT_ACCS/SERV_ACCS/PERS_ACCS/AMORT_ACCS)
+// qui ignoraient 603, 63x, 648, 65x, 686/787, 75, 78, 79… → REX divergent du SIG.
+//
+// Petit helper générique conservé pour le graphe « répartition des charges » (pie) et
+// pour la comparaison cumulée réalisé-vs-budget (CA), qui agrègent par préfixes libres
+// hors du modèle SIG.
 function sumAccs(RAW: any, selCo: string[], field: 'pn'|'p1'|'p2', month: string, prefixes: string[], charge = false): number {
   let total = 0
   for (const co of selCo) {
@@ -81,55 +85,6 @@ function sumAccs(RAW: any, selCo: string[], field: 'pn'|'p1'|'p2', month: string
     }
   }
   return Math.round(total)
-}
-
-function computeKpis(RAW: any, selCo: string[], months: string[]) {
-  let ca=0, caN1=0, ach=0, achN1=0, serv=0, servN1=0, pers=0, persN1=0, amrt=0, amrtN1=0
-  for (const m of months) {
-    const mN1 = `${parseInt(m.slice(0,4))-1}-${m.slice(5,7)}`
-    ca     += sumAccs(RAW, selCo, 'pn', m,   CA_ACCS)
-    caN1   += sumAccs(RAW, selCo, 'p1', mN1, CA_ACCS)
-    ach    += sumAccs(RAW, selCo, 'pn', m,   ACHAT_ACCS, true)
-    achN1  += sumAccs(RAW, selCo, 'p1', mN1, ACHAT_ACCS, true)
-    serv   += sumAccs(RAW, selCo, 'pn', m,   SERV_ACCS,  true)
-    servN1 += sumAccs(RAW, selCo, 'p1', mN1, SERV_ACCS,  true)
-    pers   += sumAccs(RAW, selCo, 'pn', m,   PERS_ACCS,  true)
-    persN1 += sumAccs(RAW, selCo, 'p1', mN1, PERS_ACCS,  true)
-    amrt   += sumAccs(RAW, selCo, 'pn', m,   AMORT_ACCS, true)
-    amrtN1 += sumAccs(RAW, selCo, 'p1', mN1, AMORT_ACCS, true)
-  }
-  const marge   = ca - ach
-  const margeN1 = caN1 - achN1
-  const ebe     = marge - serv - pers
-  const ebeN1   = margeN1 - servN1 - persN1
-  const re      = ebe - amrt
-  const reN1    = ebeN1 - amrtN1
-  const evo = (n: number, n1: number) => n1 !== 0 ? (n - n1) / Math.abs(n1) : null
-  return { ca, caN1, ach, serv, pers, amrt, marge, ebe, re,
-    evoCa:    caN1 > 0 ? (ca - caN1) / caN1 : null,
-    evoMarge: evo(marge, margeN1),
-    evoEbe:   evo(ebe, ebeN1),
-    evoRe:    evo(re, reN1),
-    txMarge: ca > 0 ? marge/ca : 0,
-    txEbe:   ca > 0 ? ebe/ca   : 0,
-    txRe:    ca > 0 ? re/ca    : 0,
-  }
-}
-
-/** Compute KPIs for a given period field (pn, p1, p2) and its months */
-function computeKpisPeriod(RAW: any, selCo: string[], field: 'pn'|'p1'|'p2', months: string[]) {
-  let ca=0, ach=0, serv=0, pers=0, amrt=0
-  for (const m of months) {
-    ca   += sumAccs(RAW, selCo, field, m, CA_ACCS)
-    ach  += sumAccs(RAW, selCo, field, m, ACHAT_ACCS, true)
-    serv += sumAccs(RAW, selCo, field, m, SERV_ACCS,  true)
-    pers += sumAccs(RAW, selCo, field, m, PERS_ACCS,  true)
-    amrt += sumAccs(RAW, selCo, field, m, AMORT_ACCS, true)
-  }
-  const marge = ca - ach
-  const ebe   = marge - serv - pers
-  const re    = ebe - amrt
-  return { ca, marge, ebe, re }
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -228,94 +183,88 @@ export function Dashboard() {
 
   const { showBudget, budVersionKey } = filters
 
-  const selCo = filters.selCo.length > 0 ? filters.selCo : (RAW?.keys ?? [])
+  // Filtrage périodique partagé avec SIG/EQ/CR/Ratios/Objectifs (cohérence garantie).
+  const { selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
-  const selectedMs = useMemo(() => {
-    if (!RAW?.mn?.length) return []
-    if (!filters.startM || !filters.endM) return RAW.mn
-    return RAW.mn.filter((m: string) =>
-      monthIdx(m) >= monthIdx(filters.startM) && monthIdx(m) <= monthIdx(filters.endM)
+  // Moteur de calcul unique : computePlCalc(SIG) — le même que SIG.tsx.
+  // Sortie : plCalc[id] = { cumulN, cumulN1S, monthsN, monthsN1, budTotal, budMonths, ... }
+  // Lignes utilisées ici : ca, marge, va, ebe, re.
+  const plCalc = useMemo(() => {
+    if (!RAW || !selectedMs.length) return null
+    return computePlCalc(
+      RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc,
+      budData as any, SIG, filters.excludeOD
     )
-  }, [RAW?.mn?.join(','), filters.startM, filters.endM])
+  }, [RAW, selCo.join(','), selectedMs.join(','), msSrc.join(','),
+      allMsN1Same.join(','), allMsN1SameSrc.join(','), budData, filters.excludeOD])
 
   const kpis = useMemo(() => {
-    if (!selectedMs.length) return null
-    return computeKpis(RAW, selCo, selectedMs)
-  }, [RAW, selCo.join(','), selectedMs.join(',')])
+    if (!plCalc) return null
+    const get   = (id: string) => plCalc[id]?.cumulN   ?? 0
+    const getN1 = (id: string) => plCalc[id]?.cumulN1S ?? 0
+    const ca = get('ca'),    marge = get('marge'), va = get('va'), ebe = get('ebe'), re = get('re')
+    const caN1 = getN1('ca'), margeN1 = getN1('marge'), ebeN1 = getN1('ebe'), reN1 = getN1('re')
+    const evo = (n: number, n1: number) => n1 !== 0 ? (n - n1) / Math.abs(n1) : null
+    return {
+      ca, caN1, marge, va, ebe, re,
+      evoCa:    caN1 > 0 ? (ca - caN1) / caN1 : null,
+      evoMarge: evo(marge,  margeN1),
+      evoEbe:   evo(ebe,    ebeN1),
+      evoRe:    evo(re,     reN1),
+      txMarge:  ca > 0 ? marge / ca : 0,
+      txEbe:    ca > 0 ? ebe   / ca : 0,
+      txRe:     ca > 0 ? re    / ca : 0,
+    }
+  }, [plCalc])
 
   const budKpis = useMemo(() => {
-    if (!showBudget || !budVersionKey || !selectedMs.length) return null
+    if (!showBudget || !budVersionKey || !RAW || !selectedMs.length) return null
     const [co, vn] = budVersionKey.split('|||')
     const version = budVersions.find(v => v.company_key === co && v.version_name === vn)
     if (!version) return null
-    const data = version.data
-
-    let ca = 0, ach = 0, serv = 0, pers = 0, amrt = 0
-    for (const [acc, v] of Object.entries(data)) {
-      const bv = v as { b: number[]; t: string }
-      if (!bv.b) continue
-      const isCa   = CA_ACCS.some(p => acc.startsWith(p))
-      const isAch  = ACHAT_ACCS.some(p => acc.startsWith(p))
-      const isServ = SERV_ACCS.some(p => acc.startsWith(p))
-      const pers_check  = PERS_ACCS.some(p => acc.startsWith(p))
-      const isAmrt = AMORT_ACCS.some(p => acc.startsWith(p))
-      const total = bv.b.reduce((s: number, x: number) => s + x, 0)
-      if (isCa)        ca   += total
-      if (isAch)       ach  += total
-      if (isServ)      serv += total
-      if (pers_check)  pers += total
-      if (isAmrt)      amrt += total
+    // Version courante en budData { [co]: data } → computePlCalc(SIG) → budTotal aligné
+    // sur le moteur SIG (mêmes prefixes que le réel, plus de divergence).
+    const verBudData: Record<string, any> = { [co]: version.data }
+    const verPlCalc = computePlCalc(
+      RAW, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc,
+      verBudData, SIG, filters.excludeOD
+    )
+    return {
+      ca:    verPlCalc['ca']?.budTotal    ?? 0,
+      marge: verPlCalc['marge']?.budTotal ?? 0,
+      ebe:   verPlCalc['ebe']?.budTotal   ?? 0,
+      re:    verPlCalc['re']?.budTotal    ?? 0,
     }
-    const marge = ca - ach
-    const ebe   = marge - serv - pers
-    const re    = ebe - amrt
-    return { ca, marge, ebe, re }
-  }, [showBudget, budVersionKey, budVersions, selectedMs])
+  }, [showBudget, budVersionKey, budVersions, RAW, selCo.join(','), selectedMs.join(','),
+      msSrc.join(','), allMsN1Same.join(','), allMsN1SameSrc.join(','), filters.excludeOD])
 
-  // Budget simple (budData) filtré par période — visible même sans budget version
+  // Budget effectif (cumul des versions actives) : lecture directe des budTotal/budMonths
+  // déjà calculés par plCalc — pas de recalcul, garantit l'alignement avec le réel.
   const budDataKpis = useMemo(() => {
-    if (!kpis || !selectedMs.length) return null
-    const monthIndices = selectedMs.map((m: string) => parseInt(m.slice(5)) - 1)
-    const budFor = (prefixes: string[], isCharge = false) => {
-      let total = 0
-      for (const co of selCo) {
-        const bco = (budData as any)[co] ?? {}
-        for (const [acc, bv] of Object.entries(bco)) {
-          if (!prefixes.some((p: string) => acc.startsWith(p))) continue
-          const b = (bv as any)?.b ?? []
-          const sign = isCharge ? 1 : -1
-          total += sign * monthIndices.reduce((s: number, idx: number) => s + (b[idx] || 0), 0)
-        }
-      }
-      return Math.round(total)
-    }
-    const caV    = budFor(CA_ACCS)
-    const margeV = caV - budFor(ACHAT_ACCS, true)
-    const ebeV   = margeV - budFor(SERV_ACCS, true) - budFor(PERS_ACCS, true)
-    const reV    = ebeV - budFor(AMORT_ACCS, true)
-    if (caV === 0 && margeV === 0 && ebeV === 0 && reV === 0) return null
-    return { ca: caV, marge: margeV, ebe: ebeV, re: reV }
-  }, [selCo.join(','), budData, selectedMs.join(','), kpis])
+    if (!plCalc) return null
+    const get = (id: string) => plCalc[id]?.budTotal ?? 0
+    const ca = get('ca'), marge = get('marge'), ebe = get('ebe'), re = get('re')
+    if (ca === 0 && marge === 0 && ebe === 0 && re === 0) return null
+    return { ca, marge, ebe, re }
+  }, [plCalc])
 
   const monthlyData = useMemo(() => {
-    if (!selectedMs.length) return []
-    return selectedMs.map((m: string) => {
-      const mN1  = `${parseInt(m.slice(0,4))-1}-${m.slice(5,7)}`
-      const caN  = sumAccs(RAW, selCo, 'pn', m, CA_ACCS)
-      const caN1 = sumAccs(RAW, selCo, 'p1', mN1, CA_ACCS)
-      const ach  = sumAccs(RAW, selCo, 'pn', m, ACHAT_ACCS, true)
-      const serv = sumAccs(RAW, selCo, 'pn', m, SERV_ACCS,  true)
-      const pers = sumAccs(RAW, selCo, 'pn', m, PERS_ACCS,  true)
-      const amrt = sumAccs(RAW, selCo, 'pn', m, AMORT_ACCS, true)
-      const marge = caN - ach
-      const ebe   = marge - serv - pers
-      const re    = ebe - amrt
+    if (!plCalc || !selectedMs.length) return []
+    // CA N-1 par mois N : on remappe via allMsN1Same → index dans monthsN1.
+    return selectedMs.map((m: string, i: number) => {
+      const mN1   = `${parseInt(m.slice(0,4))-1}-${m.slice(5,7)}`
+      const n1Idx = allMsN1Same.indexOf(mN1)
+      const caN1  = n1Idx !== -1 ? Math.round(plCalc['ca']?.monthsN1[n1Idx] ?? 0) : 0
       return { month: MONTHS_SHORT[parseInt(m.slice(5))-1], m,
-        'CA N': caN, 'CA N-1': caN1, Marge: marge, EBE: ebe, Résultat: re,
+        'CA N':    Math.round(plCalc['ca']?.monthsN[i]    ?? 0),
+        'CA N-1':  caN1,
+        Marge:     Math.round(plCalc['marge']?.monthsN[i] ?? 0),
+        EBE:       Math.round(plCalc['ebe']?.monthsN[i]   ?? 0),
+        'Résultat': Math.round(plCalc['re']?.monthsN[i]   ?? 0),
         'Budget CA': budKpis ? Math.round(budKpis.ca / selectedMs.length) : undefined,
       }
     })
-  }, [RAW, selCo.join(','), selectedMs.join(','), budKpis])
+  }, [plCalc, selectedMs.join(','), allMsN1Same.join(','), budKpis])
 
   // ── Évolution mensuelle cumulée : réalisé vs budget ───────────────────────
   // Sert à voir le DRIFT par rapport au budget au fil de l'année (pas juste l'écart total)
@@ -329,13 +278,13 @@ export function Dashboard() {
     const budByMonth = new Array(12).fill(0)
     for (const [acc, v] of Object.entries(version.data)) {
       const bv = v as { b: number[]; t: string }
-      if (!bv.b || !CA_ACCS.some(p => acc.startsWith(p))) continue
+      if (!bv.b || !['706','707','708'].some(p => acc.startsWith(p))) continue
       bv.b.forEach((val, i) => { budByMonth[i] += val })
     }
 
     let realCumul = 0, budCumul = 0
     return selectedMs.map((m: string) => {
-      const real = sumAccs(RAW, selCo, 'pn', m, CA_ACCS)
+      const real = sumAccs(RAW, selCo, 'pn', m, ['706','707','708'])
       const bud  = budByMonth[fiscalIndex(m)] ?? 0
       realCumul += real; budCumul += bud
       return {
@@ -386,7 +335,7 @@ export function Dashboard() {
       txMarge:  { value: kpis.txMarge * 100,  display: pct(kpis.txMarge),  detail: `Marge : ${fmt(kpis.marge)} € / CA : ${fmt(ca)} €` },
       txEbe:    { value: kpis.txEbe * 100,    display: pct(kpis.txEbe),    detail: `EBE : ${fmt(kpis.ebe)} €` },
       txRnet:   { value: kpis.txRe * 100,     display: pct(kpis.txRe),     detail: `Résultat : ${fmt(kpis.re)} €` },
-      txVA:     { value: ca > 0 ? ((kpis.marge - kpis.serv) / ca) * 100 : 0, display: ca > 0 ? pct((kpis.marge - kpis.serv) / ca) : '—', detail: `VA estimée sur la période` },
+      txVA:     { value: ca > 0 ? (kpis.va / ca) * 100 : 0, display: ca > 0 ? pct(kpis.va / ca) : '—', detail: `VA SIG (Marge − Autres charges externes 605/606/608/609/61/62)` },
       bfrJours: { value: bfrJours,             display: `${Math.round(bfrJours)} jours`, detail: `BFR : ${fmt(bfrVal)} €` },
       levier:   { value: levierVal,            display: `${levierVal.toFixed(2)}x`,      detail: `Dettes : ${fmt(bilan?.n.detteFin ?? 0)} € / CP : ${fmt(bilan?.n.capitaux ?? 0)} €` },
       evoCa:    { value: evoVal ?? 0,          display: evoVal != null ? pct(kpis.evoCa!) : '—', detail: `N : ${fmt(ca)} € / N-1 : ${fmt(kpis.caN1)} €` },
@@ -418,9 +367,22 @@ export function Dashboard() {
   const hasN2 = (RAW?.m2?.length ?? 0) > 0
   const trendData = useMemo(() => {
     if (!RAW || !selectedMs.length) return null
-    const kN  = computeKpisPeriod(RAW, selCo, 'pn', RAW.mn ?? [])
-    const kN1 = computeKpisPeriod(RAW, selCo, 'p1', RAW.m1 ?? [])
-    const kN2 = hasN2 ? computeKpisPeriod(RAW, selCo, 'p2', RAW.m2 ?? []) : null
+    // Trois mini-runs de computePlCalc(SIG), un par exercice complet — pour aligner
+    // le graphe « tendances 3 exercices » sur le même moteur que le KPI principal.
+    const periodKpis = (months: string[], field: 'pn'|'p1'|'p2') => {
+      if (!months.length) return null
+      const src = months.map(() => field)
+      const plc = computePlCalc(RAW, selCo, months, src as any, [], [], {}, SIG, filters.excludeOD)
+      return {
+        ca:    plc['ca']?.cumulN    ?? 0,
+        marge: plc['marge']?.cumulN ?? 0,
+        ebe:   plc['ebe']?.cumulN   ?? 0,
+        re:    plc['re']?.cumulN    ?? 0,
+      }
+    }
+    const kN  = periodKpis(RAW.mn ?? [], 'pn') ?? { ca: 0, marge: 0, ebe: 0, re: 0 }
+    const kN1 = periodKpis(RAW.m1 ?? [], 'p1') ?? { ca: 0, marge: 0, ebe: 0, re: 0 }
+    const kN2 = hasN2 ? periodKpis(RAW.m2 ?? [], 'p2') : null
     const fyN  = RAW.mn?.[RAW.mn.length - 1]?.slice(0, 4) ?? 'N'
     const fyN1 = RAW.m1?.[RAW.m1.length - 1]?.slice(0, 4) ?? 'N-1'
     const fyN2 = RAW.m2?.[RAW.m2.length - 1]?.slice(0, 4) ?? 'N-2'
@@ -431,7 +393,7 @@ export function Dashboard() {
       { key: 'Résultat exploit.',  N: kN.re,     N1: kN1.re,     N2: kN2?.re },
     ]
     return { metrics, fyN, fyN1, fyN2, hasN2: !!kN2 }
-  }, [RAW, selCo.join(','), selectedMs.join(','), hasN2])
+  }, [RAW, selCo.join(','), selectedMs.join(','), hasN2, filters.excludeOD])
 
   const totalCharges = chargesData.reduce((s, c) => s + c.value, 0)
   const tickFmt      = (v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)

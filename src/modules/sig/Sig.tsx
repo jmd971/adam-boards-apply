@@ -48,7 +48,9 @@ export function Sig() {
     return computePlCalc(RAW, filters.selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc, budData as any, SIG, filters.excludeOD)
   }, [RAW, filters.selCo.join(','), selectedMs.join(','), budData, filters.excludeOD])
 
-  const caTotal = plCalc['ca']?.cumulN ?? 0
+  const caTotal    = plCalc['ca']?.cumulN    ?? 0
+  const caTotalN1  = plCalc['ca']?.cumulN1S  ?? 0
+  const caTotalBud = plCalc['ca']?.budTotal  ?? 0
 
   // KPIs
   const ca = plCalc['ca']?.cumulN ?? 0
@@ -139,7 +141,7 @@ export function Sig() {
         <PlTable
           struct={SIG} plCalc={plCalc} RAW={RAW} selCo={filters.selCo}
           selectedMs={selectedMs} showMonths={filters.showMonths}
-          showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal}
+          showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal} caTotalN1={caTotalN1} caTotalBud={caTotalBud}
           excludeOD={filters.excludeOD}
           budData={budData as any}
           onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}

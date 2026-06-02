@@ -130,7 +130,11 @@ function AppInner() {
         <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Votre rôle ne permet pas d'accéder à cet onglet. Contactez votre administrateur.</div>
       </div>
     )
-    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances' && tab !== 'depot' && tab !== 'ventes' && tab !== 'parametres') return (
+    // Saisie est exclue de cet écran vide : c'est un module d'entrée de données
+    // (factures manuelles, OCR, CSV) qui doit rester accessible même quand le
+    // tenant n'a encore aucune société (cas d'un commerçant qui démarre sans FEC,
+    // ou d'un nouveau tenant qui veut commencer par saisir avant d'importer).
+    if (RAW && RAW.keys.length === 0 && tab !== 'import' && tab !== 'aide' && tab !== 'dashboard' && tab !== 'creances' && tab !== 'depot' && tab !== 'ventes' && tab !== 'parametres' && tab !== 'saisie') return (
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>

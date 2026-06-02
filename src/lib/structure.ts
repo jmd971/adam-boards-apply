@@ -61,8 +61,8 @@ export const SIG: SigRow[] = [
 ]
 
 export const CR: SigRow[] = [
-  // ── PRODUITS D'EXPLOITATION ─────────────────────────────────────────
-  { id:'hdr_exp',         label:"PRODUITS D'EXPLOITATION",     header:true, color:G },
+  // ════════ SECTION EXPLOITATION ════════════════════════════════════════
+  { id:'hdr_exp_prod',    label:"PRODUITS D'EXPLOITATION",      header:true, color:G },
   { id:'ca_v',            label:'Ventes de marchandises',       accs:['707'], type:'produit', indent:1 },
   { id:'ca_p',            label:'Production vendue (services)', accs:['706'], type:'produit', indent:1 },
   { id:'ca_a',            label:'Activités annexes',            accs:['708'], type:'produit', indent:1 },
@@ -71,15 +71,9 @@ export const CR: SigRow[] = [
   { id:'autr_prod',       label:'Autres produits de gestion',   accs:['75'], type:'produit', indent:1 },
   { id:'reprises_exp',    label:'Reprises sur prov. & RAP exp', accs:['78','79'], type:'produit', indent:1 },
   { id:'tot_prod_exp',    label:"TOTAL PRODUITS D'EXPLOITATION",bold:true, color:G, bg:'rgba(16,185,129,0.06)' },
-  { id:'s_pf', label:'', sep:true },
-  { id:'prod_fin',        label:'Produits financiers',          accs:['76'], type:'produit' },
-  { id:'prod_excep',      label:'Produits exceptionnels',       accs:['77'], type:'produit' },
-  { id:'tot_produits',    label:'TOTAL DES PRODUITS',           bold:true, color:G, bg:'rgba(16,185,129,0.12)' },
+  { id:'s_exp_prod_ch',   label:'', sep:true },
 
-  { id:'s_prod', label:'', sep:true },
-
-  // ── CHARGES D'EXPLOITATION ──────────────────────────────────────────
-  { id:'hdr_ch',          label:"CHARGES D'EXPLOITATION",       header:true, color:R },
+  { id:'hdr_exp_ch',      label:"CHARGES D'EXPLOITATION",       header:true, color:R },
   { id:'achat_mdse',      label:'Achats de marchandises',       accs:['607'], type:'charge', indent:1 },
   { id:'achat_mp',        label:'Achats matières premières',    accs:['601','602'], type:'charge', indent:1 },
   { id:'var_stocks',      label:'Variation de stocks',           accs:['603'], type:'charge', indent:1 },
@@ -92,15 +86,39 @@ export const CR: SigRow[] = [
   { id:'amor',            label:'Dotations aux amortissements',  accs:['681'], type:'charge', indent:1 },
   { id:'autr_ch_exp',     label:'Autres charges de gestion',     accs:['65'], type:'charge', indent:1 },
   { id:'tot_ch_exp',      label:"TOTAL CHARGES D'EXPLOITATION",  bold:true, color:R, bg:'rgba(239,68,68,0.06)' },
-  { id:'s_cf', label:'', sep:true },
-  { id:'ch_fin',          label:'Charges financières',           accs:['66','686'], type:'charge' },
-  { id:'ch_excep',        label:'Charges exceptionnelles',       accs:['67','687'], type:'charge' },
-  { id:'is_cr',           label:'Impôt sur les bénéfices',       accs:['69'], type:'charge' },
-  { id:'tot_charges',     label:'TOTAL DES CHARGES',             bold:true, color:R, bg:'rgba(239,68,68,0.12)' },
+  { id:'s_exp_re',        label:'', sep:true },
 
-  { id:'s_res', label:'', sep:true },
+  { id:'resultat_exp_cr', label:"RÉSULTAT D'EXPLOITATION",       bold:true, color:B, bg:'rgba(59,130,246,0.10)' },
 
-  // ── RÉSULTAT ────────────────────────────────────────────────────────
+  { id:'s_fin',           label:'', sep:true },
+
+  // ════════ SECTION FINANCIER ═══════════════════════════════════════════
+  { id:'hdr_fin',         label:'PRODUITS ET CHARGES FINANCIERS', header:true, color:P },
+  { id:'prod_fin',        label:'Produits financiers',          accs:['76'], type:'produit', indent:1 },
+  { id:'ch_fin',          label:'Charges financières',          accs:['66','686'], type:'charge', indent:1 },
+  { id:'resultat_fin_cr', label:'RÉSULTAT FINANCIER',           bold:true, color:P, bg:'rgba(139,92,246,0.08)' },
+
+  { id:'s_rcai',          label:'', sep:true },
+
+  // ════════ RÉSULTAT COURANT AVANT IMPÔTS ═══════════════════════════════
+  { id:'rcai_cr',         label:'RÉSULTAT COURANT AVANT IMPÔTS', bold:true, color:P },
+
+  { id:'s_excep',         label:'', sep:true },
+
+  // ════════ SECTION EXCEPTIONNEL ════════════════════════════════════════
+  { id:'hdr_excep',       label:'PRODUITS ET CHARGES EXCEPTIONNELS', header:true, color:O },
+  { id:'prod_excep',      label:'Produits exceptionnels',       accs:['77'], type:'produit', indent:1 },
+  { id:'ch_excep',        label:'Charges exceptionnelles',      accs:['67','687'], type:'charge', indent:1 },
+  { id:'resultat_excep_cr', label:'RÉSULTAT EXCEPTIONNEL',      bold:true, color:O, bg:'rgba(249,115,22,0.08)' },
+
+  { id:'s_is',            label:'', sep:true },
+
+  // ════════ IMPÔT SUR LES BÉNÉFICES ═════════════════════════════════════
+  { id:'is_cr',           label:'Impôt sur les bénéfices',      accs:['69'], type:'charge' },
+
+  { id:'s_rnet',          label:'', sep:true },
+
+  // ════════ RÉSULTAT NET ════════════════════════════════════════════════
   { id:'rnet_cr',         label:'RÉSULTAT NET',                  bold:true, color:B, bg:'rgba(59,130,246,0.12)' },
 ]
 
