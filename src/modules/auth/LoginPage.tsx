@@ -8,10 +8,11 @@ interface LoginPageProps {
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
-  const [mode, setMode]       = useState<'login' | 'signup'>('login')
-  const [email, setEmail]     = useState('')
+  const [mode, setMode]         = useState<'login' | 'signup'>('login')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [company, setCompany]   = useState('')
+  const [loading, setLoading]   = useState(false)
 
   // Lire l'erreur OAuth depuis le hash de l'URL si présent
   const urlError = (() => {
@@ -25,18 +26,38 @@ export function LoginPage({ onLogin }: LoginPageProps) {
     return null
   })()
 
-  const [error, setError]     = useState<string | null>(urlError)
+  const [error, setError] = useState<string | null>(urlError)
 
   const handleSubmit = async () => {
     if (!email || !password) return
+    if (mode === 'signup' && !company.trim()) {
+      setError('Le nom de la société est obligatoire.')
+      return
+    }
     setLoading(true); setError(null)
     try {
-      const { data, error: err } = mode === 'login'
-        ? await sb.auth.signInWithPassword({ email, password })
-        : await sb.auth.signUp({ email, password })
+      if (mode === 'login') {
+        const { data, error: err } = await sb.auth.signInWithPassword({ email, password })
+        if (err) throw err
+        if (data.user) onLogin(data.user)
+      } else {
+        // ── Inscription ──────────────────────────────────────────────
+        // 1. Créer le compte Supabase Auth
+        const { data, error: signUpErr } = await sb.auth.signUp({ email, password })
+        if (signUpErr) throw signUpErr
+        if (!data.user) throw new Error('Compte non créé — réessayez.')
 
-      if (err) throw err
-      if (data.user) onLogin(data.user)
+        // 2. Provisionner le tenant + rôle admin via la RPC sécurisée
+        //    (SECURITY DEFINER, vérifie auth.uid() == p_user_id)
+        const { error: rpcErr } = await sb.rpc('provision_new_user', {
+          p_user_id:     data.user.id,
+          p_tenant_name: company.trim(),
+          p_role:        'admin',
+        })
+        if (rpcErr) throw rpcErr
+
+        onLogin(data.user)
+      }
     } catch (e: any) {
       setError(e.message || 'Erreur de connexion')
     } finally {
@@ -76,7 +97,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <div className="flex rounded-xl overflow-hidden mb-6"
             style={{ background: 'rgba(255,255,255,0.04)' }}>
             {(['login', 'signup'] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
+              <button key={m} onClick={() => { setMode(m); setError(null) }}
                 className="flex-1 py-2.5 text-sm font-semibold transition-all"
                 style={{
                   background: mode === m ? 'rgba(59,130,246,0.2)' : 'transparent',
@@ -91,6 +112,22 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           </div>
 
           <div className="space-y-3">
+
+            {/* Nom de la société — uniquement en mode signup */}
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-xs text-muted mb-1.5">Nom de la société</label>
+                <input
+                  type="text"
+                  placeholder="Ex : Maison Caraïbe"
+                  value={company}
+                  onChange={e => setCompany(e.target.value)}
+                  className={inputClass}
+                  autoFocus
+                />
+              </div>
+            )}
+
             <div>
               <label className="block text-xs text-muted mb-1.5">Email</label>
               <input
@@ -121,7 +158,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
             <button
               onClick={handleSubmit}
-              disabled={loading || !email || !password}
+              disabled={loading || !email || !password || (mode === 'signup' && !company.trim())}
               className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2"
               style={{
                 background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg,#3b82f6,#6366f1)',
@@ -129,12 +166,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               }}
             >
               {loading
-                ? <span className="flex items-center justify-center gap-2"><Spinner size={16} /> Connexion...</span>
+                ? <span className="flex items-center justify-center gap-2"><Spinner size={16} /> {mode === 'login' ? 'Connexion...' : 'Création...' }</span>
                 : mode === 'login' ? 'Se connecter' : 'Créer le compte'
               }
             </button>
           </div>
         </div>
+
+        {mode === 'signup' && (
+          <p className="text-center text-xs text-muted mt-4">
+            Votre compte sera créé avec le rôle <strong style={{ color: '#93c5fd' }}>Administrateur</strong>.
+          </p>
+        )}
       </div>
     </div>
   )
