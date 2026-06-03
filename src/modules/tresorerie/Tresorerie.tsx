@@ -543,24 +543,29 @@ export function Tresorerie() {
               <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 480px)',borderRadius:'var(--radius-md)',border:'1px solid var(--border-0)'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
                   <thead>
-                    <tr>
-                      <th style={{...thSt,textAlign:'left',minWidth:140,paddingLeft:12}}>Date</th>
-                      <th style={{...thSt,color:'var(--green)',minWidth:100}}>Encaissement</th>
-                      <th style={{...thSt,color:'var(--red)',minWidth:100}}>Décaissement</th>
-                      <th style={{...thSt,color:'var(--blue)',minWidth:90}}>Flux net</th>
-                      <th style={{...thSt,color:'var(--purple)',minWidth:120}}>Trésorerie cumulée</th>
+                    <tr style={{background:'var(--bg-1)'}}>
+                      <th style={{...thSt,textAlign:'left',minWidth:180,paddingLeft:12,position:'sticky',left:0,background:'var(--bg-1)',zIndex:2}}>Poste</th>
+                      {dayForecast.map((d,i)=>(
+                        <th key={i} style={{...thSt,minWidth:58,textTransform:'capitalize',whiteSpace:'nowrap'}}>{d.date.replace(/\s+\S+$/,'')}</th>
+                      ))}
+                      <th style={{...thSt,color:'var(--blue)',minWidth:85}}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dayForecast.map((d,i)=>(
-                      <tr key={i} style={{borderBottom:'1px solid var(--border-0)',background:i%2===0?'transparent':'rgba(255,255,255,0.01)'}}>
-                        <td style={{padding:'7px 12px',color:'var(--text-1)',fontWeight:500,textTransform:'capitalize'}}>{d.date}</td>
-                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.enc>0?'var(--green)':'var(--text-3)'}}>{d.enc>0?fmt(d.enc):'—'}</td>
-                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.dec>0?'var(--red)':'var(--text-3)'}}>{d.dec>0?fmt(d.dec):'—'}</td>
-                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.fl<0?'var(--red)':d.fl>0?'var(--blue)':'var(--text-3)'}}>{d.fl!==0?fmt(d.fl):'—'}</td>
-                        <td style={{padding:'7px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:600,color:d.cum<0?'var(--red)':'var(--purple)'}}>{fmt(d.cum)}</td>
-                      </tr>
-                    ))}
+                    {([['📥 Encaissements','enc','var(--green)'],['📤 Décaissements','dec','var(--red)'],['💰 Flux net','fl','var(--blue)'],['📊 Trésorerie cumulée','cum','var(--purple)']] as [string,string,string][]).map(([lbl,key,col])=>{
+                      const vals=dayForecast.map(d=>(d as any)[key])
+                      const tot=key==='cum'?dayForecast[dayForecast.length-1]?.cum??0:vals.reduce((s:number,v:number)=>s+v,0)
+                      const bold=key==='fl'||key==='cum'
+                      return (
+                        <tr key={key} style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':'transparent'}}>
+                          <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent',whiteSpace:'nowrap',position:'sticky',left:0,background:'var(--bg-0)',zIndex:1}}>{lbl}</td>
+                          {vals.map((v:number,i:number)=>(
+                            <td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:bold?700:400,fontSize:bold?12:11,color:v<0?'var(--red)':v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
+                          ))}
+                          <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700,color:tot<0?'var(--red)':col}}>{fmt(tot)}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
