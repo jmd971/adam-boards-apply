@@ -776,109 +776,79 @@ export function Budget() {
 
       {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444', display:'block', marginBottom:8 }}>{msg}</span>}
 
-      {/* Main layout: version list left, editor right */}
-      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+      {/* Layout vertical : barre versions en haut, éditeur en dessous */}
+      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
 
-        {/* Left panel: version list */}
+        {/* Barre versions horizontale */}
         <div style={{
-          width: 220, flexShrink: 0,
           background: '#0a0f1a', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
-          padding: '12px 10px',
+          padding: '8px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
-            Versions
-          </div>
+          <span style={{ fontSize:10, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Versions</span>
 
-          {coVersions.length === 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: '#334155', marginBottom: 10 }}>Aucune version</div>
-              <button
-                onClick={handleCreateAndGenerate}
-                disabled={creating}
-                style={{
-                  width: '100%', padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                  cursor: creating ? 'not-allowed' : 'pointer',
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
-                  border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
-                  lineHeight: 1.4, opacity: creating ? 0.6 : 1,
-                }}
-              >
-                {creating ? 'Création...' : '⚡ Créer + Générer\ndepuis FEC N-1'}
-              </button>
-            </div>
-          )}
-
+          {/* Chips versions */}
           {coVersions.map(v => (
             <div key={v.version_name} style={{
-              display: 'flex', alignItems: 'center', gap: 4,
-              padding: '6px 8px', borderRadius: 7, marginBottom: 4,
-              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'transparent',
-              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'transparent'}`,
-              cursor: 'pointer',
-            }}
-              onClick={() => setSelVersion(v.version_name)}
-            >
-              <span style={{ flex: 1, fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              display:'flex', alignItems:'center', gap:3,
+              padding:'4px 8px', borderRadius:20, cursor:'pointer', flexShrink:0,
+              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'}`,
+            }} onClick={() => setSelVersion(v.version_name)}>
+              <span style={{ fontSize:12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, whiteSpace:'nowrap' }}>
                 {v.version_name}
               </span>
-              <button
-                onClick={e => { e.stopPropagation(); handleDuplicateVersion(v.version_name) }}
-                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}
-                title="Dupliquer dans une nouvelle version"
-              >
-                📋
-              </button>
-              <button
-                onClick={e => { e.stopPropagation(); handleDeleteVersion(v.version_name) }}
-                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}
-                title="Supprimer"
-              >
-                ×
-              </button>
+              <button onClick={e => { e.stopPropagation(); handleDuplicateVersion(v.version_name) }}
+                style={{ background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:11, padding:'0 1px', lineHeight:1 }}
+                title="Dupliquer">📋</button>
+              <button onClick={e => { e.stopPropagation(); handleDeleteVersion(v.version_name) }}
+                style={{ background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:12, padding:'0 1px', lineHeight:1 }}
+                title="Supprimer">×</button>
             </div>
           ))}
 
-          {/* New version input */}
-          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-            <input
-              type="text" placeholder="Nom de la version..." value={newVersionName}
-              onChange={e => setNewVersionName(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleCreateVersion()}
-              style={{ ...inputSt, width: '100%', boxSizing: 'border-box', marginBottom: 6, fontSize: 11 }}
-            />
-            <button
-              onClick={handleCreateVersion}
-              disabled={creating || !newVersionName.trim()}
-              style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#93c5fd',
-                opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
-            >
-              {creating ? 'Création...' : '+ Nouvelle version'}
+          {/* Bouton ⚡ si 0 versions */}
+          {coVersions.length === 0 && (
+            <button onClick={handleCreateAndGenerate} disabled={creating}
+              style={{ padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700, cursor: creating ? 'not-allowed' : 'pointer',
+                background:'linear-gradient(135deg,rgba(245,158,11,0.25),rgba(249,115,22,0.2))',
+                border:'1px solid rgba(245,158,11,0.4)', color:'#f59e0b', opacity: creating ? 0.6 : 1 }}>
+              {creating ? 'Création...' : '⚡ Créer + Générer depuis FEC N-1'}
             </button>
-          </div>
+          )}
 
-          {/* Compare against another version */}
+          {/* Séparateur */}
+          <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', flexShrink:0 }} />
+
+          {/* Input + bouton nouvelle version */}
+          <input type="text" placeholder="Nom de la version..." value={newVersionName}
+            onChange={e => setNewVersionName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreateVersion()}
+            style={{ ...inputSt, width:160, fontSize:11, padding:'4px 8px' }}
+          />
+          <button onClick={handleCreateVersion} disabled={creating || !newVersionName.trim()}
+            style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:600, cursor:'pointer', flexShrink:0,
+              background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd',
+              opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}>
+            {creating ? '...' : '+ Nouvelle version'}
+          </button>
+
+          {/* Comparer avec */}
           {coVersions.length >= 2 && (
-            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>
-                Comparer avec
-              </div>
-              <select
-                value={compareVersion}
-                onChange={e => setCompareVersion(e.target.value)}
-                style={{ ...inputSt, width: '100%', boxSizing: 'border-box', fontSize: 11 }}
-              >
+            <>
+              <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', flexShrink:0 }} />
+              <span style={{ fontSize:10, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Comparer avec</span>
+              <select value={compareVersion} onChange={e => setCompareVersion(e.target.value)}
+                style={{ ...inputSt, fontSize:11, padding:'4px 8px' }}>
                 <option value="">— Aucune —</option>
-                {coVersions
-                  .filter(v => v.version_name !== selVersion)
+                {coVersions.filter(v => v.version_name !== selVersion)
                   .map(v => <option key={v.version_name} value={v.version_name}>{v.version_name}</option>)}
               </select>
-            </div>
+            </>
           )}
         </div>
 
-        {/* Right panel: budget editor */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Éditeur pleine largeur */}
+        <div style={{ minWidth: 0 }}>
 
           {selVersion ? (
             <>
@@ -1079,14 +1049,14 @@ export function Budget() {
                   </button>
                 </div>
               ) : (
-                <div style={{ overflowX:'auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 280px)', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                     <thead>
                       <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
                         <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
                         <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
                         {fiscalOrder.map(ai => (
-                          <th key={ai} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ai]}</th>
+                          <th key={ai} style={{ padding:'8px 4px', textAlign:'center', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ai]}</th>
                         ))}
                         <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
                       </tr>

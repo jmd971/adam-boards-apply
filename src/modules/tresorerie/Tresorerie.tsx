@@ -38,6 +38,7 @@ export function Tresorerie() {
   const [secOpen,     setSecOpen]     = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
   const [paramsOpen,  setParamsOpen]  = useState(true)
   const [prevRowOpen, setPrevRowOpen] = useState<Record<string,boolean>>({})
+  const [dayRowOpen, setDayRowOpen]   = useState<Record<string,boolean>>({})
   const [showHelp,    setShowHelp]    = useState(false)
   const [dayMonth, setDayMonth] = useState<string>('')
 
@@ -316,6 +317,30 @@ export function Tresorerie() {
     })
   }, [dayMonth, forecast, forecastMs, selCo.join(','), params, bank?.sumByCompany])
 
+  // Détail journalier par compte (déplier/plier des lignes Encaissements/Décaissements).
+  // Réutilise forecastDetail (déjà calculé pour la vue mensuelle) : on prend la valeur du
+  // mois sélectionné (vals[mi]) et on la distribue uniformément sur les jours ouvrés —
+  // cohérent avec dayForecast qui répartit aussi enc/dec uniformément.
+  const dayForecastDetail = useMemo(() => {
+    if (!dayMonth) return { enc: [] as any[], dec: [] as any[] }
+    const mi = forecastMs.indexOf(dayMonth)
+    if (mi < 0) return { enc: [] as any[], dec: [] as any[] }
+    const [yr, mo] = dayMonth.split('-').map(Number)
+    const daysInMonth = new Date(yr, mo, 0).getDate()
+    let nDays = 0
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dt = new Date(yr, mo - 1, d)
+      if (dt.getDay() !== 0 && dt.getDay() !== 6) nDays++
+    }
+    if (!nDays) return { enc: [] as any[], dec: [] as any[] }
+    const build = (rec: Record<string, { label:string; vals:number[] }>) =>
+      Object.entries(rec)
+        .map(([acc, a]) => ({ acc, label: a.label, monthTotal: a.vals[mi] ?? 0, perDay: Math.round((a.vals[mi] ?? 0) / nDays) }))
+        .filter(x => x.monthTotal !== 0)
+        .sort((a, b) => b.monthTotal - a.monthTotal)
+    return { enc: build(forecastDetail.enc), dec: build(forecastDetail.dec) }
+  }, [dayMonth, forecastMs, forecastDetail])
+
   if (!RAW) return (
     <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:256,color:'var(--text-2)',fontSize:13}}>
       Aucune donnée. Importez un fichier FEC.
@@ -543,24 +568,55 @@ export function Tresorerie() {
               <div style={{overflowX:'auto',overflowY:'auto',maxHeight:'calc(100vh - 480px)',borderRadius:'var(--radius-md)',border:'1px solid var(--border-0)'}}>
                 <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
                   <thead>
-                    <tr>
-                      <th style={{...thSt,textAlign:'left',minWidth:140,paddingLeft:12}}>Date</th>
-                      <th style={{...thSt,color:'var(--green)',minWidth:100}}>Encaissement</th>
-                      <th style={{...thSt,color:'var(--red)',minWidth:100}}>Décaissement</th>
-                      <th style={{...thSt,color:'var(--blue)',minWidth:90}}>Flux net</th>
-                      <th style={{...thSt,color:'var(--purple)',minWidth:120}}>Trésorerie cumulée</th>
+                    <tr style={{background:'var(--bg-1)'}}>
+                      <th style={{...thSt,textAlign:'left',minWidth:180,paddingLeft:12,position:'sticky',left:0,background:'var(--bg-1)',zIndex:2}}>Poste</th>
+                      {dayForecast.map((d,i)=>(
+                        <th key={i} style={{...thSt,minWidth:58,textTransform:'capitalize',whiteSpace:'nowrap'}}>{d.date.replace(/\s+\S+$/,'')}</th>
+                      ))}
+                      <th style={{...thSt,color:'var(--blue)',minWidth:85}}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dayForecast.map((d,i)=>(
-                      <tr key={i} style={{borderBottom:'1px solid var(--border-0)',background:i%2===0?'transparent':'rgba(255,255,255,0.01)'}}>
-                        <td style={{padding:'7px 12px',color:'var(--text-1)',fontWeight:500,textTransform:'capitalize'}}>{d.date}</td>
-                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.enc>0?'var(--green)':'var(--text-3)'}}>{d.enc>0?fmt(d.enc):'—'}</td>
-                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.dec>0?'var(--red)':'var(--text-3)'}}>{d.dec>0?fmt(d.dec):'—'}</td>
-                        <td style={{padding:'7px 8px',textAlign:'right',fontFamily:'monospace',color:d.fl<0?'var(--red)':d.fl>0?'var(--blue)':'var(--text-3)'}}>{d.fl!==0?fmt(d.fl):'—'}</td>
-                        <td style={{padding:'7px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:600,color:d.cum<0?'var(--red)':'var(--purple)'}}>{fmt(d.cum)}</td>
-                      </tr>
-                    ))}
+                    {([['📥 Encaissements','enc','var(--green)'],['📤 Décaissements','dec','var(--red)'],['💰 Flux net','fl','var(--blue)'],['📊 Trésorerie cumulée','cum','var(--purple)']] as [string,string,string][]).map(([lbl,key,col])=>{
+                      const vals=dayForecast.map(d=>(d as any)[key])
+                      const tot=key==='cum'?dayForecast[dayForecast.length-1]?.cum??0:vals.reduce((s:number,v:number)=>s+v,0)
+                      const bold=key==='fl'||key==='cum'
+                      const canExpand=key==='enc'||key==='dec'
+                      const isOpen=canExpand&&!!dayRowOpen[key]
+                      const detail=canExpand?(key==='enc'?dayForecastDetail.enc:dayForecastDetail.dec):[]
+                      return (
+                        <React.Fragment key={key}>
+                          <tr onClick={canExpand?()=>setDayRowOpen(p=>({...p,[key]:!p[key]})):undefined}
+                            style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':isOpen?'rgba(255,255,255,0.02)':'transparent',cursor:canExpand?'pointer':'default'}}>
+                            <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent',whiteSpace:'nowrap',position:'sticky',left:0,background:'var(--bg-0)',zIndex:1}}>
+                              {canExpand&&<span style={{display:'inline-block',width:14,marginRight:4,fontSize:9,color:'var(--text-3)'}}>{isOpen?'▾':'▸'}</span>}
+                              {lbl}
+                            </td>
+                            {vals.map((v:number,i:number)=>(
+                              <td key={i} style={{padding:'8px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:bold?700:400,fontSize:bold?12:11,color:v<0?'var(--red)':v===0?'var(--text-3)':col}}>{v!==0?fmt(v):'—'}</td>
+                            ))}
+                            <td style={{padding:'8px 10px',textAlign:'right',fontFamily:'monospace',fontWeight:700,color:tot<0?'var(--red)':col}}>{fmt(tot)}</td>
+                          </tr>
+                          {isOpen&&detail.length===0&&(
+                            <tr><td colSpan={dayForecast.length+2} style={{padding:'8px 12px 8px 34px',fontSize:10,color:'var(--amber)',fontStyle:'italic'}}>
+                              Pas de détail — configurez un budget dans l'onglet Budget.
+                            </td></tr>
+                          )}
+                          {isOpen&&detail.map((dd:any)=>(
+                            <tr key={dd.acc} style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)'}}>
+                              <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:240,position:'sticky',left:0,background:'var(--bg-0)',zIndex:1}}>
+                                {!dd.acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{dd.acc}</span>}
+                                {dd.label}
+                              </td>
+                              {dayForecast.map((_d,i)=>(
+                                <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:dd.perDay===0?'var(--text-3)':col}}>{dd.perDay!==0?fmt(dd.perDay):'—'}</td>
+                              ))}
+                              <td style={{padding:'5px 10px',textAlign:'right',fontFamily:'monospace',fontSize:10,fontWeight:600,color:dd.monthTotal<0?'var(--red)':col}}>{dd.monthTotal!==0?fmt(dd.monthTotal):'—'}</td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

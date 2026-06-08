@@ -3,62 +3,13 @@ import { useAppStore } from '@/store'
 import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
 import { buildRAW } from '@/lib/calc'
-import { readFileText } from '@/lib/fec'
 import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
+import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
+import { CsvImportView, type CsvRow } from './CsvImportView'
 
-const CATEGORIES = [
-  { cat: 'Vente', acc: '706', subs: [
-    'Ventes de marchandises (707)','Prestations de services (706)','Travaux (704)',
-    'Négoce (707)','Location de biens (713)','Commissions reçues (708)',
-    'Subventions (740)','Revenus financiers (76)','Reprises sur provisions (781)',
-    'Activité annexe (708)','Autre produit (70)',
-  ]},
-  { cat: 'Achat', acc: '607', subs: [
-    'Achats de marchandises (607)','Matières premières (601)','Matières consommables (602)',
-    'Fournitures non stockées (606)','Emballages (603)','Achat de sous-traitance (604)',
-    'Variation de stocks (603)','Autre achat (609)',
-  ]},
-  { cat: 'Depense', acc: '626', subs: [
-    // 61x — Services extérieurs A
-    'Loyer et charges locatives (613/614)','Crédit-bail (612)','Entretien et réparations (615)',
-    'Assurances (616)','Documentation et abonnements (618)','Concessions et brevets (611)',
-    // 62x — Services extérieurs B
-    'Personnel extérieur (621)','Honoraires et commissions (622)','Frais d\'actes et contentieux (622)',
-    'Publicité et marketing (623)','Frais de représentation (623)','Cadeaux clients (623)',
-    'Transports sur achats (624)','Transports sur ventes (624)',
-    'Déplacements et missions (625)','Repas d\'affaires (625)','Carburant (625)',
-    'Téléphone et Internet (626)','Affranchissements (626)','Services bancaires (627)',
-    'Cotisations professionnelles (628)',
-    // 63x — Impôts et taxes
-    'Formation professionnelle (633)','Taxe apprentissage (632)','Taxe foncière (635)',
-    'CFE / CVAE (635)','TVA non récupérable (635)','Autres impôts et taxes (635)',
-    // 64x — Charges de personnel
-    'Salaires bruts (641)','Primes et intéressements (648)','Charges patronales URSSAF (645)',
-    'Mutuelle et prévoyance (646)','Retraite complémentaire (645)',
-    // 65x — Autres charges de gestion
-    'Créances irrécouvrables (654)','Redevances et royalties (651)',
-    // 66x — Charges financières
-    'Intérêts bancaires (661)','Charges sur emprunts (661)',
-    // 67x — Charges exceptionnelles
-    'Charges exceptionnelles (671)',
-    // 68x — Dotations
-    'Dotations aux amortissements (681)','Dotations aux provisions (681)',
-    // Autre
-    'Electricité / Energie (606)','Eau (606)','Fournitures de bureau (606)',
-    'Abonnements logiciels (618)','Autre charge (658)',
-  ]},
-  { cat: 'Immobilisation', acc: '2181', subs: [
-    'Logiciels et licences (205)','Brevets et marques (205)','Fonds commercial (207)',
-    'Matériel informatique (2183)','Matériel de bureau (2184)','Mobilier (2184)',
-    'Agencements et installations (2131)','Matériel de transport (2182)',
-    'Matériel industriel (2154)','Matériel médical (2186)',
-    'Constructions (213)','Terrains (211)',
-    'Participations (261)','Dépôts et cautionnements (275)',
-    'Autre immobilisation (218)',
-  ]},
-] as { cat: ManualEntry['category']; subs: string[]; acc: string }[]
+
 
 const OCR_PROMPT = `Tu es un expert-comptable. Analyse cette facture et retourne UNIQUEMENT un JSON valide sans backticks ni markdown.
 Champs requis:
@@ -143,6 +94,9 @@ export function Saisie() {
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
   const [echAmountsDirty, setEchAmountsDirty] = useState(false)
+  // Combobox sous-catégorie
+  const [subSearch, setSubSearch] = useState('')
+  const [subOpen,   setSubOpen]   = useState(false)
 
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
@@ -255,7 +209,7 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
     setMsg(null)
   }
 
@@ -285,11 +239,7 @@ export function Saisie() {
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
 
-  // Extrait le compte du libellé de sous-catégorie : "Publicité et marketing (623)" → "623"
-  const extractAcc = (sub: string, fallback: string) => {
-    const m = sub?.match(/\((\d{3,})[^)]*\)/)
-    return m ? m[1] : fallback
-  }
+  // extractAcc importé depuis @/lib/categories
 
   // Suggestion auto de sous-catégorie d'après l'historique des saisies (même catégorie,
   // tiers ou libellé similaire). Vide si l'utilisateur a déjà choisi ou si pas d'indice.
@@ -320,6 +270,17 @@ export function Saisie() {
     const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
     return sorted.length > 0 ? sorted[0][0] : null
   }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig])
+
+  // Sous-catégories filtrées par la recherche libre (aliases inclus)
+  const filteredSubs = useMemo(() => {
+    const all = catConfig?.subs ?? []
+    const q = normSub(subSearch.trim())
+    if (!q) return all
+    return all.filter(sub => {
+      if (normSub(sub).includes(q)) return true
+      return (SUB_ALIASES[sub] ?? []).some(alias => normSub(alias).includes(q) || q.includes(normSub(alias)))
+    })
+  }, [subSearch, catConfig])
 
   // ── Rafraîchir le store après saisie ─────────────────────────────────────
   const refreshStore = async (newEntry: ManualEntry) => {
@@ -470,50 +431,37 @@ export function Saisie() {
   }
 
   // ── CSV ───────────────────────────────────────────────────────────────────
-  const handleCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // ── Import CSV via CsvImportView ─────────────────────────────────────────
+  const handleCsvImport = async (companyKey: string, rows: CsvRow[]) => {
     setMsg(null)
-    const text = await readFileText(file)
-    const lines = text.split('\n').filter(l => l.trim())
-    if (lines.length < 2) { setMsg('❌ CSV vide ou invalide'); return }
-    const sep = lines[0].includes(';') ? ';' : ','
-    const headers = lines[0].split(sep).map(h => h.trim().toLowerCase())
-    const imported: any[] = []
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
-      const row: any = {}
-      headers.forEach((h, j) => { row[h] = cols[j] || '' })
-      const ht  = parseFloat(row.amount_ht  || row.montant_ht  || '0') || 0
-      const ttc = parseFloat(row.amount_ttc || row.montant_ttc || '0') || 0
-      imported.push({
-        tenant_id:    tenantId,
-        company_key:  form.company_key,
-        entry_date:   row.date || row.entry_date || '',
-        category:     row.category || row.categorie || 'Depense',
-        subcategory:  row.subcategory || row.sous_categorie || '',
-        label:        row.label || row.libelle || '',
-        invoice_number: row.invoice_number || row.numero_facture || row.num_facture || null,
-        amount_ttc:   String(ttc),
-        amount_ht:    String(ht),
-        tva_amount:   String(calcTvaAmount(ht, ttc)),
-        tva_rate:     calcTvaRate(ht, ttc),
-        counterpart:  row.counterpart || row.contrepartie || '',
-        payment_mode: row.payment_mode || row.reglement || 'virement',
-        account_num:  extractAcc(
-          row.subcategory || row.sous_categorie || '',
-          CATEGORIES.find(c => c.cat === (row.category || row.categorie || 'Depense'))?.acc ?? '658'
-        ),
-        source:       'csv',
-      })
-    }
+    const imported = rows.map(r => {
+      const ht  = r.amount_ht
+      const ttc = r.amount_ttc || ht
+      return {
+        tenant_id:     tenantId,
+        company_key:   companyKey,
+        entry_date:     r.date,
+        category:       r.category,
+        subcategory:    r.subcategory,
+        label:          r.label,
+        invoice_number: r.invoice_number || null,
+        amount_ttc:     String(ttc),
+        amount_ht:      String(ht),
+        tva_amount:     r.tva_amount > 0 ? String(r.tva_amount) : String(calcTvaAmount(ht, ttc)),
+        tva_rate:       r.tva_rate  || calcTvaRate(ht, ttc),
+        counterpart:    r.counterpart,
+        payment_mode:   r.payment_mode || 'virement',
+        payment_date:   r.payment_date || null,
+        account_num:    extractAcc(r.subcategory, CATEGORIES.find(c => c.cat === r.category)?.acc ?? '658'),
+        source:         'csv' as const,
+      }
+    })
     setSaving(true)
     const { data, error } = await sb.from('manual_entries').insert(imported).select()
     setSaving(false)
     if (error) { setMsg('❌ ' + error.message); return }
     const newEntries = data as ManualEntry[]
     setMsg(`✅ ${newEntries.length} lignes importées`)
-    // Refresh store
     const allEntries = [...newEntries, ...manualEntries]
     setManualEntries(allEntries)
     if (tenantId) {
@@ -530,7 +478,7 @@ export function Saisie() {
         }
       }
     }
-    setTimeout(() => setMsg(null), 4000)
+    setTimeout(() => setMsg(null), 5000)
   }
 
   // ── Soumission manuelle ───────────────────────────────────────────────────
@@ -614,7 +562,7 @@ export function Saisie() {
 
     setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
     setEchDates([])
     setEchAmounts([])
     setEchAmountsDirty(false)
@@ -680,19 +628,18 @@ export function Saisie() {
         </div>
       )}
 
-      {/* CSV */}
+      {/* CSV — import avec prévisualisation et affectation */}
       {mode === 'csv' && (
-        <div style={{ background:'#0f172a', borderRadius:12, padding:24, border:'1px solid rgba(20,184,166,0.2)', marginBottom:24, textAlign:'center' }}>
-          <div style={{ fontSize:14, fontWeight:600, color:'#14b8a6', marginBottom:4 }}>Import CSV</div>
-          <div style={{ fontSize:11, color:'#475569', marginBottom:16 }}>Colonnes : date, category, subcategory, label, amount_ht, amount_ttc, counterpart, payment_mode</div>
-          {saving ? <Spinner size={24} /> : (
-            <label style={{ padding:'10px 24px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', background:'rgba(20,184,166,0.15)', color:'#14b8a6', border:'1px solid rgba(20,184,166,0.3)', display:'inline-block' }}>
-              📄 Choisir un fichier CSV
-              <input type="file" accept=".csv,.txt" onChange={handleCSV} style={{ display:'none' }} />
-            </label>
-          )}
-          {msg && <div style={{ marginTop:12, fontSize:12, color: msg.startsWith('✅') ? '#10b981' : '#ef4444' }}>{msg}</div>}
-        </div>
+        <>
+          <CsvImportView
+            companyKeys={RAW?.keys?.length > 0 ? RAW.keys : (form.company_key ? [form.company_key] : [''])}
+            defaultCompanyKey={form.company_key || filters.selCo[0] || RAW?.keys[0] || ''}
+            companyNames={Object.fromEntries((RAW?.keys ?? []).map(k => [k, RAW.companies[k]?.name || k]))}
+            onImport={handleCsvImport}
+            saving={saving}
+          />
+          {msg && <div style={{ marginBottom:16, padding:'10px 14px', borderRadius:8, fontSize:12, background: msg.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: msg.startsWith('✅') ? '#10b981' : '#ef4444', border: `1px solid ${msg.startsWith('✅') ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>{msg}</div>}
+        </>
       )}
 
       {/* Saisie manuelle */}
@@ -727,22 +674,72 @@ export function Saisie() {
 
             <div>
               <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Catégorie</label>
-              <select value={form.category} onChange={e => setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))} style={inputSt}>
+              <select value={form.category} onChange={e => {
+                setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))
+                setSubSearch('')
+              }} style={inputSt}>
                 {CATEGORIES.map(c => <option key={c.cat} value={c.cat}>{c.cat}</option>)}
               </select>
             </div>
 
-            <div>
-              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Sous-catégorie</label>
-              <select value={form.subcategory} onChange={e => setForm(f => ({...f, subcategory:e.target.value}))} style={inputSt}>
-                <option value="">— Choisir —</option>
-                {[...(catConfig?.subs ?? [])].sort((a, b) => a.localeCompare(b, 'fr')).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              {suggestedSub && suggestedSub !== form.subcategory && (
+            {/* ── Sous-catégorie : combobox avec recherche libre ── */}
+            <div style={{ position:'relative' }}>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>
+                Sous-catégorie
+                {form.subcategory && <span style={{ marginLeft:6, color:'#22c55e', fontSize:9 }}>✓ sélectionnée</span>}
+              </label>
+              <div style={{ position:'relative' }}>
+                <input
+                  type="text"
+                  value={subOpen ? subSearch : (form.subcategory || subSearch)}
+                  placeholder="Taper : loyer, assurance, téléphone, salaire…"
+                  onChange={e => { setSubSearch(e.target.value); setSubOpen(true); if (!e.target.value) setForm(f => ({...f, subcategory:''})) }}
+                  onFocus={() => { setSubSearch(''); setSubOpen(true) }}
+                  onBlur={() => setTimeout(() => setSubOpen(false), 160)}
+                  style={{ ...inputSt, color: !subOpen && form.subcategory ? '#93c5fd' : undefined, paddingRight: 28 }}
+                />
+                {/* Indicateur : flèche si fermé, croix si valeur sélectionnée */}
+                <span style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', fontSize:10, color:'#475569', pointerEvents: form.subcategory ? 'auto' : 'none', cursor: form.subcategory ? 'pointer' : 'default' }}
+                  onMouseDown={e => { e.preventDefault(); setForm(f => ({...f, subcategory:''})); setSubSearch('') }}>
+                  {form.subcategory ? '✕' : '▾'}
+                </span>
+              </div>
+              {/* Dropdown */}
+              {subOpen && (
+                <div style={{
+                  position:'absolute', top:'calc(100% + 2px)', left:0, right:0, zIndex:200,
+                  background:'#0f172a', border:'1px solid rgba(255,255,255,0.15)',
+                  borderRadius:8, maxHeight:220, overflowY:'auto',
+                  boxShadow:'0 8px 28px rgba(0,0,0,0.5)',
+                }}>
+                  {filteredSubs.length === 0 ? (
+                    <div style={{ padding:'10px 14px', fontSize:11, color:'#475569', fontStyle:'italic' }}>
+                      Aucune correspondance — essayez un autre mot
+                    </div>
+                  ) : filteredSubs.map(sub => (
+                    <div key={sub}
+                      onMouseDown={() => { setForm(f => ({...f, subcategory:sub})); setSubSearch(''); setSubOpen(false) }}
+                      style={{
+                        padding:'9px 12px', cursor:'pointer', fontSize:12,
+                        color: sub === form.subcategory ? '#93c5fd' : '#cbd5e1',
+                        background: sub === form.subcategory ? 'rgba(59,130,246,0.18)' : 'transparent',
+                        borderBottom:'1px solid rgba(255,255,255,0.04)',
+                        transition:'background 0.1s',
+                      }}
+                      onMouseEnter={e => { if (sub !== form.subcategory) e.currentTarget.style.background='rgba(255,255,255,0.07)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = sub === form.subcategory ? 'rgba(59,130,246,0.18)' : 'transparent' }}
+                    >
+                      {sub}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Suggestion d'après l'historique */}
+              {!subOpen && suggestedSub && suggestedSub !== form.subcategory && (
                 <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6 }}>
-                  <span>💡 Suggestion (à partir d'autres saisies) :</span>
+                  <span>💡</span>
                   <button type="button"
-                    onClick={() => setForm(f => ({ ...f, subcategory: suggestedSub }))}
+                    onClick={() => { setForm(f => ({ ...f, subcategory: suggestedSub })); setSubSearch('') }}
                     style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
                     {suggestedSub}
                   </button>

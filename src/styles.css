@@ -45,9 +45,24 @@
     overflow-x: hidden;
   }
 
-  ::-webkit-scrollbar { width: 4px; height: 4px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+  /* ── Ascenseurs (scrollbars) larges et visibles ──────────────────────
+     Élargis de 4px → 14px : les clients ne voyaient/n'attrapaient pas les
+     anciennes barres trop fines. Thumb bien contrasté + survol plus clair. */
+  ::-webkit-scrollbar { width: 14px; height: 14px; }
+  ::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 8px; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.28);
+    border-radius: 8px;
+    border: 3px solid transparent;      /* crée une marge visuelle autour du thumb */
+    background-clip: content-box;
+    min-height: 40px;                   /* thumb jamais minuscule sur longues listes */
+  }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.45); background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:active { background: rgba(59,130,246,0.7); background-clip: content-box; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+
+  /* Firefox / navigateurs non-WebKit */
+  * { scrollbar-width: auto; scrollbar-color: rgba(255,255,255,0.28) rgba(255,255,255,0.04); }
 
   /* ── Tables P&L ──────────────────────────────────── */
   .pl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
