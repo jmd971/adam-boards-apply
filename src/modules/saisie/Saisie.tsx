@@ -450,7 +450,8 @@ export function Saisie() {
         tva_amount:     r.tva_amount > 0 ? String(r.tva_amount) : String(calcTvaAmount(ht, ttc)),
         tva_rate:       r.tva_rate  || calcTvaRate(ht, ttc),
         counterpart:    r.counterpart,
-        payment_mode:   'virement',
+        payment_mode:   r.payment_mode || 'virement',
+        payment_date:   r.payment_date || null,
         account_num:    extractAcc(r.subcategory, CATEGORIES.find(c => c.cat === r.category)?.acc ?? '658'),
         source:         'csv' as const,
       }
