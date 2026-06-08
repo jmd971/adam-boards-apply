@@ -58,6 +58,42 @@ function splitCSV(line: string, sep: string): string[] {
   return result
 }
 
+// Inverse une couche de mojibake : prend une chaîne dont les caractères sont en
+// réalité des octets UTF-8 mal décodés (ex : "Ã©") et les ré-interprète en UTF-8 → "é".
+function deMojibake(s: string): string {
+  try {
+    const bytes = Uint8Array.from([...s], c => c.charCodeAt(0) & 0xff)
+    return new TextDecoder('utf-8', { fatal: false }).decode(bytes)
+  } catch {
+    return s
+  }
+}
+
+// Décode un fichier CSV en gérant tous les cas d'encodage rencontrés en pratique :
+//  1. UTF-8 propre               → décodage direct
+//  2. ISO-8859-1 / Latin-1       → UTF-8 strict échoue → fallback latin-1
+//  3. UTF-8 double-encodé (mojibake "Ã©", "â‚¬"…) → on inverse 1 à 2 couches
+// Les exports de logiciels de facturation FR tombent souvent dans le cas 3.
+function decodeCsvBuffer(buffer: ArrayBuffer): string {
+  let text: string
+  try {
+    // UTF-8 strict : lève une exception si les octets ne sont pas de l'UTF-8 valide
+    text = new TextDecoder('utf-8', { fatal: true }).decode(buffer)
+  } catch {
+    // Pas de l'UTF-8 valide → fichier Latin-1
+    return new TextDecoder('iso-8859-1').decode(buffer)
+  }
+  // UTF-8 valide mais possiblement du mojibake double-encodé : "Numéro" → "NumÃ©ro"
+  // On inverse jusqu'à 2 couches tant que des marqueurs de mojibake subsistent.
+  for (let pass = 0; pass < 2; pass++) {
+    if (!/Ã[\x80-\xBF]|â‚¬|â€|Ã©|Ã¨|Ã /.test(text)) break
+    const fixed = deMojibake(text)
+    if (fixed === text) break
+    text = fixed
+  }
+  return text
+}
+
 function detectCat(raw: string): ManualEntry['category'] {
   const v = normSub(raw)
   if (v.includes('vente') || v.includes('produit') || v.includes('recette') || v.includes('facture')) return 'Vente'
@@ -304,14 +340,8 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
     setParseErr(null)
     setFileName(file.name)
     try {
-      // Détection d'encodage : si le fichier est ISO-8859-1/Latin-1 (export Excel FR),
-      // file.text() (UTF-8 par défaut) produit du mojibake : "é" → "Ã©", "è" → "Ã¨", etc.
-      // On re-décode avec iso-8859-1 dans ce cas.
       const buffer = await file.arrayBuffer()
-      let text = new TextDecoder('utf-8').decode(buffer)
-      if (/Ã[\x80-\xBF]|â€|Ã‰|Ã€/.test(text)) {
-        text = new TextDecoder('iso-8859-1').decode(buffer)
-      }
+      const text = decodeCsvBuffer(buffer)
       const struct = parseCSVStructure(text)
       if (struct.dataRows.length === 0) { setParseErr('Fichier vide ou format non reconnu.'); return }
       setStructure(struct)
