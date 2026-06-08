@@ -60,6 +60,58 @@ const CATEGORIES = [
   ]},
 ] as { cat: ManualEntry['category']; subs: string[]; acc: string }[]
 
+// Mots-clés naturels → sous-catégorie. Permet à l'utilisateur de taper "loyer",
+// "internet", "salaire"… sans connaître les numéros de comptes.
+const SUB_ALIASES: Record<string, string[]> = {
+  'Loyer et charges locatives (613/614)':   ['loyer','bail','location bureau','charges locatives','loyer bureau','loyer local'],
+  'Crédit-bail (612)':                       ['leasing','credit bail','loa','location financière'],
+  'Entretien et réparations (615)':          ['entretien','réparation','maintenance','dépannage','travaux réparation'],
+  'Assurances (616)':                        ['assurance','rc pro','responsabilité civile','multirisque','assurance auto','prévoyance'],
+  'Documentation et abonnements (618)':      ['abonnement presse','documentation','revue','journal'],
+  'Abonnements logiciels (618)':             ['logiciel','saas','abonnement','licence','microsoft','adobe','slack','notion','hubspot','salesforce','office 365','google workspace'],
+  'Honoraires et commissions (622)':         ['honoraires','expert comptable','avocat','commission','consultant','freelance','notaire','huissier'],
+  'Publicité et marketing (623)':            ['publicité','marketing','pub','facebook ads','google ads','linkedin','communication','affichage','flyers'],
+  'Cadeaux clients (623)':                   ['cadeaux','goodies','coffret','panier garni'],
+  'Transports sur achats (624)':             ['transport achat','livraison fournisseur','frais port','chronopost','ups','fedex'],
+  'Transports sur ventes (624)':             ['transport vente','expedition','colis','colissimo'],
+  'Déplacements et missions (625)':          ['déplacement','voyage','train','avion','hôtel','taxi','uber','note de frais','mission'],
+  'Repas d\'affaires (625)':                 ['restaurant','repas','déjeuner','dîner','repas affaires','ticket restaurant'],
+  'Carburant (625)':                         ['carburant','essence','gasoil','diesel','péage','autoroute'],
+  'Téléphone et Internet (626)':             ['téléphone','internet','mobile','forfait','sfr','orange','free','bouygues','fibre','box'],
+  'Affranchissements (626)':                 ['affranchissement','courrier','timbre','la poste','colis'],
+  'Services bancaires (627)':                ['frais bancaires','agios','commission bancaire','virement','tenue compte','carte bancaire'],
+  'Cotisations professionnelles (628)':      ['cotisation','syndicat','chambre de commerce','cci','ordre','adhésion'],
+  'Formation professionnelle (633)':         ['formation','stage','cpf','opco','séminaire','conférence'],
+  'Taxe apprentissage (632)':                ['taxe apprentissage','alternance'],
+  'Taxe foncière (635)':                     ['taxe foncière','foncier'],
+  'CFE / CVAE (635)':                        ['cfe','cvae','taxe professionnelle','contribution économique'],
+  'TVA non récupérable (635)':               ['tva non récupérable','tva irr'],
+  'Autres impôts et taxes (635)':            ['impôts','taxes','contribution','prélèvement fiscal'],
+  'Salaires bruts (641)':                    ['salaire','salaires','rémunération','paie','bulletin de salaire','traitement'],
+  'Primes et intéressements (648)':          ['prime','intéressement','participation','bonus','13ème mois'],
+  'Charges patronales URSSAF (645)':         ['urssaf','charges patronales','cotisations sociales','charges sociales','sécu','sécurité sociale'],
+  'Mutuelle et prévoyance (646)':            ['mutuelle','prévoyance santé','complémentaire santé'],
+  'Retraite complémentaire (645)':           ['retraite','arrco','agirc','caisse retraite'],
+  'Intérêts bancaires (661)':                ['intérêts','emprunt','crédit','prêt bancaire','remboursement emprunt'],
+  'Dotations aux amortissements (681)':      ['amortissement','dotation','dépréciation'],
+  'Electricité / Energie (606)':             ['électricité','énergie','edf','engie','gaz','chauffage','eau chaude'],
+  'Eau (606)':                               ['eau','véolia','eau froide'],
+  'Fournitures de bureau (606)':             ['fournitures','papeterie','bureau','stylo','papier','encre','toner'],
+  'Achats de marchandises (607)':            ['marchandises','produits revendus','stock','négoce','réassort'],
+  'Matières premières (601)':                ['matières premières','matériaux','composants','MP'],
+  'Matières consommables (602)':             ['consommables','fournitures production','petits matériels'],
+  'Achat de sous-traitance (604)':           ['sous-traitance','prestataire','façonnage'],
+  'Prestations de services (706)':           ['prestation','facturation','mission','consulting','services rendus','facture client'],
+  'Ventes de marchandises (707)':            ['vente','marchandises vendues','revente'],
+  'Travaux (704)':                           ['travaux','chantier','BTP'],
+  'Subventions (740)':                       ['subvention','aide','bpifrance','région','état'],
+}
+
+// Normalise un texte pour la recherche (minuscules, sans accents)
+function normSub(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/['']/g,"'")
+}
+
 const OCR_PROMPT = `Tu es un expert-comptable. Analyse cette facture et retourne UNIQUEMENT un JSON valide sans backticks ni markdown.
 Champs requis:
 1. date: date émission YYYY-MM-DD
@@ -143,6 +195,9 @@ export function Saisie() {
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
   const [echAmountsDirty, setEchAmountsDirty] = useState(false)
+  // Combobox sous-catégorie
+  const [subSearch, setSubSearch] = useState('')
+  const [subOpen,   setSubOpen]   = useState(false)
 
   const [form, setForm] = useState({
     company_key:  filters.selCo[0] ?? '',
@@ -255,7 +310,7 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
     setMsg(null)
   }
 
@@ -320,6 +375,17 @@ export function Saisie() {
     const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
     return sorted.length > 0 ? sorted[0][0] : null
   }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig])
+
+  // Sous-catégories filtrées par la recherche libre (aliases inclus)
+  const filteredSubs = useMemo(() => {
+    const all = catConfig?.subs ?? []
+    const q = normSub(subSearch.trim())
+    if (!q) return all
+    return all.filter(sub => {
+      if (normSub(sub).includes(q)) return true
+      return (SUB_ALIASES[sub] ?? []).some(alias => normSub(alias).includes(q) || q.includes(normSub(alias)))
+    })
+  }, [subSearch, catConfig])
 
   // ── Rafraîchir le store après saisie ─────────────────────────────────────
   const refreshStore = async (newEntry: ManualEntry) => {
@@ -614,7 +680,7 @@ export function Saisie() {
 
     setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' }))
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
     setEchDates([])
     setEchAmounts([])
     setEchAmountsDirty(false)
@@ -727,22 +793,72 @@ export function Saisie() {
 
             <div>
               <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Catégorie</label>
-              <select value={form.category} onChange={e => setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))} style={inputSt}>
+              <select value={form.category} onChange={e => {
+                setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))
+                setSubSearch('')
+              }} style={inputSt}>
                 {CATEGORIES.map(c => <option key={c.cat} value={c.cat}>{c.cat}</option>)}
               </select>
             </div>
 
-            <div>
-              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>Sous-catégorie</label>
-              <select value={form.subcategory} onChange={e => setForm(f => ({...f, subcategory:e.target.value}))} style={inputSt}>
-                <option value="">— Choisir —</option>
-                {[...(catConfig?.subs ?? [])].sort((a, b) => a.localeCompare(b, 'fr')).map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-              {suggestedSub && suggestedSub !== form.subcategory && (
+            {/* ── Sous-catégorie : combobox avec recherche libre ── */}
+            <div style={{ position:'relative' }}>
+              <label style={{ fontSize:10, color:'#94a3b8', display:'block', marginBottom:4 }}>
+                Sous-catégorie
+                {form.subcategory && <span style={{ marginLeft:6, color:'#22c55e', fontSize:9 }}>✓ sélectionnée</span>}
+              </label>
+              <div style={{ position:'relative' }}>
+                <input
+                  type="text"
+                  value={subOpen ? subSearch : (form.subcategory || subSearch)}
+                  placeholder="Taper : loyer, assurance, téléphone, salaire…"
+                  onChange={e => { setSubSearch(e.target.value); setSubOpen(true); if (!e.target.value) setForm(f => ({...f, subcategory:''})) }}
+                  onFocus={() => { setSubSearch(''); setSubOpen(true) }}
+                  onBlur={() => setTimeout(() => setSubOpen(false), 160)}
+                  style={{ ...inputSt, color: !subOpen && form.subcategory ? '#93c5fd' : undefined, paddingRight: 28 }}
+                />
+                {/* Indicateur : flèche si fermé, croix si valeur sélectionnée */}
+                <span style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', fontSize:10, color:'#475569', pointerEvents: form.subcategory ? 'auto' : 'none', cursor: form.subcategory ? 'pointer' : 'default' }}
+                  onMouseDown={e => { e.preventDefault(); setForm(f => ({...f, subcategory:''})); setSubSearch('') }}>
+                  {form.subcategory ? '✕' : '▾'}
+                </span>
+              </div>
+              {/* Dropdown */}
+              {subOpen && (
+                <div style={{
+                  position:'absolute', top:'calc(100% + 2px)', left:0, right:0, zIndex:200,
+                  background:'#0f172a', border:'1px solid rgba(255,255,255,0.15)',
+                  borderRadius:8, maxHeight:220, overflowY:'auto',
+                  boxShadow:'0 8px 28px rgba(0,0,0,0.5)',
+                }}>
+                  {filteredSubs.length === 0 ? (
+                    <div style={{ padding:'10px 14px', fontSize:11, color:'#475569', fontStyle:'italic' }}>
+                      Aucune correspondance — essayez un autre mot
+                    </div>
+                  ) : filteredSubs.map(sub => (
+                    <div key={sub}
+                      onMouseDown={() => { setForm(f => ({...f, subcategory:sub})); setSubSearch(''); setSubOpen(false) }}
+                      style={{
+                        padding:'9px 12px', cursor:'pointer', fontSize:12,
+                        color: sub === form.subcategory ? '#93c5fd' : '#cbd5e1',
+                        background: sub === form.subcategory ? 'rgba(59,130,246,0.18)' : 'transparent',
+                        borderBottom:'1px solid rgba(255,255,255,0.04)',
+                        transition:'background 0.1s',
+                      }}
+                      onMouseEnter={e => { if (sub !== form.subcategory) e.currentTarget.style.background='rgba(255,255,255,0.07)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = sub === form.subcategory ? 'rgba(59,130,246,0.18)' : 'transparent' }}
+                    >
+                      {sub}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Suggestion d'après l'historique */}
+              {!subOpen && suggestedSub && suggestedSub !== form.subcategory && (
                 <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6 }}>
-                  <span>💡 Suggestion (à partir d'autres saisies) :</span>
+                  <span>💡</span>
                   <button type="button"
-                    onClick={() => setForm(f => ({ ...f, subcategory: suggestedSub }))}
+                    onClick={() => { setForm(f => ({ ...f, subcategory: suggestedSub })); setSubSearch('') }}
                     style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
                     {suggestedSub}
                   </button>
