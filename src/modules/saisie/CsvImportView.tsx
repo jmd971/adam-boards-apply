@@ -14,6 +14,8 @@ export type CsvRow = {
   amount_ttc: number
   tva_amount: number
   tva_rate: string
+  payment_date: string
+  payment_mode: string
   category: ManualEntry['category']
   subcategory: string
 }
@@ -57,10 +59,26 @@ function splitCSV(line: string, sep: string): string[] {
 
 function detectCat(raw: string): ManualEntry['category'] {
   const v = normSub(raw)
-  if (v.includes('vente') || v.includes('produit') || v.includes('recette')) return 'Vente'
+  if (v.includes('vente') || v.includes('produit') || v.includes('recette') || v.includes('facture')) return 'Vente'
   if (v.includes('achat') || v.includes('fournisseur')) return 'Achat'
   if (v.includes('immo')) return 'Immobilisation'
   return 'Depense'
+}
+
+// Normalise pour la comparaison : minuscules, sans accents, underscore = espace
+function normCol(s: string): string {
+  return normSub(s).replace(/[_\s]+/g, ' ').trim()
+}
+
+// Mappe mode de règlement FR → valeur interne
+function mapPayMode(raw: string): string {
+  const v = normSub(raw)
+  if (v.includes('virement')) return 'virement'
+  if (v.includes('prelevement') || v.includes('prélèvement')) return 'prelevement'
+  if (v.includes('cheque') || v.includes('chèque')) return 'cheque'
+  if (v.includes('cb') || v.includes('carte')) return 'cb'
+  if (v.includes('espece') || v.includes('espèce')) return 'especes'
+  return 'virement'
 }
 
 export function parseCSVText(text: string): CsvRow[] {
@@ -68,35 +86,45 @@ export function parseCSVText(text: string): CsvRow[] {
   if (lines.length < 2) return []
   const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ','
   const rawHeaders = splitCSV(lines[0], sep)
-  const headers = rawHeaders.map(h => normSub(h.replace(/[^a-z0-9àâéèêëîïôùûüç\s_]/gi, ' ').trim()))
+  // Normalise en ignorant les caractères non-ASCII restants (résidus d'encodage)
+  const headers = rawHeaders.map(h => normCol(h.replace(/[^\x00-\x7Fàâäéèêëîïôùûüç]/g, ' ')))
 
+  // find : compare après normalisation underscore/espace
   const find = (...candidates: string[]): number => {
     for (const cand of candidates) {
-      const i = headers.findIndex(h => h.includes(cand) || cand.includes(h))
+      const nc = normCol(cand)
+      const i = headers.findIndex(h => h === nc || h.includes(nc) || nc.includes(h))
       if (i >= 0) return i
     }
     return -1
   }
 
   const idxDate        = find('date')
-  const idxLabel       = find('libelle', 'label', 'description', 'designation', 'objet', 'intitule')
-  const idxCounterpart = find('contrepartie', 'counterpart', 'tiers', 'fournisseur', 'client', 'nom', 'raison')
-  const idxHT          = find('montant_ht', 'amount_ht', 'prix_ht', 'ht', 'net_ht', 'base_ht')
-  const idxTTC         = find('montant_ttc', 'amount_ttc', 'prix_ttc', 'ttc', 'total_ttc', 'total')
+  const idxLabel       = find('libelle', 'label', 'description', 'designation', 'objet', 'intitule', 'societe', 'denomination')
+  const idxCounterpart = find('societe', 'denomination', 'contrepartie', 'counterpart', 'tiers', 'fournisseur', 'client', 'nom', 'raison')
+  const idxHT          = find('montant ht', 'montant_ht', 'amount_ht', 'prix_ht', 'net_ht', 'base_ht')
+  const idxTTC         = find('montant ttc', 'montant_ttc', 'amount_ttc', 'prix_ttc', 'total_ttc')
   const idxDebit       = find('debit', 'sortie', 'decaissement')
   const idxCredit      = find('credit', 'entree', 'encaissement')
   const idxMontant     = find('montant', 'amount', 'valeur')
-  const idxCat         = find('categorie', 'category', 'type', 'nature')
+  const idxNature      = find('nature', 'type_facture', 'type_document')
+  const idxCat         = find('categorie', 'category')
   const idxSub         = find('sous_categorie', 'subcategory', 'sous_cat', 'compte', 'poste')
-  const idxNumFact     = find('numero_facture', 'num_facture', 'invoice_number', 'ref_facture', 'reference', 'numero', 'facture', 'ref')
-  const idxTvaAmt      = find('montant_tva', 'tva_amount', 'tva', 'taxe', 'tax_amount')
-  const idxTvaRate     = find('taux_tva', 'tva_rate', 'taux', 'tax_rate', 'rate')
+  const idxNumFact     = find('numero', 'num_facture', 'numero_facture', 'invoice_number', 'ref_facture', 'reference', 'ref')
+  const idxTvaAmt      = find('montant tva', 'montant_tva', 'tva_amount', 'tva', 'taxe', 'tax_amount')
+  const idxTvaRate     = find('taux_tva', 'tva_rate', 'taux', 'tax_rate')
+  const idxPayDate     = find('encaissee le', 'encaissee_le', 'date_paiement', 'payment_date', 'date_reglement', 'paid_date')
+  const idxPayMode     = find('mode de reglement', 'mode_reglement', 'mode_paiement', 'payment_mode', 'reglement', 'moyen_paiement')
 
   const rows: CsvRow[] = []
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCSV(lines[i], sep)
     if (cols.every(c => !c)) continue
     const get = (idx: number) => idx >= 0 ? cols[idx]?.trim() ?? '' : ''
+
+    // Ignorer les lignes de total/résumé (ex : "Total Euro;;;;;41717,15;...")
+    const firstVal = normSub(cols[0]?.trim() ?? '')
+    if (firstVal.startsWith('total') || firstVal.startsWith('sous-total') || firstVal.startsWith('sous total')) continue
 
     let ht = 0, ttc = 0
     if (idxHT >= 0)           ht  = Math.abs(parseMontant(get(idxHT)))
@@ -120,22 +148,31 @@ export function parseCSVText(text: string): CsvRow[] {
       tvaRate = (((ttc - ht) / ht) * 100).toFixed(2)
     }
 
-    const rawCat = get(idxCat)
-    const rawSub = get(idxSub)
+    // Catégorie : priorité à Nature (Facture → Vente), puis colonne Catégorie
+    const rawNature = get(idxNature)
+    const rawCat    = get(idxCat)
+    const cat = rawNature ? detectCat(rawNature) : rawCat ? detectCat(rawCat) : 'Depense'
+
+    // Libellé : colonne dédiée ou à défaut le tiers/société
+    const tiers = get(idxCounterpart)
+    const labelRaw = get(idxLabel)
+    const label = labelRaw && labelRaw !== tiers ? labelRaw : tiers
 
     rows.push({
       id: i,
       selected: true,
       date:           parseDate(get(idxDate)),
       invoice_number: get(idxNumFact),
-      label:          get(idxLabel),
-      counterpart:    get(idxCounterpart),
+      label,
+      counterpart:    tiers,
       amount_ht:      ht,
       amount_ttc:     ttc,
       tva_amount:     tvaAmt,
       tva_rate:       tvaRate,
-      category:       rawCat ? detectCat(rawCat) : 'Depense',
-      subcategory:    rawSub,
+      payment_date:   parseDate(get(idxPayDate)),
+      payment_mode:   get(idxPayMode) ? mapPayMode(get(idxPayMode)) : 'virement',
+      category:       cat,
+      subcategory:    get(idxSub),
     })
   }
   return rows
@@ -235,7 +272,14 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
     setParseErr(null)
     setFileName(file.name)
     try {
-      const text = await file.text()
+      // Détection d'encodage : si le fichier est ISO-8859-1/Latin-1 (export Excel FR),
+      // file.text() (UTF-8 par défaut) produit du mojibake : "é" → "Ã©", "è" → "Ã¨", etc.
+      // On re-décode avec iso-8859-1 dans ce cas.
+      const buffer = await file.arrayBuffer()
+      let text = new TextDecoder('utf-8').decode(buffer)
+      if (/Ã[\x80-\xBF]|â€|Ã‰|Ã€/.test(text)) {
+        text = new TextDecoder('iso-8859-1').decode(buffer)
+      }
       const parsed = parseCSVText(text)
       if (parsed.length === 0) { setParseErr('Fichier vide ou format non reconnu.'); return }
       setRows(parsed)
