@@ -91,16 +91,59 @@ function mapPayMode(raw: string): string {
   return 'virement'
 }
 
-export function parseCSVText(text: string): CsvRow[] {
+// ─── Mapping de colonnes ──────────────────────────────────────────────────────
+export type FieldKey =
+  | 'date' | 'invoice_number' | 'counterpart' | 'label'
+  | 'amount_ht' | 'amount_ttc' | 'tva_amount' | 'tva_rate'
+  | 'payment_date' | 'payment_mode' | 'nature' | 'subcategory'
+
+export type Mapping = Record<FieldKey, number>   // index de colonne, -1 = non mappé
+
+export type CsvStructure = {
+  rawHeaders: string[]   // en-têtes d'origine (affichage)
+  headers: string[]      // en-têtes normalisés (détection)
+  dataRows: string[][]   // lignes de données (totaux/vides filtrés)
+}
+
+// Métadonnées des champs cibles + listes de candidats pour l'auto-détection
+export const FIELDS: { key: FieldKey; label: string; required?: boolean; candidates: string[] }[] = [
+  { key: 'date',           label: 'Date',                 required: true,  candidates: ['date'] },
+  { key: 'invoice_number', label: 'N° Facture',                            candidates: ['numero', 'num_facture', 'numero_facture', 'invoice_number', 'ref_facture', 'reference', 'ref'] },
+  { key: 'counterpart',    label: 'Tiers / Client',                        candidates: ['societe', 'denomination', 'contrepartie', 'counterpart', 'tiers', 'fournisseur', 'client', 'nom', 'raison'] },
+  { key: 'label',          label: 'Libellé',                               candidates: ['libelle', 'label', 'description', 'designation', 'objet', 'intitule'] },
+  { key: 'amount_ht',      label: 'Montant HT',           required: true,  candidates: ['montant ht', 'montant_ht', 'amount_ht', 'prix_ht', 'net_ht', 'base_ht', 'debit', 'sortie', 'decaissement', 'montant', 'amount', 'valeur'] },
+  { key: 'amount_ttc',     label: 'Montant TTC',                           candidates: ['montant ttc', 'montant_ttc', 'amount_ttc', 'prix_ttc', 'total_ttc'] },
+  { key: 'tva_amount',     label: 'Montant TVA',                           candidates: ['montant tva', 'montant_tva', 'tva_amount', 'tva', 'taxe', 'tax_amount'] },
+  { key: 'tva_rate',       label: 'Taux TVA',                              candidates: ['taux_tva', 'tva_rate', 'taux', 'tax_rate'] },
+  { key: 'payment_date',   label: 'Date encaissement',                     candidates: ['encaissee le', 'encaissee_le', 'date_paiement', 'payment_date', 'date_reglement', 'paid_date'] },
+  { key: 'payment_mode',   label: 'Mode de règlement',                     candidates: ['mode de reglement', 'mode_reglement', 'mode_paiement', 'payment_mode', 'reglement', 'moyen_paiement'] },
+  { key: 'nature',         label: 'Nature (Vente/Achat)',                  candidates: ['nature', 'type_facture', 'type_document', 'categorie', 'category', 'type'] },
+  { key: 'subcategory',    label: 'Sous-catégorie',                        candidates: ['sous_categorie', 'subcategory', 'sous_cat', 'compte', 'poste'] },
+]
+
+// Étape 1 : extraire en-têtes + lignes de données (filtre totaux et lignes vides)
+export function parseCSVStructure(text: string): CsvStructure {
   const lines = text.split(/\r?\n/).filter(l => l.trim())
-  if (lines.length < 2) return []
+  if (lines.length < 2) return { rawHeaders: [], headers: [], dataRows: [] }
   const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ','
   const rawHeaders = splitCSV(lines[0], sep)
-  // Normalisation directe — normCol gère tous les cas (accents, symboles, espaces)
   const headers = rawHeaders.map(h => normCol(h))
 
-  // find : compare après normalisation underscore/espace
-  const find = (...candidates: string[]): number => {
+  const dataRows: string[][] = []
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCSV(lines[i], sep)
+    if (cols.every(c => !c)) continue
+    // Ignorer les lignes de total/résumé (ex : "Total Euro;;;;;41717,15;...")
+    const firstVal = normCol(cols[0]?.trim() ?? '')
+    if (firstVal.startsWith('total') || firstVal.startsWith('sous total')) continue
+    dataRows.push(cols)
+  }
+  return { rawHeaders, headers, dataRows }
+}
+
+// Étape 2 : auto-détecter le mapping à partir des en-têtes normalisés
+export function detectMapping(headers: string[]): Mapping {
+  const find = (candidates: string[]): number => {
     for (const cand of candidates) {
       const nc = normCol(cand)
       const i = headers.findIndex(h => h === nc || h.includes(nc) || nc.includes(h))
@@ -108,83 +151,59 @@ export function parseCSVText(text: string): CsvRow[] {
     }
     return -1
   }
+  const m = {} as Mapping
+  const used = new Set<number>()
+  for (const f of FIELDS) {
+    let idx = find(f.candidates)
+    // éviter qu'une même colonne soit affectée à deux champs distincts
+    if (idx >= 0 && used.has(idx)) idx = -1
+    if (idx >= 0) used.add(idx)
+    m[f.key] = idx
+  }
+  return m
+}
 
-  const idxDate        = find('date')
-  const idxLabel       = find('libelle', 'label', 'description', 'designation', 'objet', 'intitule', 'societe', 'denomination')
-  const idxCounterpart = find('societe', 'denomination', 'contrepartie', 'counterpart', 'tiers', 'fournisseur', 'client', 'nom', 'raison')
-  const idxHT          = find('montant ht', 'montant_ht', 'amount_ht', 'prix_ht', 'net_ht', 'base_ht')
-  const idxTTC         = find('montant ttc', 'montant_ttc', 'amount_ttc', 'prix_ttc', 'total_ttc')
-  const idxDebit       = find('debit', 'sortie', 'decaissement')
-  const idxCredit      = find('credit', 'entree', 'encaissement')
-  const idxMontant     = find('montant', 'amount', 'valeur')
-  const idxNature      = find('nature', 'type_facture', 'type_document')
-  const idxCat         = find('categorie', 'category')
-  const idxSub         = find('sous_categorie', 'subcategory', 'sous_cat', 'compte', 'poste')
-  const idxNumFact     = find('numero', 'num_facture', 'numero_facture', 'invoice_number', 'ref_facture', 'reference', 'ref')
-  const idxTvaAmt      = find('montant tva', 'montant_tva', 'tva_amount', 'tva', 'taxe', 'tax_amount')
-  const idxTvaRate     = find('taux_tva', 'tva_rate', 'taux', 'tax_rate')
-  const idxPayDate     = find('encaissee le', 'encaissee_le', 'date_paiement', 'payment_date', 'date_reglement', 'paid_date')
-  const idxPayMode     = find('mode de reglement', 'mode_reglement', 'mode_paiement', 'payment_mode', 'reglement', 'moyen_paiement')
-
+// Étape 3 : appliquer le mapping aux lignes → CsvRow[]
+export function applyMapping(structure: CsvStructure, m: Mapping): CsvRow[] {
   const rows: CsvRow[] = []
-  for (let i = 1; i < lines.length; i++) {
-    const cols = splitCSV(lines[i], sep)
-    if (cols.every(c => !c)) continue
+  structure.dataRows.forEach((cols, i) => {
     const get = (idx: number) => idx >= 0 ? cols[idx]?.trim() ?? '' : ''
 
-    // Ignorer les lignes de total/résumé (ex : "Total Euro;;;;;41717,15;...")
-    const firstVal = normSub(cols[0]?.trim() ?? '')
-    if (firstVal.startsWith('total') || firstVal.startsWith('sous-total') || firstVal.startsWith('sous total')) continue
-
-    let ht = 0, ttc = 0
-    if (idxHT >= 0)           ht  = Math.abs(parseMontant(get(idxHT)))
-    else if (idxDebit >= 0)   ht  = Math.abs(parseMontant(get(idxDebit)))
-    else if (idxCredit >= 0)  ht  = Math.abs(parseMontant(get(idxCredit)))
-    else if (idxMontant >= 0) ht  = Math.abs(parseMontant(get(idxMontant)))
-
-    if (idxTTC >= 0) ttc = Math.abs(parseMontant(get(idxTTC)))
+    const ht  = Math.abs(parseMontant(get(m.amount_ht)))
+    let ttc = m.amount_ttc >= 0 ? Math.abs(parseMontant(get(m.amount_ttc))) : 0
     if (!ttc) ttc = ht
 
-    // TVA : depuis colonne dédiée ou calculée depuis HT/TTC
+    // TVA : colonne dédiée ou calcul HT/TTC
     let tvaAmt = 0, tvaRate = ''
-    if (idxTvaAmt >= 0) {
-      tvaAmt = Math.abs(parseMontant(get(idxTvaAmt)))
-    } else if (ht > 0 && ttc > ht) {
-      tvaAmt = Math.round((ttc - ht) * 100) / 100
-    }
-    if (idxTvaRate >= 0) {
-      tvaRate = get(idxTvaRate).replace('%', '').trim()
-    } else if (ht > 0 && ttc > ht) {
-      tvaRate = (((ttc - ht) / ht) * 100).toFixed(2)
-    }
+    if (m.tva_amount >= 0) tvaAmt = Math.abs(parseMontant(get(m.tva_amount)))
+    else if (ht > 0 && ttc > ht) tvaAmt = Math.round((ttc - ht) * 100) / 100
+    if (m.tva_rate >= 0) tvaRate = get(m.tva_rate).replace('%', '').trim()
+    else if (ht > 0 && ttc > ht) tvaRate = (((ttc - ht) / ht) * 100).toFixed(2)
 
-    // Catégorie : priorité à Nature (Facture → Vente), puis colonne Catégorie
-    const rawNature = get(idxNature)
-    const rawCat    = get(idxCat)
-    const cat = rawNature ? detectCat(rawNature) : rawCat ? detectCat(rawCat) : 'Depense'
+    const rawNature = get(m.nature)
+    const cat = rawNature ? detectCat(rawNature) : 'Depense'
 
-    // Libellé : colonne dédiée ou à défaut le tiers/société
-    const tiers = get(idxCounterpart)
-    const labelRaw = get(idxLabel)
+    const tiers = get(m.counterpart)
+    const labelRaw = get(m.label)
     const label = labelRaw && labelRaw !== tiers ? labelRaw : tiers
 
     rows.push({
       id: i,
       selected: true,
-      date:           parseDate(get(idxDate)),
-      invoice_number: get(idxNumFact),
+      date:           parseDate(get(m.date)),
+      invoice_number: get(m.invoice_number),
       label,
       counterpart:    tiers,
       amount_ht:      ht,
       amount_ttc:     ttc,
       tva_amount:     tvaAmt,
       tva_rate:       tvaRate,
-      payment_date:   parseDate(get(idxPayDate)),
-      payment_mode:   get(idxPayMode) ? mapPayMode(get(idxPayMode)) : 'virement',
+      payment_date:   parseDate(get(m.payment_date)),
+      payment_mode:   get(m.payment_mode) ? mapPayMode(get(m.payment_mode)) : 'virement',
       category:       cat,
-      subcategory:    get(idxSub),
+      subcategory:    get(m.subcategory),
     })
-  }
+  })
   return rows
 }
 
@@ -265,10 +284,13 @@ function SubCombo({ category, value, onChange }: {
 export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, onImport, saving }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows,       setRows]       = useState<CsvRow[]>([])
-  const [step,       setStep]       = useState<'idle' | 'preview'>('idle')
+  const [step,       setStep]       = useState<'idle' | 'mapping' | 'preview'>('idle')
   const [fileName,   setFileName]   = useState('')
   const [parseErr,   setParseErr]   = useState<string | null>(null)
   const [companyKey, setCompanyKey] = useState(defaultCompanyKey)
+  // Structure du fichier + mapping de colonnes
+  const [structure,  setStructure]  = useState<CsvStructure | null>(null)
+  const [mapping,    setMapping]    = useState<Mapping | null>(null)
   // Affectation globale
   const [gCat, setGCat] = useState<ManualEntry['category']>('Depense')
   const [gSub, setGSub] = useState('')
@@ -290,13 +312,25 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
       if (/Ã[\x80-\xBF]|â€|Ã‰|Ã€/.test(text)) {
         text = new TextDecoder('iso-8859-1').decode(buffer)
       }
-      const parsed = parseCSVText(text)
-      if (parsed.length === 0) { setParseErr('Fichier vide ou format non reconnu.'); return }
-      setRows(parsed)
-      setStep('preview')
+      const struct = parseCSVStructure(text)
+      if (struct.dataRows.length === 0) { setParseErr('Fichier vide ou format non reconnu.'); return }
+      setStructure(struct)
+      setMapping(detectMapping(struct.headers))
+      setStep('mapping')
     } catch (e: any) {
       setParseErr(e?.message ?? 'Erreur de lecture')
     }
+  }
+
+  // ── Valider le mapping → prévisualisation ──────────────────────────────────
+  const confirmMapping = () => {
+    if (!structure || !mapping) return
+    setRows(applyMapping(structure, mapping))
+    setStep('preview')
+  }
+
+  const setFieldMap = (key: FieldKey, idx: number) => {
+    setMapping(m => m ? { ...m, [key]: idx } : m)
   }
 
   // ── Affectation globale ────────────────────────────────────────────────────
@@ -321,9 +355,13 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
   const handleImport = async () => {
     await onImport(companyKey, selectedRows)
     setRows([])
+    setStructure(null)
+    setMapping(null)
     setStep('idle')
     setFileName('')
   }
+
+  const resetAll = () => { setStep('idle'); setRows([]); setStructure(null); setMapping(null); setFileName('') }
 
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -376,7 +414,93 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
     )
   }
 
-  // ── Étape 2 : prévisualisation et affectation ─────────────────────────────
+  // ── Étape 2 : mapping des colonnes ─────────────────────────────────────────
+  if (step === 'mapping' && structure && mapping) {
+    // Valeur d'exemple (1re ligne de données) pour aider à identifier une colonne
+    const sample = (idx: number) => idx >= 0 ? (structure.dataRows[0]?.[idx]?.trim() ?? '') : ''
+    const usedCols = new Set(Object.values(mapping).filter(i => i >= 0))
+    const missingRequired = FIELDS.filter(f => f.required && mapping[f.key] < 0)
+
+    return (
+      <div style={{ background: '#0f172a', borderRadius: 12, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#14b8a6' }}>🔗 Correspondance des colonnes — 📄 {fileName}</div>
+            <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+              {structure.dataRows.length} ligne{structure.dataRows.length > 1 ? 's' : ''} · {structure.rawHeaders.length} colonne{structure.rawHeaders.length > 1 ? 's' : ''} détectée{structure.rawHeaders.length > 1 ? 's' : ''}
+            </div>
+          </div>
+          <button onClick={resetAll}
+            style={{ ...inputSt, color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>
+            ← Changer de fichier
+          </button>
+        </div>
+
+        <div style={{ padding: '14px 20px', fontSize: 11.5, color: '#94a3b8', lineHeight: 1.6, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+          Vérifiez la correspondance entre les colonnes de votre fichier et les champs AdamBoards.
+          Les colonnes ont été détectées automatiquement — corrigez si nécessaire. <strong style={{ color: '#14b8a6' }}>Date</strong> et <strong style={{ color: '#14b8a6' }}>Montant HT</strong> sont obligatoires.
+        </div>
+
+        {/* Grille de mapping */}
+        <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12 }}>
+          {FIELDS.map(f => {
+            const idx = mapping[f.key]
+            const isMissing = f.required && idx < 0
+            return (
+              <div key={f.key} style={{
+                padding: '10px 12px', borderRadius: 9,
+                background: isMissing ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.03)',
+                border: `1px solid ${isMissing ? 'rgba(239,68,68,0.3)' : idx >= 0 ? 'rgba(20,184,166,0.25)' : 'rgba(255,255,255,0.08)'}`,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: isMissing ? '#f87171' : '#e2e8f0', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {idx >= 0 ? <span style={{ color: '#14b8a6' }}>✓</span> : <span style={{ color: '#475569' }}>○</span>}
+                  {f.label}
+                  {f.required && <span style={{ color: '#f87171', fontSize: 13 }}>*</span>}
+                </div>
+                <select
+                  value={idx}
+                  onChange={e => setFieldMap(f.key, parseInt(e.target.value))}
+                  style={{ ...inputSt, fontSize: 11, width: '100%', padding: '5px 8px', boxSizing: 'border-box' }}>
+                  <option value={-1}>— Aucune —</option>
+                  {structure.rawHeaders.map((h, i) => (
+                    <option key={i} value={i}>
+                      {h || `Colonne ${i + 1}`}{usedCols.has(i) && i !== idx ? '  (déjà utilisée)' : ''}
+                    </option>
+                  ))}
+                </select>
+                {idx >= 0 && sample(idx) && (
+                  <div style={{ fontSize: 10, color: '#475569', marginTop: 5, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    ex : {sample(idx)}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Pied : validation */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, fontSize: 11, color: missingRequired.length ? '#f59e0b' : '#475569' }}>
+            {missingRequired.length > 0
+              ? `⚠ Champ${missingRequired.length > 1 ? 's' : ''} obligatoire${missingRequired.length > 1 ? 's' : ''} non mappé${missingRequired.length > 1 ? 's' : ''} : ${missingRequired.map(f => f.label).join(', ')}`
+              : '✓ Tous les champs obligatoires sont mappés'}
+          </div>
+          <button onClick={confirmMapping} disabled={missingRequired.length > 0}
+            style={{
+              padding: '9px 22px', borderRadius: 8, fontSize: 13, fontWeight: 700,
+              background: missingRequired.length === 0 ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.05)',
+              border: `1px solid ${missingRequired.length === 0 ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.1)'}`,
+              color: missingRequired.length === 0 ? '#14b8a6' : '#475569',
+              cursor: missingRequired.length === 0 ? 'pointer' : 'not-allowed',
+            }}>
+            Prévisualiser →
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Étape 3 : prévisualisation et affectation ─────────────────────────────
   const totalHT  = selectedRows.reduce((s, r) => s + r.amount_ht,  0)
   const totalTVA = selectedRows.reduce((s, r) => s + r.tva_amount, 0)
   const totalTTC = selectedRows.reduce((s, r) => s + r.amount_ttc, 0)
@@ -391,10 +515,16 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
             {rows.length} ligne{rows.length > 1 ? 's' : ''} détectée{rows.length > 1 ? 's' : ''} · {selectedRows.length} sélectionnée{selectedRows.length > 1 ? 's' : ''}
           </div>
         </div>
-        <button onClick={() => { setStep('idle'); setRows([]); setFileName('') }}
-          style={{ ...inputSt, color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>
-          ← Changer de fichier
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setStep('mapping')}
+            style={{ ...inputSt, color: '#93c5fd', cursor: 'pointer', fontSize: 11, borderColor: 'rgba(59,130,246,0.3)' }}>
+            ← Colonnes
+          </button>
+          <button onClick={resetAll}
+            style={{ ...inputSt, color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>
+            Changer de fichier
+          </button>
+        </div>
       </div>
 
       {/* Barre d'affectation globale */}
