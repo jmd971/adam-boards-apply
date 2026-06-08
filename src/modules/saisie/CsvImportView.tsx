@@ -7,10 +7,13 @@ export type CsvRow = {
   id: number
   selected: boolean
   date: string
+  invoice_number: string
   label: string
   counterpart: string
   amount_ht: number
   amount_ttc: number
+  tva_amount: number
+  tva_rate: string
   category: ManualEntry['category']
   subcategory: string
 }
@@ -85,6 +88,9 @@ export function parseCSVText(text: string): CsvRow[] {
   const idxMontant     = find('montant', 'amount', 'valeur')
   const idxCat         = find('categorie', 'category', 'type', 'nature')
   const idxSub         = find('sous_categorie', 'subcategory', 'sous_cat', 'compte', 'poste')
+  const idxNumFact     = find('numero_facture', 'num_facture', 'invoice_number', 'ref_facture', 'reference', 'numero', 'facture', 'ref')
+  const idxTvaAmt      = find('montant_tva', 'tva_amount', 'tva', 'taxe', 'tax_amount')
+  const idxTvaRate     = find('taux_tva', 'tva_rate', 'taux', 'tax_rate', 'rate')
 
   const rows: CsvRow[] = []
   for (let i = 1; i < lines.length; i++) {
@@ -93,13 +99,26 @@ export function parseCSVText(text: string): CsvRow[] {
     const get = (idx: number) => idx >= 0 ? cols[idx]?.trim() ?? '' : ''
 
     let ht = 0, ttc = 0
-    if (idxHT >= 0)          ht  = Math.abs(parseMontant(get(idxHT)))
-    else if (idxDebit >= 0)  ht  = Math.abs(parseMontant(get(idxDebit)))
-    else if (idxCredit >= 0) ht  = Math.abs(parseMontant(get(idxCredit)))
-    else if (idxMontant >= 0) ht = Math.abs(parseMontant(get(idxMontant)))
+    if (idxHT >= 0)           ht  = Math.abs(parseMontant(get(idxHT)))
+    else if (idxDebit >= 0)   ht  = Math.abs(parseMontant(get(idxDebit)))
+    else if (idxCredit >= 0)  ht  = Math.abs(parseMontant(get(idxCredit)))
+    else if (idxMontant >= 0) ht  = Math.abs(parseMontant(get(idxMontant)))
 
     if (idxTTC >= 0) ttc = Math.abs(parseMontant(get(idxTTC)))
     if (!ttc) ttc = ht
+
+    // TVA : depuis colonne dédiée ou calculée depuis HT/TTC
+    let tvaAmt = 0, tvaRate = ''
+    if (idxTvaAmt >= 0) {
+      tvaAmt = Math.abs(parseMontant(get(idxTvaAmt)))
+    } else if (ht > 0 && ttc > ht) {
+      tvaAmt = Math.round((ttc - ht) * 100) / 100
+    }
+    if (idxTvaRate >= 0) {
+      tvaRate = get(idxTvaRate).replace('%', '').trim()
+    } else if (ht > 0 && ttc > ht) {
+      tvaRate = (((ttc - ht) / ht) * 100).toFixed(2)
+    }
 
     const rawCat = get(idxCat)
     const rawSub = get(idxSub)
@@ -107,13 +126,16 @@ export function parseCSVText(text: string): CsvRow[] {
     rows.push({
       id: i,
       selected: true,
-      date:        parseDate(get(idxDate)),
-      label:       get(idxLabel),
-      counterpart: get(idxCounterpart),
-      amount_ht:   ht,
-      amount_ttc:  ttc,
-      category:    rawCat ? detectCat(rawCat) : 'Depense',
-      subcategory: rawSub,
+      date:           parseDate(get(idxDate)),
+      invoice_number: get(idxNumFact),
+      label:          get(idxLabel),
+      counterpart:    get(idxCounterpart),
+      amount_ht:      ht,
+      amount_ttc:     ttc,
+      tva_amount:     tvaAmt,
+      tva_rate:       tvaRate,
+      category:       rawCat ? detectCat(rawCat) : 'Depense',
+      subcategory:    rawSub,
     })
   }
   return rows
@@ -302,6 +324,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
 
   // ── Étape 2 : prévisualisation et affectation ─────────────────────────────
   const totalHT  = selectedRows.reduce((s, r) => s + r.amount_ht,  0)
+  const totalTVA = selectedRows.reduce((s, r) => s + r.tva_amount, 0)
   const totalTTC = selectedRows.reduce((s, r) => s + r.amount_ttc, 0)
 
   return (
@@ -349,9 +372,11 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                   onChange={e => setRows(rs => rs.map(r => ({ ...r, selected: e.target.checked })))} />
               </th>
               <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', whiteSpace: 'nowrap' }}>Date</th>
+              <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', whiteSpace: 'nowrap' }}>N° Facture</th>
               <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8' }}>Tiers</th>
               <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8' }}>Libellé</th>
               <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', whiteSpace: 'nowrap' }}>HT €</th>
+              <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', whiteSpace: 'nowrap' }}>TVA €</th>
               <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', whiteSpace: 'nowrap' }}>TTC €</th>
               <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', minWidth: 100 }}>Catégorie</th>
               <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', minWidth: 180 }}>Sous-catégorie</th>
@@ -372,6 +397,12 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                       onChange={e => updateRow(r.id, { date: e.target.value })}
                       style={{ ...inputSt, padding: '3px 6px', fontSize: 11, width: 120 }} />
                   </td>
+                  <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                    <input type="text" value={r.invoice_number}
+                      onChange={e => updateRow(r.id, { invoice_number: e.target.value })}
+                      placeholder="—"
+                      style={{ ...inputSt, padding: '3px 6px', fontSize: 11, width: 90, boxSizing: 'border-box' }} />
+                  </td>
                   <td style={{ padding: '6px 8px', maxWidth: 120 }}>
                     <input type="text" value={r.counterpart}
                       onChange={e => updateRow(r.id, { counterpart: e.target.value })}
@@ -384,6 +415,11 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#34d399', whiteSpace: 'nowrap' }}>
                     {fmt(r.amount_ht)}
+                  </td>
+                  <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#f59e0b', whiteSpace: 'nowrap' }}>
+                    {r.tva_amount > 0
+                      ? <span title={r.tva_rate ? `${r.tva_rate} %` : ''}>{fmt(r.tva_amount)}</span>
+                      : <span style={{ color: '#334155' }}>—</span>}
                   </td>
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#94a3b8', whiteSpace: 'nowrap' }}>
                     {fmt(r.amount_ttc)}
@@ -414,6 +450,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
         <div style={{ flex: 1, fontSize: 11, color: '#94a3b8' }}>
           <span style={{ marginRight: 16 }}><strong style={{ color: '#f1f5f9' }}>{selectedRows.length}</strong> ligne{selectedRows.length > 1 ? 's' : ''} sélectionnée{selectedRows.length > 1 ? 's' : ''}</span>
           <span style={{ marginRight: 16 }}>Total HT : <strong style={{ color: '#34d399', fontFamily: 'monospace' }}>{fmt(totalHT)} €</strong></span>
+          {totalTVA > 0 && <span style={{ marginRight: 16 }}>TVA : <strong style={{ color: '#f59e0b', fontFamily: 'monospace' }}>{fmt(totalTVA)} €</strong></span>}
           <span>Total TTC : <strong style={{ color: '#94a3b8', fontFamily: 'monospace' }}>{fmt(totalTTC)} €</strong></span>
         </div>
         {someInvalid && (
