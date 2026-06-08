@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import type { ManualEntry } from '@/types'
-import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
+import { CATEGORIES, SUB_ALIASES, normSub } from '@/lib/categories'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type CsvRow = {
