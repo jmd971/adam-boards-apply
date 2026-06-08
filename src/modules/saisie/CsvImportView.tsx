@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react'
 import type { ManualEntry } from '@/types'
 import { CATEGORIES, SUB_ALIASES, normSub } from '@/lib/categories'
+// normSub utilisé uniquement dans SubCombo (recherche sous-catégorie)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export type CsvRow = {
@@ -65,19 +66,28 @@ function detectCat(raw: string): ManualEntry['category'] {
   return 'Depense'
 }
 
-// Normalise pour la comparaison : minuscules, sans accents, underscore = espace
+// Normalisation robuste des noms de colonnes :
+// - NFD decompose les caractères accentués en base + diacritique combinant
+// - ̀-ͯ supprime TOUS les diacritiques (range Unicode explicite, fiable en bundle)
+// - on ne garde que a-z, 0-9 et espace ; underscore = espace
 function normCol(s: string): string {
-  return normSub(s).replace(/[_\s]+/g, ' ').trim()
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // supprime accents (é→e, è→e, ê→e, ç→c…)
+    .replace(/[^a-z0-9\s]/g, ' ')      // retire ponctuation, symboles restants
+    .replace(/\s+/g, ' ')              // espaces multiples → un seul
+    .trim()
 }
 
 // Mappe mode de règlement FR → valeur interne
 function mapPayMode(raw: string): string {
-  const v = normSub(raw)
+  const v = normCol(raw)
   if (v.includes('virement')) return 'virement'
-  if (v.includes('prelevement') || v.includes('prélèvement')) return 'prelevement'
-  if (v.includes('cheque') || v.includes('chèque')) return 'cheque'
+  if (v.includes('prelevement')) return 'prelevement'
+  if (v.includes('cheque')) return 'cheque'
   if (v.includes('cb') || v.includes('carte')) return 'cb'
-  if (v.includes('espece') || v.includes('espèce')) return 'especes'
+  if (v.includes('espece')) return 'especes'
   return 'virement'
 }
 
@@ -86,8 +96,8 @@ export function parseCSVText(text: string): CsvRow[] {
   if (lines.length < 2) return []
   const sep = lines[0].includes('\t') ? '\t' : lines[0].includes(';') ? ';' : ','
   const rawHeaders = splitCSV(lines[0], sep)
-  // Normalise en ignorant les caractères non-ASCII restants (résidus d'encodage)
-  const headers = rawHeaders.map(h => normCol(h.replace(/[^\x00-\x7Fàâäéèêëîïôùûüç]/g, ' ')))
+  // Normalisation directe — normCol gère tous les cas (accents, symboles, espaces)
+  const headers = rawHeaders.map(h => normCol(h))
 
   // find : compare après normalisation underscore/espace
   const find = (...candidates: string[]): number => {
