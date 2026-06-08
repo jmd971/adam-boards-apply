@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useAppStore } from '@/store'
 import { sb, OCR_PROXY_URL } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
@@ -7,110 +7,10 @@ import { readFileText } from '@/lib/fec'
 import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
+import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
+import { CsvImportView, type CsvRow } from './CsvImportView'
 
-const CATEGORIES = [
-  { cat: 'Vente', acc: '706', subs: [
-    'Ventes de marchandises (707)','Prestations de services (706)','Travaux (704)',
-    'Négoce (707)','Location de biens (713)','Commissions reçues (708)',
-    'Subventions (740)','Revenus financiers (76)','Reprises sur provisions (781)',
-    'Activité annexe (708)','Autre produit (70)',
-  ]},
-  { cat: 'Achat', acc: '607', subs: [
-    'Achats de marchandises (607)','Matières premières (601)','Matières consommables (602)',
-    'Fournitures non stockées (606)','Emballages (603)','Achat de sous-traitance (604)',
-    'Variation de stocks (603)','Autre achat (609)',
-  ]},
-  { cat: 'Depense', acc: '626', subs: [
-    // 61x — Services extérieurs A
-    'Loyer et charges locatives (613/614)','Crédit-bail (612)','Entretien et réparations (615)',
-    'Assurances (616)','Documentation et abonnements (618)','Concessions et brevets (611)',
-    // 62x — Services extérieurs B
-    'Personnel extérieur (621)','Honoraires et commissions (622)','Frais d\'actes et contentieux (622)',
-    'Publicité et marketing (623)','Frais de représentation (623)','Cadeaux clients (623)',
-    'Transports sur achats (624)','Transports sur ventes (624)',
-    'Déplacements et missions (625)','Repas d\'affaires (625)','Carburant (625)',
-    'Téléphone et Internet (626)','Affranchissements (626)','Services bancaires (627)',
-    'Cotisations professionnelles (628)',
-    // 63x — Impôts et taxes
-    'Formation professionnelle (633)','Taxe apprentissage (632)','Taxe foncière (635)',
-    'CFE / CVAE (635)','TVA non récupérable (635)','Autres impôts et taxes (635)',
-    // 64x — Charges de personnel
-    'Salaires bruts (641)','Primes et intéressements (648)','Charges patronales URSSAF (645)',
-    'Mutuelle et prévoyance (646)','Retraite complémentaire (645)',
-    // 65x — Autres charges de gestion
-    'Créances irrécouvrables (654)','Redevances et royalties (651)',
-    // 66x — Charges financières
-    'Intérêts bancaires (661)','Charges sur emprunts (661)',
-    // 67x — Charges exceptionnelles
-    'Charges exceptionnelles (671)',
-    // 68x — Dotations
-    'Dotations aux amortissements (681)','Dotations aux provisions (681)',
-    // Autre
-    'Electricité / Energie (606)','Eau (606)','Fournitures de bureau (606)',
-    'Abonnements logiciels (618)','Autre charge (658)',
-  ]},
-  { cat: 'Immobilisation', acc: '2181', subs: [
-    'Logiciels et licences (205)','Brevets et marques (205)','Fonds commercial (207)',
-    'Matériel informatique (2183)','Matériel de bureau (2184)','Mobilier (2184)',
-    'Agencements et installations (2131)','Matériel de transport (2182)',
-    'Matériel industriel (2154)','Matériel médical (2186)',
-    'Constructions (213)','Terrains (211)',
-    'Participations (261)','Dépôts et cautionnements (275)',
-    'Autre immobilisation (218)',
-  ]},
-] as { cat: ManualEntry['category']; subs: string[]; acc: string }[]
 
-// Mots-clés naturels → sous-catégorie. Permet à l'utilisateur de taper "loyer",
-// "internet", "salaire"… sans connaître les numéros de comptes.
-const SUB_ALIASES: Record<string, string[]> = {
-  'Loyer et charges locatives (613/614)':   ['loyer','bail','location bureau','charges locatives','loyer bureau','loyer local'],
-  'Crédit-bail (612)':                       ['leasing','credit bail','loa','location financière'],
-  'Entretien et réparations (615)':          ['entretien','réparation','maintenance','dépannage','travaux réparation'],
-  'Assurances (616)':                        ['assurance','rc pro','responsabilité civile','multirisque','assurance auto','prévoyance'],
-  'Documentation et abonnements (618)':      ['abonnement presse','documentation','revue','journal'],
-  'Abonnements logiciels (618)':             ['logiciel','saas','abonnement','licence','microsoft','adobe','slack','notion','hubspot','salesforce','office 365','google workspace'],
-  'Honoraires et commissions (622)':         ['honoraires','expert comptable','avocat','commission','consultant','freelance','notaire','huissier'],
-  'Publicité et marketing (623)':            ['publicité','marketing','pub','facebook ads','google ads','linkedin','communication','affichage','flyers'],
-  'Cadeaux clients (623)':                   ['cadeaux','goodies','coffret','panier garni'],
-  'Transports sur achats (624)':             ['transport achat','livraison fournisseur','frais port','chronopost','ups','fedex'],
-  'Transports sur ventes (624)':             ['transport vente','expedition','colis','colissimo'],
-  'Déplacements et missions (625)':          ['déplacement','voyage','train','avion','hôtel','taxi','uber','note de frais','mission'],
-  'Repas d\'affaires (625)':                 ['restaurant','repas','déjeuner','dîner','repas affaires','ticket restaurant'],
-  'Carburant (625)':                         ['carburant','essence','gasoil','diesel','péage','autoroute'],
-  'Téléphone et Internet (626)':             ['téléphone','internet','mobile','forfait','sfr','orange','free','bouygues','fibre','box'],
-  'Affranchissements (626)':                 ['affranchissement','courrier','timbre','la poste','colis'],
-  'Services bancaires (627)':                ['frais bancaires','agios','commission bancaire','virement','tenue compte','carte bancaire'],
-  'Cotisations professionnelles (628)':      ['cotisation','syndicat','chambre de commerce','cci','ordre','adhésion'],
-  'Formation professionnelle (633)':         ['formation','stage','cpf','opco','séminaire','conférence'],
-  'Taxe apprentissage (632)':                ['taxe apprentissage','alternance'],
-  'Taxe foncière (635)':                     ['taxe foncière','foncier'],
-  'CFE / CVAE (635)':                        ['cfe','cvae','taxe professionnelle','contribution économique'],
-  'TVA non récupérable (635)':               ['tva non récupérable','tva irr'],
-  'Autres impôts et taxes (635)':            ['impôts','taxes','contribution','prélèvement fiscal'],
-  'Salaires bruts (641)':                    ['salaire','salaires','rémunération','paie','bulletin de salaire','traitement'],
-  'Primes et intéressements (648)':          ['prime','intéressement','participation','bonus','13ème mois'],
-  'Charges patronales URSSAF (645)':         ['urssaf','charges patronales','cotisations sociales','charges sociales','sécu','sécurité sociale'],
-  'Mutuelle et prévoyance (646)':            ['mutuelle','prévoyance santé','complémentaire santé'],
-  'Retraite complémentaire (645)':           ['retraite','arrco','agirc','caisse retraite'],
-  'Intérêts bancaires (661)':                ['intérêts','emprunt','crédit','prêt bancaire','remboursement emprunt'],
-  'Dotations aux amortissements (681)':      ['amortissement','dotation','dépréciation'],
-  'Electricité / Energie (606)':             ['électricité','énergie','edf','engie','gaz','chauffage','eau chaude'],
-  'Eau (606)':                               ['eau','véolia','eau froide'],
-  'Fournitures de bureau (606)':             ['fournitures','papeterie','bureau','stylo','papier','encre','toner'],
-  'Achats de marchandises (607)':            ['marchandises','produits revendus','stock','négoce','réassort'],
-  'Matières premières (601)':                ['matières premières','matériaux','composants','MP'],
-  'Matières consommables (602)':             ['consommables','fournitures production','petits matériels'],
-  'Achat de sous-traitance (604)':           ['sous-traitance','prestataire','façonnage'],
-  'Prestations de services (706)':           ['prestation','facturation','mission','consulting','services rendus','facture client'],
-  'Ventes de marchandises (707)':            ['vente','marchandises vendues','revente'],
-  'Travaux (704)':                           ['travaux','chantier','BTP'],
-  'Subventions (740)':                       ['subvention','aide','bpifrance','région','état'],
-}
-
-// Normalise un texte pour la recherche (minuscules, sans accents)
-function normSub(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/['']/g,"'")
-}
 
 const OCR_PROMPT = `Tu es un expert-comptable. Analyse cette facture et retourne UNIQUEMENT un JSON valide sans backticks ni markdown.
 Champs requis:
@@ -340,11 +240,7 @@ export function Saisie() {
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
 
-  // Extrait le compte du libellé de sous-catégorie : "Publicité et marketing (623)" → "623"
-  const extractAcc = (sub: string, fallback: string) => {
-    const m = sub?.match(/\((\d{3,})[^)]*\)/)
-    return m ? m[1] : fallback
-  }
+  // extractAcc importé depuis @/lib/categories
 
   // Suggestion auto de sous-catégorie d'après l'historique des saisies (même catégorie,
   // tiers ou libellé similaire). Vide si l'utilisateur a déjà choisi ou si pas d'indice.
@@ -536,50 +432,35 @@ export function Saisie() {
   }
 
   // ── CSV ───────────────────────────────────────────────────────────────────
-  const handleCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  // ── Import CSV via CsvImportView ─────────────────────────────────────────
+  const handleCsvImport = async (companyKey: string, rows: CsvRow[]) => {
     setMsg(null)
-    const text = await readFileText(file)
-    const lines = text.split('\n').filter(l => l.trim())
-    if (lines.length < 2) { setMsg('❌ CSV vide ou invalide'); return }
-    const sep = lines[0].includes(';') ? ';' : ','
-    const headers = lines[0].split(sep).map(h => h.trim().toLowerCase())
-    const imported: any[] = []
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''))
-      const row: any = {}
-      headers.forEach((h, j) => { row[h] = cols[j] || '' })
-      const ht  = parseFloat(row.amount_ht  || row.montant_ht  || '0') || 0
-      const ttc = parseFloat(row.amount_ttc || row.montant_ttc || '0') || 0
-      imported.push({
-        tenant_id:    tenantId,
-        company_key:  form.company_key,
-        entry_date:   row.date || row.entry_date || '',
-        category:     row.category || row.categorie || 'Depense',
-        subcategory:  row.subcategory || row.sous_categorie || '',
-        label:        row.label || row.libelle || '',
-        invoice_number: row.invoice_number || row.numero_facture || row.num_facture || null,
-        amount_ttc:   String(ttc),
-        amount_ht:    String(ht),
-        tva_amount:   String(calcTvaAmount(ht, ttc)),
-        tva_rate:     calcTvaRate(ht, ttc),
-        counterpart:  row.counterpart || row.contrepartie || '',
-        payment_mode: row.payment_mode || row.reglement || 'virement',
-        account_num:  extractAcc(
-          row.subcategory || row.sous_categorie || '',
-          CATEGORIES.find(c => c.cat === (row.category || row.categorie || 'Depense'))?.acc ?? '658'
-        ),
-        source:       'csv',
-      })
-    }
+    const imported = rows.map(r => {
+      const ht  = r.amount_ht
+      const ttc = r.amount_ttc || ht
+      return {
+        tenant_id:     tenantId,
+        company_key:   companyKey,
+        entry_date:    r.date,
+        category:      r.category,
+        subcategory:   r.subcategory,
+        label:         r.label,
+        amount_ttc:    String(ttc),
+        amount_ht:     String(ht),
+        tva_amount:    String(calcTvaAmount(ht, ttc)),
+        tva_rate:      calcTvaRate(ht, ttc),
+        counterpart:   r.counterpart,
+        payment_mode:  'virement',
+        account_num:   extractAcc(r.subcategory, CATEGORIES.find(c => c.cat === r.category)?.acc ?? '658'),
+        source:        'csv' as const,
+      }
+    })
     setSaving(true)
     const { data, error } = await sb.from('manual_entries').insert(imported).select()
     setSaving(false)
     if (error) { setMsg('❌ ' + error.message); return }
     const newEntries = data as ManualEntry[]
     setMsg(`✅ ${newEntries.length} lignes importées`)
-    // Refresh store
     const allEntries = [...newEntries, ...manualEntries]
     setManualEntries(allEntries)
     if (tenantId) {
@@ -596,7 +477,7 @@ export function Saisie() {
         }
       }
     }
-    setTimeout(() => setMsg(null), 4000)
+    setTimeout(() => setMsg(null), 5000)
   }
 
   // ── Soumission manuelle ───────────────────────────────────────────────────
@@ -746,19 +627,18 @@ export function Saisie() {
         </div>
       )}
 
-      {/* CSV */}
+      {/* CSV — import avec prévisualisation et affectation */}
       {mode === 'csv' && (
-        <div style={{ background:'#0f172a', borderRadius:12, padding:24, border:'1px solid rgba(20,184,166,0.2)', marginBottom:24, textAlign:'center' }}>
-          <div style={{ fontSize:14, fontWeight:600, color:'#14b8a6', marginBottom:4 }}>Import CSV</div>
-          <div style={{ fontSize:11, color:'#475569', marginBottom:16 }}>Colonnes : date, category, subcategory, label, amount_ht, amount_ttc, counterpart, payment_mode</div>
-          {saving ? <Spinner size={24} /> : (
-            <label style={{ padding:'10px 24px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', background:'rgba(20,184,166,0.15)', color:'#14b8a6', border:'1px solid rgba(20,184,166,0.3)', display:'inline-block' }}>
-              📄 Choisir un fichier CSV
-              <input type="file" accept=".csv,.txt" onChange={handleCSV} style={{ display:'none' }} />
-            </label>
-          )}
-          {msg && <div style={{ marginTop:12, fontSize:12, color: msg.startsWith('✅') ? '#10b981' : '#ef4444' }}>{msg}</div>}
-        </div>
+        <>
+          <CsvImportView
+            companyKeys={RAW?.keys?.length > 0 ? RAW.keys : (form.company_key ? [form.company_key] : [''])}
+            defaultCompanyKey={form.company_key || filters.selCo[0] || RAW?.keys[0] || ''}
+            companyNames={Object.fromEntries((RAW?.keys ?? []).map(k => [k, RAW.companies[k]?.name || k]))}
+            onImport={handleCsvImport}
+            saving={saving}
+          />
+          {msg && <div style={{ marginBottom:16, padding:'10px 14px', borderRadius:8, fontSize:12, background: msg.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: msg.startsWith('✅') ? '#10b981' : '#ef4444', border: `1px solid ${msg.startsWith('✅') ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>{msg}</div>}
+        </>
       )}
 
       {/* Saisie manuelle */}
