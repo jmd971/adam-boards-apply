@@ -82,6 +82,46 @@ const SIMPLE_TIPS: Record<string, string> = {
   treso:   "L'argent qui devrait entrer et sortir de votre compte dans les 12 prochains mois, et le niveau de votre réserve à chaque étape.",
 }
 
+// Explication grand public de chaque type d'alerte (id du seuil → principe).
+const ALERT_TIPS: Record<string, string> = {
+  txMarge:  "Sur 100 € de ventes, combien il vous reste une fois payé ce que vous avez acheté pour les réaliser. Plus c'est haut, mieux c'est.",
+  txEbe:    "Sur 100 € de ventes, combien votre activité dégage réellement une fois le quotidien payé (fournisseurs, loyer, salaires).",
+  txRnet:   "Sur 100 € de ventes, combien il reste vraiment à la fin, toutes dépenses comprises.",
+  txVA:     "La richesse que votre entreprise crée elle-même, au-delà de ce qu'elle achète à l'extérieur.",
+  bfrJours: "Le nombre de jours de ventes « coincés » en attendant d'être payé par vos clients et d'écouler vos stocks. Moins il y en a, mieux votre argent circule.",
+  levier:   "Le poids de vos emprunts par rapport à l'argent investi par les associés. Trop élevé = l'entreprise dépend beaucoup des banques.",
+  evoCa:    "Vos ventes comparées à la même période l'an dernier : l'activité progresse-t-elle ?",
+  synthese: "Le résumé des chiffres clés de la période, en un coup d'œil.",
+}
+
+// Carte d'alerte avec infobulle au survol expliquant le principe de l'indicateur.
+function AlertCard({ a }: { a: { icon: string; title: string; msg: string; color: string; tip?: string } }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => a.tip && setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:'var(--radius-sm)', background:`${a.color}0f`, border:`1px solid ${a.color}30`, position:'relative', cursor: a.tip ? 'help' : 'default' }}>
+      <span style={{ fontSize:16, flexShrink:0, lineHeight:1.3 }}>{a.icon}</span>
+      <div>
+        <div style={{ fontSize:12, fontWeight:700, color:a.color, marginBottom:2 }}>{a.title}</div>
+        <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.5 }}>{a.msg}</div>
+      </div>
+      {a.tip && show && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 6px)', left:0,
+          background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8,
+          padding:'10px 14px', fontSize:11, fontWeight:400, color:'#94a3b8', lineHeight:1.6,
+          width:280, maxWidth:'70vw', zIndex:300, boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
+          pointerEvents:'none', whiteSpace:'normal',
+        }}>
+          {a.tip}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Titre de section avec infobulle au survol (même style visuel qu'avant).
 function SectionTitle({ children, tip, style }: { children: React.ReactNode; tip?: string; style?: React.CSSProperties }) {
   const [show, setShow] = useState(false)
@@ -368,7 +408,7 @@ export function Dashboard() {
 
   const alertes = useMemo(() => {
     if (!kpis || !selectedMs.length) return []
-    const list: { icon: string; title: string; msg: string; color: string; priority: number }[] = []
+    const list: { icon: string; title: string; msg: string; color: string; priority: number; tip?: string }[] = []
     const ca = kpis.ca
     const nbMonths = selectedMs.length || 12
     const bfrVal = bilan ? (bilan.n.stocks + bilan.n.clients - bilan.n.fournisseurs) : 0
@@ -393,18 +433,18 @@ export function Dashboard() {
       const status = evalThreshold(rv.value, t)
       if (status === 'good') {
         list.push({ icon: '✅', priority: 3, title: `${t.label} : ${rv.display}`, color: 'var(--green)',
-          msg: `${rv.detail} — Seuil OK (> ${formatThresholdValue(t.warn, t.unit)})` })
+          tip: ALERT_TIPS[t.id], msg: `${rv.detail} — Seuil OK (> ${formatThresholdValue(t.warn, t.unit)})` })
       } else if (status === 'warn') {
         list.push({ icon: '⚠️', priority: 1, title: `${t.label} : ${rv.display}`, color: 'var(--amber)',
-          msg: `${rv.detail} — Seuil d'alerte : ${formatThresholdValue(t.warn, t.unit)}` })
+          tip: ALERT_TIPS[t.id], msg: `${rv.detail} — Seuil d'alerte : ${formatThresholdValue(t.warn, t.unit)}` })
       } else {
         list.push({ icon: '🔴', priority: 0, title: `${t.label} : ${rv.display}`, color: 'var(--red)',
-          msg: `${rv.detail} — Seuil critique : ${formatThresholdValue(t.bad, t.unit)}` })
+          tip: ALERT_TIPS[t.id], msg: `${rv.detail} — Seuil critique : ${formatThresholdValue(t.bad, t.unit)}` })
       }
     }
 
     list.push({ icon: '📊', priority: 4, title: 'Synthèse de la période', color: 'var(--blue)',
-      msg: `CA : ${fmt(kpis.ca)} € · Marge : ${pct(kpis.txMarge)} · EBE : ${pct(kpis.txEbe)} · Résultat : ${fmt(kpis.re)} €` })
+      tip: ALERT_TIPS.synthese, msg: `CA : ${fmt(kpis.ca)} € · Marge : ${pct(kpis.txMarge)} · EBE : ${pct(kpis.txEbe)} · Résultat : ${fmt(kpis.re)} €` })
 
     return list.sort((a, b) => a.priority - b.priority).slice(0, 8)
   }, [RAW, selCo.join(','), selectedMs.join(','), kpis, bilan, alertThresholds])
@@ -587,15 +627,7 @@ export function Dashboard() {
             🔔 Alertes — {lastLabel || 'Période sélectionnée'}
           </SectionTitle>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:8 }}>
-            {alertes.map((a, i) => (
-              <div key={i} style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:'var(--radius-sm)', background:`${a.color}0f`, border:`1px solid ${a.color}30` }}>
-                <span style={{ fontSize:16, flexShrink:0, lineHeight:1.3 }}>{a.icon}</span>
-                <div>
-                  <div style={{ fontSize:12, fontWeight:700, color:a.color, marginBottom:2 }}>{a.title}</div>
-                  <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.5 }}>{a.msg}</div>
-                </div>
-              </div>
-            ))}
+            {alertes.map((a, i) => <AlertCard key={i} a={a} />)}
           </div>
         </div>
       )}
