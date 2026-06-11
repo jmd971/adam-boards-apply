@@ -66,7 +66,7 @@ export function Verification() {
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
       <span style={{ fontSize:40 }}>📂</span>
       <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée à contrôler</div>
-      <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Importez un fichier FEC depuis l'onglet <strong style={{ color:'#94a3b8' }}>Import</strong> pour lancer le contrôle de cohérence.</div>
+      <div style={{ fontSize:11, color:'#94a3b8', maxWidth:280 }}>Importez un fichier FEC depuis l'onglet <strong style={{ color:'#94a3b8' }}>Import</strong> pour lancer le contrôle de cohérence.</div>
     </div>
   )
 
@@ -89,7 +89,7 @@ export function Verification() {
           { label: 'Comptes',     value: totalComptes,      color: '#8b5cf6' },
         ].map(({ label, value, color }) => (
           <div key={label} style={{ background: '#0f172a', borderRadius: 10, padding: 14, border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ fontSize: 10, color: '#475569', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+            <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
             <div style={{ fontSize: 24, fontWeight: 700, color, fontFamily: 'monospace' }}>{value.toLocaleString('fr-FR')}</div>
           </div>
         ))}
@@ -101,7 +101,7 @@ export function Verification() {
       </div>
 
       {/* Contrôle par société */}
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 12 }}>
         Contrôle débit / crédit par société
       </div>
 
@@ -113,7 +113,7 @@ export function Verification() {
             <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <span style={{ fontSize: 20 }}>{(c.okN && c.okN1) ? '✅' : '⚠️'}</span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>{c.name.replace(/_/g,' ')}</span>
-              <span style={{ fontSize: 10, color: '#475569' }}>{c.nbComptes} comptes · {c.nbEcritures.toLocaleString('fr-FR')} écritures</span>
+              <span style={{ fontSize: 10, color: '#94a3b8' }}>{c.nbComptes} comptes · {c.nbEcritures.toLocaleString('fr-FR')} écritures</span>
             </div>
 
             {/* Détail N et N-1 */}
@@ -126,11 +126,11 @@ export function Verification() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#475569' }}>Total débit</span>
+                    <span style={{ color: '#94a3b8' }}>Total débit</span>
                     <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(c.dN)} €</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#475569' }}>Total crédit</span>
+                    <span style={{ color: '#94a3b8' }}>Total crédit</span>
                     <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(c.cN)} €</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.05)', fontWeight: 700 }}>
@@ -152,11 +152,11 @@ export function Verification() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#475569' }}>Total débit</span>
+                      <span style={{ color: '#94a3b8' }}>Total débit</span>
                       <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(c.dN1)} €</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#475569' }}>Total crédit</span>
+                      <span style={{ color: '#94a3b8' }}>Total crédit</span>
                       <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(c.cN1)} €</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 4, borderTop: '1px solid rgba(255,255,255,0.05)', fontWeight: 700 }}>
@@ -176,7 +176,7 @@ export function Verification() {
       {/* Mois disponibles */}
       {RAW.mn.length > 0 && (
         <div style={{ marginTop: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>Mois disponibles</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>Mois disponibles</div>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {RAW.mn.map((m: string) => (
               <span key={m} style={{ padding: '2px 8px', borderRadius: 6, fontSize: 10, background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>

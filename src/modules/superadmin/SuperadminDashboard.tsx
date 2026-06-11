@@ -139,7 +139,7 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
             <div style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>
               <span style={{ color: '#3b82f6' }}>adam</span>boards — Vue superadmin
             </div>
-            <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
               {tenants.length} client{tenants.length > 1 ? 's' : ''} actifs
             </div>
           </div>
@@ -170,12 +170,12 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
         )}
 
         {loading && (
-          <div style={{ textAlign: 'center', padding: 64, color: '#475569' }}>
+          <div style={{ textAlign: 'center', padding: 64, color: '#94a3b8' }}>
             Chargement des clients...
           </div>
         )}
         {!loading && !error && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 64, color: '#475569' }}>
+          <div style={{ textAlign: 'center', padding: 64, color: '#94a3b8' }}>
             Aucun client trouvé
           </div>
         )}
@@ -205,7 +205,7 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
                   <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
                     {t.name}
                   </div>
-                  <div style={{ fontSize: 11, color: '#475569' }}>
+                  <div style={{ fontSize: 11, color: '#94a3b8' }}>
                     {t.slug} · {t.memberCount} membre{t.memberCount !== 1 ? 's' : ''} · créé le {new Date(t.created_at).toLocaleDateString('fr-FR')}
                   </div>
                 </div>

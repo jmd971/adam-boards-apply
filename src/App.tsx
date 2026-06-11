@@ -118,7 +118,7 @@ function AppInner() {
   if (dataLoading) return (
     <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, background:'#080d1a', color:'#f1f5f9' }}>
       <Spinner size={36} />
-      <div style={{ fontSize:13, color:'#475569' }}>Connexion à la base de données...</div>
+      <div style={{ fontSize:13, color:'#94a3b8' }}>Connexion à la base de données...</div>
     </div>
   )
 
@@ -127,7 +127,7 @@ function AppInner() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>🔒</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Accès restreint</div>
-        <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Votre rôle ne permet pas d'accéder à cet onglet. Contactez votre administrateur.</div>
+        <div style={{ fontSize:11, color:'#94a3b8', maxWidth:280 }}>Votre rôle ne permet pas d'accéder à cet onglet. Contactez votre administrateur.</div>
       </div>
     )
     // Saisie est exclue de cet écran vide : c'est un module d'entrée de données
@@ -138,7 +138,7 @@ function AppInner() {
       <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:256, gap:12, textAlign:'center', padding:'0 32px' }}>
         <span style={{ fontSize:40 }}>📁</span>
         <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9' }}>Aucune donnée disponible</div>
-        <div style={{ fontSize:11, color:'#475569', maxWidth:280 }}>Importez un fichier FEC depuis l'onglet Import pour commencer.</div>
+        <div style={{ fontSize:11, color:'#94a3b8', maxWidth:280 }}>Importez un fichier FEC depuis l'onglet Import pour commencer.</div>
       </div>
     )
     const modules: Record<string, [string, React.ReactNode]> = {

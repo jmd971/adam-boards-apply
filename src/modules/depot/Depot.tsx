@@ -71,7 +71,7 @@ function LinkManager() {
         background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
       }}>
         <div style={{ flex: '1 1 160px' }}>
-          <div style={{ fontSize: 10, color: '#475569', marginBottom: 4 }}>Société *</div>
+          <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Société *</div>
           <select value={form.company_key}
             onChange={e => setForm(f => ({ ...f, company_key: e.target.value }))}
             style={{
@@ -86,7 +86,7 @@ function LinkManager() {
           </select>
         </div>
         <div style={{ flex: '1 1 160px' }}>
-          <div style={{ fontSize: 10, color: '#475569', marginBottom: 4 }}>Libellé (optionnel)</div>
+          <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Libellé (optionnel)</div>
           <input value={form.label}
             onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
             placeholder="Ex: Dépôt mensuel Mars"
@@ -97,7 +97,7 @@ function LinkManager() {
             }} />
         </div>
         <div style={{ flex: '0 0 90px' }}>
-          <div style={{ fontSize: 10, color: '#475569', marginBottom: 4 }}>Période</div>
+          <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Période</div>
           <select value={form.period}
             onChange={e => setForm(f => ({ ...f, period: e.target.value }))}
             style={{
@@ -123,7 +123,7 @@ function LinkManager() {
 
       {/* Liste des liens */}
       {isLoading ? <Spinner size={18} /> : links.length === 0 ? (
-        <div style={{ fontSize: 12, color: '#475569', padding: '12px 0' }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', padding: '12px 0' }}>
           Aucun lien créé. Créez un lien pour permettre à vos clients de déposer leurs fichiers FEC.
         </div>
       ) : (
@@ -139,10 +139,10 @@ function LinkManager() {
               <span style={{ fontWeight: 600, color: '#f1f5f9', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {lk.label || lk.company_key}
               </span>
-              <span style={{ fontSize: 10, color: '#475569', flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
                 {lk.period}
               </span>
-              <span style={{ fontSize: 10, color: '#475569', flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
                 {new Date(lk.created_at).toLocaleDateString('fr-FR')}
               </span>
               <button onClick={() => copyLink(lk.token)}
@@ -317,7 +317,7 @@ function PendingDeposits() {
       </h3>
 
       {isLoading ? <Spinner size={18} /> : pending.length === 0 ? (
-        <div style={{ fontSize: 12, color: '#475569', padding: '12px 0', marginBottom: 24 }}>
+        <div style={{ fontSize: 12, color: '#94a3b8', padding: '12px 0', marginBottom: 24 }}>
           Aucun dépôt en attente.
         </div>
       ) : (
@@ -333,7 +333,7 @@ function PendingDeposits() {
                 <div style={{ fontWeight: 600, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {dep.file_name}
                 </div>
-                <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
                   {dep.company_key} &middot; {dep.period} &middot; {formatSize(dep.file_size)} &middot; {new Date(dep.deposited_at).toLocaleString('fr-FR')}
                 </div>
               </div>
@@ -378,10 +378,10 @@ function PendingDeposits() {
                   <span style={{ flex: 1, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {dep.file_name}
                   </span>
-                  <span style={{ fontSize: 10, color: '#475569', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
                     {dep.company_key} &middot; {dep.period}
                   </span>
-                  <span style={{ fontSize: 10, color: '#475569', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
                     {new Date(dep.deposited_at).toLocaleDateString('fr-FR')}
                   </span>
                   <span style={{

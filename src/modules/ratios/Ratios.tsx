@@ -132,13 +132,13 @@ function RatioCard({ label, value, icon, sub, color = '#3b82f6', status, onInfo 
           onClick={onInfo}
           title="Voir l'explication"
           className="print-hide"
-          style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, width:22, height:22, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'#475569', lineHeight:1, transition:'all .15s' }}
+          style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, width:22, height:22, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'#94a3b8', lineHeight:1, transition:'all .15s' }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(59,130,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#93c5fd' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#475569' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
         >ℹ</button>
       )}
       <div style={{ fontSize:20, marginBottom:8 }}>{icon}</div>
-      <div style={{ fontSize:11, color:'#475569', fontWeight:600, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</div>
+      <div style={{ fontSize:11, color:'#94a3b8', fontWeight:600, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</div>
       <div style={{ fontSize:22, fontWeight:700, fontFamily:'monospace', color:statusColor, marginBottom:4 }}>{value}</div>
       {sub && <div style={{ fontSize:10, color:'#334155' }}>{sub}</div>}
     </div>
@@ -255,7 +255,7 @@ export function Ratios() {
           background:'#0f172a', borderRadius:12, padding:'14px 16px', marginBottom:12,
           border:'1px solid rgba(255,255,255,0.06)',
         }}>
-          <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
             Seuils d'alerte personnalisés
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(270px,1fr))', gap:6 }}>
@@ -266,7 +266,7 @@ export function Ratios() {
                 <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.warn} onChange={e => updateTh(t.id, 'warn', e.target.value)} style={inputSt} />
                 <span style={{ fontSize:9, color:'#ef4444' }}>C</span>
                 <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.bad} onChange={e => updateTh(t.id, 'bad', e.target.value)} style={inputSt} />
-                <span style={{ fontSize:9, color:'#475569', minWidth:28 }}>{t.unit}</span>
+                <span style={{ fontSize:9, color:'#94a3b8', minWidth:28 }}>{t.unit}</span>
               </div>
             ))}
           </div>
@@ -274,7 +274,7 @@ export function Ratios() {
             <button onClick={applyThresholds} disabled={!draftDirty} style={{
               padding:'7px 20px', borderRadius:8, fontSize:12, fontWeight:600, cursor: draftDirty ? 'pointer' : 'not-allowed',
               background: draftDirty ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'rgba(255,255,255,0.05)',
-              border:'none', color: draftDirty ? '#fff' : '#475569', opacity: draftDirty ? 1 : 0.5,
+              border:'none', color: draftDirty ? '#fff' : '#94a3b8', opacity: draftDirty ? 1 : 0.5,
             }}>Valider</button>
             <button onClick={resetDraft} disabled={!draftDirty} style={{
               padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:500, cursor: draftDirty ? 'pointer' : 'not-allowed',
@@ -295,8 +295,8 @@ export function Ratios() {
       </div>
 
       <div style={{ marginTop:24, padding:16, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>Légende</div>
-        <div style={{ display:'flex', gap:16, fontSize:11, color:'#475569' }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>Légende</div>
+        <div style={{ display:'flex', gap:16, fontSize:11, color:'#94a3b8' }}>
           <span><span style={{ color:'#10b981' }}>●</span> Bon</span>
           <span><span style={{ color:'#f59e0b' }}>●</span> À surveiller</span>
           <span><span style={{ color:'#ef4444' }}>●</span> Attention</span>

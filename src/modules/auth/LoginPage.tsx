@@ -101,7 +101,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 className="flex-1 py-2.5 text-sm font-semibold transition-all"
                 style={{
                   background: mode === m ? 'rgba(59,130,246,0.2)' : 'transparent',
-                  color: mode === m ? '#93c5fd' : '#475569',
+                  color: mode === m ? '#93c5fd' : '#94a3b8',
                   border: 'none', cursor: 'pointer',
                   boxShadow: mode === m ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'none',
                   borderRadius: 10,

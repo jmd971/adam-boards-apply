@@ -235,7 +235,7 @@ export function Creances() {
           <h2 style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', margin: '0 0 4px' }}>
             Créances clients
           </h2>
-          <p style={{ fontSize: 12, color: '#475569', margin: 0 }}>
+          <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
             Balance âgée des comptes clients (41x, FEC + saisies) · {nbTotal} client{nbTotal > 1 ? 's' : ''} avec solde dû
           </p>
         </div>
@@ -243,13 +243,13 @@ export function Creances() {
         {/* ── KPIs principaux ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
           <div style={{ background: '#0f172a', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)', gridColumn: 'span 1' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Total créances</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Total créances</div>
             <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: '#f59e0b' }}>{fmt(totalCreances)} €</div>
             <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>{nbTotal} client{nbTotal > 1 ? 's' : ''}</div>
           </div>
           <div style={{ background: '#0f172a', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>DSO (délai moyen)</div>
-            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: dso ? (dso > 60 ? '#ef4444' : dso > 30 ? '#f59e0b' : '#10b981') : '#475569' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>DSO (délai moyen)</div>
+            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: dso ? (dso > 60 ? '#ef4444' : dso > 30 ? '#f59e0b' : '#10b981') : '#94a3b8' }}>
               {dso !== null ? `${dso} j` : '—'}
             </div>
             <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>Objectif : &lt; 45 jours</div>
@@ -325,7 +325,7 @@ export function Creances() {
                   <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'monospace', color: bk.color }}>
                     {fmt(secTotals[i])} €
                   </div>
-                  <div style={{ fontSize: 9, color: '#475569' }}>
+                  <div style={{ fontSize: 9, color: '#94a3b8' }}>
                     {byBucket[i].length} client{byBucket[i].length > 1 ? 's' : ''}
                     {totalCreances > 0 ? ` · ${Math.round(secTotals[i] / totalCreances * 100)}%` : ''}
                   </div>
@@ -344,7 +344,7 @@ export function Creances() {
                 style={{
                   padding: '6px 14px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
                   background: viewMode === mode ? 'rgba(59,130,246,0.2)' : 'transparent',
-                  color: viewMode === mode ? '#93c5fd' : '#475569',
+                  color: viewMode === mode ? '#93c5fd' : '#94a3b8',
                 }}>
                 {label}
               </button>
@@ -412,7 +412,7 @@ export function Creances() {
                       <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'monospace', color: bk.color }}>
                         {fmt(secTotals[bi])} €
                       </div>
-                      <div style={{ fontSize: 10, color: '#475569' }}>
+                      <div style={{ fontSize: 10, color: '#94a3b8' }}>
                         {clients.length} client{clients.length > 1 ? 's' : ''}
                         {totalCreances > 0 ? ` · ${Math.round(secTotals[bi] / totalCreances * 100)}%` : ''}
                       </div>
@@ -446,7 +446,7 @@ export function Creances() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                               {c.entries.length > 0 && (
                                 <span style={{
-                                  fontSize: 10, color: '#475569', transition: 'transform 0.15s',
+                                  fontSize: 10, color: '#94a3b8', transition: 'transform 0.15s',
                                   transform: isExpanded ? 'rotate(90deg)' : 'none',
                                   flexShrink: 0,
                                 }}>
@@ -543,7 +543,7 @@ export function Creances() {
                                         <td style={{ padding: '5px 8px', color: '#cbd5e1', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                           {inv.label || '—'}
                                         </td>
-                                        <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#475569', fontSize: 10 }}>
+                                        <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
                                           {inv.piece || '—'}
                                         </td>
                                         <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: inv.debit > 0 ? 600 : 400, color: inv.debit > 0 ? '#ef4444' : '#1e293b' }}>
@@ -621,7 +621,7 @@ export function Creances() {
             }}>
               {['Client', 'Montant dû', '% total', 'Délai', 'Ancienneté', 'Fact. + anc.', 'Détail'].map((h, i) => (
                 <div key={h} style={{
-                  fontSize: 9, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.4px',
+                  fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px',
                   textAlign: i === 0 ? 'left' : 'right',
                 }}>
                   {h}
@@ -659,7 +659,7 @@ export function Creances() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: bk.color, flexShrink: 0 }} />
                         {c.entries.length > 0 && (
-                          <span style={{ fontSize: 9, color: '#475569', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>▶</span>
+                          <span style={{ fontSize: 9, color: '#94a3b8', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>▶</span>
                         )}
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -706,7 +706,7 @@ export function Creances() {
                       {/* Detail */}
                       <div style={{ textAlign: 'right' }}>
                         {c.entries.length > 0 ? (
-                          <span style={{ fontSize: 10, color: '#475569' }}>{c.nbInvoices} fact.</span>
+                          <span style={{ fontSize: 10, color: '#94a3b8' }}>{c.nbInvoices} fact.</span>
                         ) : '—'}
                       </div>
                     </div>
@@ -744,7 +744,7 @@ export function Creances() {
                                   <td style={{ padding: '5px 8px', color: '#cbd5e1', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {inv.label || '—'}
                                   </td>
-                                  <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#475569', fontSize: 10 }}>
+                                  <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
                                     {inv.piece || '—'}
                                   </td>
                                   <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: inv.debit > 0 ? 600 : 400, color: inv.debit > 0 ? '#ef4444' : '#1e293b' }}>
@@ -805,7 +805,7 @@ export function Creances() {
         {/* ── Empty state ── */}
         {allClients.length === 0 && (
           <div style={{
-            padding: 40, textAlign: 'center', color: '#475569', fontSize: 12,
+            padding: 40, textAlign: 'center', color: '#94a3b8', fontSize: 12,
             background: '#0f172a', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)',
           }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>

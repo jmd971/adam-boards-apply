@@ -160,25 +160,25 @@ export function BankAccountsPanel({ selCo, totalLabel = 'Solde bancaire total' }
           {!isReadOnly && (
             <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 110px 130px 1fr auto', gap: 6, alignItems: 'end', padding: '8px 4px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <div>
-                <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Société</label>
+                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Société</label>
                 <select value={draft.company_key} onChange={e => setDraft(d => ({ ...d, company_key: e.target.value }))} style={{ ...inputSt, width: '100%' }}>
                   {selCo.map(co => <option key={co} value={co}>{co}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Libellé</label>
+                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Libellé</label>
                 <input value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} placeholder="CCP, Livret A, BNP courant…" style={{ ...inputSt, width: '100%' }} />
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Solde (€)</label>
+                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Solde (€)</label>
                 <input type="number" step="0.01" value={draft.balance} onChange={e => setDraft(d => ({ ...d, balance: e.target.value }))} style={{ ...inputSt, width: '100%', fontFamily: 'monospace', textAlign: 'right' }} />
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Au</label>
+                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Au</label>
                 <input type="date" value={draft.balance_date} onChange={e => setDraft(d => ({ ...d, balance_date: e.target.value }))} style={{ ...inputSt, width: '100%' }} />
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Notes</label>
+                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Notes</label>
                 <input value={draft.notes} onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))} placeholder="optionnel" style={{ ...inputSt, width: '100%' }} />
               </div>
               <div style={{ display: 'flex', gap: 6 }}>

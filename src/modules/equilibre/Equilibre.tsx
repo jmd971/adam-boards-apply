@@ -86,7 +86,7 @@ export function Equilibre() {
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 10 }} />
               <Bar dataKey="N" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
-              <Bar dataKey="N-1" fill="#475569" radius={[4, 4, 0, 0]} barSize={32} />
+              <Bar dataKey="N-1" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={32} />
             </BarChart>
           </ResponsiveContainer>
         </div>

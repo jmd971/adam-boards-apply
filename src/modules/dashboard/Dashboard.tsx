@@ -231,7 +231,7 @@ function ThresholdConfigPanel({ onClose }: { onClose: () => void }) {
               <span style={{ color: '#ef4444', marginLeft: 4 }}>C</span>
               <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.bad}
                 onChange={e => update(t.id, 'bad', e.target.value)} style={inputSt} />
-              <span style={{ fontSize: 9, color: '#475569', minWidth: 30 }}>{t.unit}</span>
+              <span style={{ fontSize: 9, color: '#94a3b8', minWidth: 30 }}>{t.unit}</span>
             </div>
           </div>
         ))}
@@ -240,7 +240,7 @@ function ThresholdConfigPanel({ onClose }: { onClose: () => void }) {
         <button onClick={apply} disabled={!dirty} style={{
           padding: '7px 20px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: dirty ? 'pointer' : 'not-allowed',
           background: dirty ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'rgba(255,255,255,0.05)',
-          border: 'none', color: dirty ? '#fff' : '#475569', opacity: dirty ? 1 : 0.5,
+          border: 'none', color: dirty ? '#fff' : '#94a3b8', opacity: dirty ? 1 : 0.5,
         }}>
           Valider
         </button>
