@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store'
-import { fmt, pct, fiscalIndex } from '@/lib/calc'
+import { fmt, pct, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { EcrituresModal } from '@/components/ui'
 import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
@@ -451,6 +452,8 @@ export function Budget() {
   const [creating,     setCreating]     = useState(false)
   // Ajout manuel d'un compte (hors FEC)
   const [showAddAccount, setShowAddAccount] = useState(false)
+  // Détail des écritures réalisées pour un compte du budget (clic sur la ligne)
+  const [ecrModal, setEcrModal] = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
   const [newAccNum,    setNewAccNum]    = useState('')
   const [newAccLabel,  setNewAccLabel]  = useState('')
   const [newAccType,   setNewAccType]   = useState<'c' | 'p'>('c')
@@ -1066,11 +1069,22 @@ export function Budget() {
                         const bv = v as any
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
+                        // Écritures réalisées (FEC + saisies) pour ce compte → modal au clic
+                        const ents = RAW ? mergeEntries(RAW, [budCo], 'pn', acc) : []
+                        const realN = ents.reduce((s, e) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
                         return (
                           <tr key={acc} style={{ borderBottom:'1px solid rgba(255,255,255,0.025)' }}>
-                            <td style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                            <td
+                              onClick={ents.length > 0 ? () => setEcrModal({ title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0 }) : undefined}
+                              title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
+                              style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap', cursor: ents.length > 0 ? 'pointer' : 'default' }}>
                               <span style={{ fontFamily:'monospace', color:'#94a3b8', marginRight:6 }}>{acc}</span>
                               <span>{bv.l}</span>
+                              {ents.length > 0 && (
+                                <span style={{ marginLeft:6, fontSize:9, color:'#93c5fd', background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.25)', padding:'1px 5px', borderRadius:10 }}>
+                                  {ents.length} éc.
+                                </span>
+                              )}
                             </td>
                             <td style={{ padding:'3px 8px', textAlign:'center' }}>
                               <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10,
@@ -1139,6 +1153,8 @@ export function Budget() {
           )}
         </div>
       </div>
+
+      {ecrModal && <EcrituresModal {...ecrModal} onClose={() => setEcrModal(null)} />}
     </div>
   )
 }
