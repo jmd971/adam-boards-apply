@@ -62,6 +62,51 @@ const DASH_EXPLANATIONS: Record<string, Explanation> = {
   },
 }
 
+// ── Explications grand public (tooltips au survol) ──────────────────────────
+// Vocabulaire volontairement non financier : l'utilisateur découvre le principe
+// de chaque bloc sans jargon comptable. Le détail technique reste dans
+// DASH_EXPLANATIONS (bouton ℹ → ExplainModal).
+const SIMPLE_TIPS: Record<string, string> = {
+  ca:      "Tout l'argent facturé à vos clients sur la période : le total de vos ventes, avant de payer quoi que ce soit.",
+  marge:   "Ce qui reste de vos ventes une fois payé ce que vous avez acheté pour les réaliser (marchandises, matières). Plus c'est haut, plus chaque vente vous rapporte.",
+  ebe:     "L'argent que votre activité dégage réellement, une fois payés les fournisseurs, le loyer et les salaires. C'est le moteur financier de l'entreprise.",
+  re:      "Ce que votre activité gagne (ou perd) au final sur la période, toutes dépenses courantes comprises. Positif = vous gagnez de l'argent.",
+  alertes: "Points d'attention détectés automatiquement sur la période : ce qui mérite votre regard en priorité.",
+  evoCA:   "Vos ventes mois par mois, comparées à la même période l'an dernier. Permet de voir si l'activité progresse ou ralentit.",
+  mensuel: "Les trois indicateurs clés de rentabilité, mois par mois : ce que vos ventes rapportent, ce que l'activité dégage, et ce qu'il reste à la fin.",
+  charges: "Où part votre argent : la part de chaque grande famille de dépenses (achats, loyers, salaires…) sur la période.",
+  rexMensuel: "Mois par mois, ce que votre activité gagne ou perd. Vert = mois gagnant, rouge = mois perdant.",
+  tendance:  "Vos grands indicateurs comparés sur les derniers exercices : la trajectoire de l'entreprise sur la durée.",
+  objectifs: "Où vous en êtes par rapport à ce que vous aviez prévu : chaque jauge montre la part de l'objectif déjà atteinte.",
+  realBudget: "Vos ventes réelles cumulées face à ce que vous aviez budgété : êtes-vous en avance ou en retard sur le plan ?",
+  treso:   "L'argent qui devrait entrer et sortir de votre compte dans les 12 prochains mois, et le niveau de votre réserve à chaque étape.",
+}
+
+// Titre de section avec infobulle au survol (même style visuel qu'avant).
+function SectionTitle({ children, tip, style }: { children: React.ReactNode; tip?: string; style?: React.CSSProperties }) {
+  const [show, setShow] = useState(false)
+  return (
+    <div
+      onMouseEnter={() => tip && setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14, position:'relative', display:'inline-block', cursor: tip ? 'help' : 'default', ...style }}>
+      {children}
+      {tip && <span style={{ marginLeft:6, fontSize:10, color:'var(--text-3)', opacity:0.7 }}>ⓘ</span>}
+      {tip && show && (
+        <div style={{
+          position:'absolute', top:'calc(100% + 6px)', left:0,
+          background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8,
+          padding:'10px 14px', fontSize:11, fontWeight:400, color:'#94a3b8', lineHeight:1.6,
+          width:280, maxWidth:'70vw', zIndex:300, boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
+          pointerEvents:'none', textTransform:'none', letterSpacing:'normal', whiteSpace:'normal',
+        }}>
+          {tip}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 const CHARGE_COLORS = ['#ef4444','#f97316','#f59e0b','#8b5cf6','#6366f1','#3b82f6','#14b8a6']
 
@@ -508,14 +553,14 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.ca)} € · Éc. ${kpis && kpis.ca >= budKpis.ca ? '+' : ''}${fmt((kpis?.ca ?? 0) - budKpis.ca)} €`
             : kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined}
-          tooltip={DASH_EXPLANATIONS.ca.definition}
+          tooltip={SIMPLE_TIPS.ca}
           onInfo={() => setActiveExpl('ca')} />
         <KpiCard label="Marge brute" value={`${fmt(kpis?.marge ?? 0)} €`} color="var(--blue)"
           trend={kpis?.evoMarge != null ? kpis.evoMarge * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.marge)} € · Éc. ${kpis && kpis.marge >= budKpis.marge ? '+' : ''}${fmt((kpis?.marge ?? 0) - budKpis.marge)} €`
             : kpis ? `${pct(kpis.txMarge)} du CA` : undefined}
-          tooltip={DASH_EXPLANATIONS.marge.definition}
+          tooltip={SIMPLE_TIPS.marge}
           onInfo={() => setActiveExpl('marge')} />
         <KpiCard label="EBE" value={`${fmt(kpis?.ebe ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.txEbe > 0.10 ? 'var(--green)' : kpis.txEbe > 0.05 ? 'var(--amber)' : 'var(--red)'}
@@ -523,7 +568,7 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.ebe)} € · Éc. ${kpis && kpis.ebe >= budKpis.ebe ? '+' : ''}${fmt((kpis?.ebe ?? 0) - budKpis.ebe)} €`
             : kpis ? `${pct(kpis.txEbe)} du CA` : undefined}
-          tooltip={DASH_EXPLANATIONS.ebe.definition}
+          tooltip={SIMPLE_TIPS.ebe}
           onInfo={() => setActiveExpl('ebe')} />
         <KpiCard label="Résultat exploit." value={`${fmt(kpis?.re ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.re >= 0 ? 'var(--blue)' : 'var(--red)'}
@@ -531,16 +576,16 @@ export function Dashboard() {
           sub={budKpis
             ? `Budget ${fmt(budKpis.re)} € · Éc. ${kpis && kpis.re >= budKpis.re ? '+' : ''}${fmt((kpis?.re ?? 0) - budKpis.re)} €`
             : kpis ? `${pct(kpis.txRe)} du CA` : undefined}
-          tooltip={DASH_EXPLANATIONS.re.definition}
+          tooltip={SIMPLE_TIPS.re}
           onInfo={() => setActiveExpl('re')} />
       </div>
 
       {/* Alertes */}
       {alertes.length > 0 && (
         <div className="print-alertes" style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'14px 16px', border:'1px solid var(--border-1)' }}>
-          <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
+          <SectionTitle tip={SIMPLE_TIPS.alertes} style={{ fontSize:11, letterSpacing:'0.8px', marginBottom:10 }}>
             🔔 Alertes — {lastLabel || 'Période sélectionnée'}
-          </div>
+          </SectionTitle>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))', gap:8 }}>
             {alertes.map((a, i) => (
               <div key={i} style={{ display:'flex', gap:10, padding:'10px 12px', borderRadius:'var(--radius-sm)', background:`${a.color}0f`, border:`1px solid ${a.color}30` }}>
@@ -559,7 +604,7 @@ export function Dashboard() {
       <div className="print-charts">
 
       <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-        <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>📈 Évolution du CA — N vs N-1</div>
+        <SectionTitle tip={SIMPLE_TIPS.evoCA}>📈 Évolution du CA — N vs N-1</SectionTitle>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
@@ -579,7 +624,7 @@ export function Dashboard() {
 
       <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr', gap:16 }}>
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>📊 Marge · EBE · Résultat mensuels</div>
+          <SectionTitle tip={SIMPLE_TIPS.mensuel}>📊 Marge · EBE · Résultat mensuels</SectionTitle>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }} barGap={2}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
@@ -596,7 +641,7 @@ export function Dashboard() {
         </div>
 
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:10 }}>🥧 Répartition des charges</div>
+          <SectionTitle tip={SIMPLE_TIPS.charges} style={{ marginBottom:10 }}>🥧 Répartition des charges</SectionTitle>
           {chargesData.length === 0 ? (
             <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:160, color:'var(--text-3)', fontSize:12 }}>Aucune charge détectée</div>
           ) : (
@@ -633,7 +678,7 @@ export function Dashboard() {
       </div>
 
       <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-        <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>🎯 Résultat d'exploitation mensuel</div>
+        <SectionTitle tip={SIMPLE_TIPS.rexMensuel}>🎯 Résultat d'exploitation mensuel</SectionTitle>
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
@@ -652,9 +697,9 @@ export function Dashboard() {
 
       {trendData && (trendData.hasN2 || (RAW?.m1?.length ?? 0) > 0) && (
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+          <SectionTitle tip={SIMPLE_TIPS.tendance}>
             {trendData.hasN2 ? '📅 Tendance 3 exercices' : '📅 Tendance N vs N-1'}
-          </div>
+          </SectionTitle>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={trendData.metrics.map(m => ({
               name: m.key,
@@ -709,9 +754,9 @@ export function Dashboard() {
 
       {kpis && (budKpis ?? budDataKpis) && (
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+          <SectionTitle tip={SIMPLE_TIPS.objectifs}>
             🎯 Réalisation des objectifs
-          </div>
+          </SectionTitle>
           <ObjectifsChart
             hasBudget
             height={280}
@@ -728,9 +773,9 @@ export function Dashboard() {
       {/* Évolution mensuelle cumulée : réalisé vs budget */}
       {cumulComparisonData.length > 0 && (
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+          <SectionTitle tip={SIMPLE_TIPS.realBudget}>
             📈 Évolution mensuelle — Réalisé vs Budget cumulé
-          </div>
+          </SectionTitle>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={cumulComparisonData} margin={{ top:4, right:16, bottom:0, left:0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -752,9 +797,9 @@ export function Dashboard() {
 
       {forecastData.some(d => d.enc > 0 || d.dec > 0) && (
         <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
-          <div style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:14 }}>
+          <SectionTitle tip={SIMPLE_TIPS.treso}>
             💧 Trésorerie prévisionnelle — 12 mois
-          </div>
+          </SectionTitle>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={forecastData} margin={{ top:4, right:16, bottom:0, left:0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
