@@ -990,3 +990,16 @@ Crée atomiquement le tenant + le rôle admin. **Sans cet appel**, l'utilisateur
 sans tenant ni rôle (vues vides, rôle Consultation).
 NB : Supabase exige la **confirmation d'email** avant la première connexion
 (`email_confirmed_at`) — cause n°1 des « je ne peux pas me connecter ».
+
+### 36. Plan comptable — référentiel officiel `src/lib/pcg.ts`
+
+PCG 2025 officiel (règlement ANC n°2022-06) : **856 comptes** générés depuis
+`PCG_2025_Plan_Comptable_General.xlsx` (fourni par Jean-Marc — ne pas éditer le TS à la
+main, régénérer depuis le xlsx). Helpers : `pcgLabel(code)` et `suggestFromPCG(texte, classe)`.
+
+**Suggestion de sous-catégorie en Saisie — ordre de priorité imposé :**
+1. **Tiers connu du FEC** (p1 = N-1 prioritaire, puis pn) → compte le plus utilisé pour ce tiers
+2. **Libellé** → alias métier (`SUB_ALIASES`), puis intitulés officiels du PCG
+   (la suggestion porte alors le code exact, ex « Locations immobilières (6132) »)
+3. **Historique des saisies manuelles** (scoring tiers/libellé)
+Ne pas réordonner sans demande explicite — l'ordre 2↔3 a été inversé à la demande du 13/06/2026.
