@@ -905,3 +905,84 @@ Tests : `src/lib/__tests__/tresoCash.test.ts` (helpers + reconstruction `cashMov
 ### 27. Numéro de facture sur les saisies
 
 `manual_entries.invoice_number` (migration 014). Saisi dans le formulaire Saisie, extrait par l'**OCR** (champ `invoice_number` du prompt) et l'import CSV. Sert de **référence** dans le détail prévisionnel de trésorerie (ajouté au libellé, la contrepartie restant en colonne réf).
+
+---
+
+### 28. Catégories de saisie — source unique `src/lib/categories.ts`
+
+`CATEGORIES` (4 catégories × sous-catégories avec n° de compte), `SUB_ALIASES` (mots-clés
+français → sous-catégorie pour la recherche), `normSub()` (normalisation accents/casse) et
+`extractAcc()` (libellé « Publicité (623) » → « 623 ») sont **centralisés** dans
+`src/lib/categories.ts`. `Saisie.tsx` et `CsvImportView.tsx` les importent.
+**Ne jamais redéfinir ces constantes dans un module** — toute divergence casserait le
+matching OCR/CSV/combobox. 78 sous-catégories, 4 comptes par défaut (706/607/626/2181).
+
+### 29. Import CSV ventes/achats — `CsvImportView.tsx`, flux en 3 étapes
+
+`Chargement → Mapping de colonnes → Prévisualisation` :
+- **Décodage** : `decodeCsvBuffer` — UTF-8 strict, fallback ISO-8859-1, puis inversion
+  de **double-mojibake** (jusqu'à 2 passes : « NumÃ©ro » → « Numéro »). Les exports de
+  logiciels de facturation FR sont souvent double-encodés — ne pas simplifier ce code.
+- **Mapping** : `parseCSVStructure` (en-têtes + lignes, **lignes « Total… » ignorées**),
+  `detectMapping` (auto-détection par candidats, une colonne ≠ deux champs),
+  `applyMapping` (→ `CsvRow[]`). L'utilisateur corrige le mapping via dropdowns ;
+  Date + Montant HT obligatoires.
+- **Champs** : `Nature` contenant « facture » → catégorie **Vente** ; `Encaissée le` →
+  `payment_date` ; `Mode de règlement` → `payment_mode` (mapPayMode) ; n° facture + TVA lus
+  ou calculés (TTC−HT). Insert en `manual_entries` avec `source: 'csv'`.
+- Affectation **globale** (barre ⚡, catégorie+sous-catégorie sur toutes les lignes) ou
+  **individuelle** (combobox par ligne). Lignes décochables.
+
+### 30. Superadmin — suppression de tenant
+
+`api/delete-tenant.ts` (DELETE, JWT superadmin vérifié comme `list-tenants`, mêmes env vars
+`SUPABASE_SERVICE_ROLE_KEY` + `VITE_SUPABASE_URL`). Supprime en cascade :
+`company_data`, `budget`, `manual_entries`, `bank_accounts`, `user_roles`, puis `tenants`.
+Le tenant système `00000000-0000-0000-0000-000000000001` est **protégé** (403).
+UI : bouton 🗑 + modal de confirmation dans `SuperadminDashboard.tsx`.
+
+### 31. Dashboard — tooltips pédagogiques (langage NON financier)
+
+- `SIMPLE_TIPS` (par bloc) et `ALERT_TIPS` (par id de seuil d'alerte) dans `Dashboard.tsx` :
+  explications **grand public, sans jargon comptable** affichées au survol.
+- Composants : `SectionTitle` (titre de section + ⓘ + infobulle) et `AlertCard`
+  (carte d'alerte survolable). Les 4 `KpiCard` passent `tooltip={SIMPLE_TIPS.x}`.
+- Le **détail technique** (formules, comptes, seuils) reste dans `DASH_EXPLANATIONS`
+  (bouton ℹ → `ExplainModal`). **Ne pas remplacer le vocabulaire simple des tooltips
+  par du jargon** — c'est une demande explicite (utilisateurs non financiers).
+
+### 32. Contraste — règles de couleurs texte (plaintes clients corrigées)
+
+Audit WCAG sur fond carte `#0d1424` — palette corrigée le 12/06/2026 :
+- `--text-2: #94a3b8` (titres de sections, 7.17:1 ✅ AA) — **ne pas re-assombrir**
+- `--text-3: #64748b` (texte atténué/décoratif uniquement, 3.86:1)
+- `#475569` est **banni comme couleur de texte** (2.43:1 illisible) — il a été remplacé
+  partout par `#94a3b8` (159 occurrences). Ne pas le réintroduire.
+- Labels de formulaires : **11px minimum** (10px → 11px appliqué).
+- Le bloc print de `styles.css` (fond blanc, `.dashboard-print`) a ses propres
+  variables — ne pas le toucher en modifiant le thème sombre.
+
+### 33. Filtres persistés — purge quand le tenant n'a aucune donnée
+
+`useCompanyData` : si `raw.keys.length === 0` (compte neuf sans FEC ni saisie),
+**purger** `selCo: []`, `budCo: ''`, `startM/endM: ''`. Sinon le localStorage
+(`adamboards-store`) ressort le nom d'une société et la période d'un AUTRE compte
+en tête du Dashboard (bug constaté à chaque création de compte).
+
+### 34. Budget — détail des écritures réalisées au clic
+
+Chaque ligne de compte du tableau Budget avec des écritures réalisées affiche un badge
+« X éc. » et ouvre `EcrituresModal` au clic (`mergeEntries(RAW, [budCo], 'pn', acc)` —
+FEC + saisies confondues, comme Équilibre/CR). Le `cumN` envoyé au modal est le solde
+sens-métier : `debit−credit` si charge, `credit−debit` si produit. Les comptes sans
+écritures restent non cliquables (pas de badge).
+
+### 35. Inscription — provisioning automatique du tenant
+
+`LoginPage.tsx` mode signup : champ « Nom de la société » obligatoire, puis
+`signUp()` + RPC `provision_new_user(p_user_id, p_tenant_name, p_role:'admin')`
+(migration 004, SECURITY DEFINER, vérifie `p_user_id == auth.uid()`).
+Crée atomiquement le tenant + le rôle admin. **Sans cet appel**, l'utilisateur arrive
+sans tenant ni rôle (vues vides, rôle Consultation).
+NB : Supabase exige la **confirmation d'email** avant la première connexion
+(`email_confirmed_at`) — cause n°1 des « je ne peux pas me connecter ».
