@@ -18,6 +18,28 @@ function monthShift(m: string, shift: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
+// ── Phase 2 acomptes : imputation sur la facture finale ──────────────────────
+// L'acompte est compté en trésorerie à SA date de paiement. Quand il est imputé
+// sur une facture, le règlement de celle-ci est réduit d'autant (sinon double compte).
+function buildImputedMap(entries: any[]): Record<string, number> {
+  const map: Record<string, number> = {}
+  for (const a of entries) {
+    const inv = (a as any).acompte_invoice_id
+    if (a.operation_type === 'acompte' && inv) {
+      const t = parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0
+      map[String(inv)] = (map[String(inv)] || 0) + t
+    }
+  }
+  return map
+}
+// Facteur net à appliquer au règlement d'une facture (1 = pas d'acompte imputé).
+function netFactor(me: any, ttc: number, imputed: Record<string, number>): number {
+  if (ttc <= 0) return 1
+  if (me.operation_type === 'acompte' || me.operation_type === 'reglement_n1') return 1
+  const imp = imputed[String(me.id)] || 0
+  return imp > 0 ? Math.max(0, ttc - imp) / ttc : 1
+}
+
 export function Tresorerie() {
   const RAW           = useAppStore(s => s.RAW)
   const filters       = useAppStore(s => s.filters)
@@ -54,6 +76,7 @@ export function Tresorerie() {
   // double-compter ; sans FEC, on reconstruit le réalisé depuis les paiements des saisies.
   // Ancré sur l'exercice (months = selectedMs, borné à l'exercice par le filtre TopBar).
   const treso = useMemo(() => {
+    const imputed = buildImputedMap(manualEntries)
     if (!RAW || !months.length) return null
     const eB: Record<string,number[]> = {}, eA: Record<string,Record<string,AD>> = {}
     const dB: Record<string,number[]> = {}, dA: Record<string,Record<string,AD>> = {}
@@ -95,14 +118,15 @@ export function Tresorerie() {
           const enc = me.category === 'Vente'
           const cat = (enc ? catOf(acc, ENC_CATS) : catOf(acc, DEC_CATS)) || (enc ? 'Encaissements clients' : 'Décaissements fournisseurs')
           const lbl = me.subcategory || acc
+          const f = netFactor(me, ttc, imputed)
           const pays: { date: string; amt: number }[] = []
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const ds: string[] = (me.echeancier_data as any).dates
             const amts: number[] | undefined = (me.echeancier_data as any).amounts
-            const eq = ttc / ds.length
-            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] ?? eq }))
+            const eq = (ttc * f) / ds.length
+            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] != null ? amts[i] * f : eq }))
           } else {
-            pays.push({ date: me.payment_date || me.entry_date, amt: ttc })
+            pays.push({ date: me.payment_date || me.entry_date, amt: ttc * f })
           }
           for (const p of pays) {
             const mi = miOf((p.date || '').slice(0, 7))
@@ -149,6 +173,7 @@ export function Tresorerie() {
   }, [bank?.all, selCo.join(',')])
 
   const forecast = useMemo(() => {
+    const imputed = buildImputedMap(manualEntries)
     // Mois déjà présents dans le réalisé → ne pas les compter en double dans le prévisionnel
     const realisedMonthsSet = new Set(months)
     let cum = selCo.reduce((s, co) => s + soldeInitialPerCo(co), 0)
@@ -178,22 +203,23 @@ export function Tresorerie() {
           const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
           const ttc = parseFloat(me.amount_ttc || '0') || ht
           if (ttc === 0) continue
+          const f = netFactor(me, ttc, imputed)
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
             const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
-            const equalPart = ttc / echDates.length
+            const equalPart = (ttc * f) / echDates.length
             for (let idx = 0; idx < echDates.length; idx++) {
               const d = echDates[idx]
               if (d.startsWith(m)) {
-                const part = echAmounts?.[idx] ?? equalPart
+                const part = echAmounts?.[idx] != null ? echAmounts[idx] * f : equalPart
                 if (me.category === 'Vente') enc += part
                 else dec += part
               }
             }
           } else if (me.payment_date?.startsWith(m)) {
-            // Paiement ponctuel avec date de règlement dans ce mois — cash flow TTC
-            if (me.category === 'Vente') enc += ttc
-            else dec += ttc
+            // Paiement ponctuel — cash flow TTC net des acomptes imputés
+            if (me.category === 'Vente') enc += ttc * f
+            else dec += ttc * f
           }
         }
       }
@@ -205,6 +231,7 @@ export function Tresorerie() {
 
   // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
   const forecastDetail = useMemo(() => {
+    const imputed = buildImputedMap(manualEntries)
     // `factures` = écritures prévues issues des saisies (échéances/paiements), avec lien facture
     // (invoice_url). Affichées au clic sur une ligne du détail prévisionnel.
     const enc: Record<string, { label:string; vals:number[]; factures:any[] }> = {}
@@ -249,6 +276,7 @@ export function Tresorerie() {
           const ht  = parseFloat(me.amount_ht_saisie || me.amount_ht || '0') || 0
           const ttc = parseFloat(me.amount_ttc || '0') || ht
           if (ttc === 0) continue
+          const f = netFactor(me, ttc, imputed)
           const key = me.account_num || '658'
           const label = me.subcategory || key
           const isVente = me.category === 'Vente'
@@ -256,7 +284,7 @@ export function Tresorerie() {
           const invNum = (me as any).invoice_number
           const factureRow = (d: string, amt: number) => [
             d,
-            `${me.label || me.counterpart || label}${invNum ? ` · Fact. ${invNum}` : ''}${me.echeancier_data ? ' (échéance)' : ''}`,
+            `${me.label || me.counterpart || label}${invNum ? ` · Fact. ${invNum}` : ''}${me.echeancier_data ? ' (échéance)' : ''}${f < 1 ? ' · acompte déduit' : ''}`,
             isVente ? 0 : amt,           // décaissement → débit
             isVente ? amt : 0,           // encaissement → crédit
             me.counterpart || '',        // réf = contrepartie (conservée)
@@ -266,11 +294,11 @@ export function Tresorerie() {
           if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
             const echDates: string[] = (me.echeancier_data as any).dates
             const echAmounts: number[] | undefined = (me.echeancier_data as any).amounts
-            const equalPart = ttc / echDates.length
+            const equalPart = (ttc * f) / echDates.length
             for (let idx = 0; idx < echDates.length; idx++) {
               const d = echDates[idx]
               if (d.startsWith(m)) {
-                const part = echAmounts?.[idx] ?? equalPart
+                const part = echAmounts?.[idx] != null ? echAmounts[idx] * f : equalPart
                 const bucket = isVente ? enc : dec
                 if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
                 bucket[key].vals[mi] += part
@@ -280,8 +308,8 @@ export function Tresorerie() {
           } else if (me.payment_date?.startsWith(m)) {
             const bucket = isVente ? enc : dec
             if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
-            bucket[key].vals[mi] += ttc
-            bucket[key].factures.push(factureRow(me.payment_date, Math.round(ttc)))
+            bucket[key].vals[mi] += ttc * f
+            bucket[key].factures.push(factureRow(me.payment_date, Math.round(ttc * f)))
           }
         }
       }

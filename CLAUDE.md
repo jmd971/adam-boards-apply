@@ -1019,4 +1019,11 @@ jamais des charges/produits de N. `manualEntriesToTransactions` (RFM/Ventes) les
 aussi. Elles alimentent la trésorerie via `payment_date`/`entry_date` (compte 4xx hors
 catégories standard → branche eM/dM). Le formulaire masque la sous-catégorie et affiche
 le compte automatique + une explication. Badge « Acompte » / « Règlt N-1 » dans l'historique.
-Phase 2 envisagée (non implémentée) : imputation d'un acompte sur la facture finale.
+**Phase 2 — imputation (migration 017, appliquée sur les DEUX bases)** :
+`manual_entries.acompte_invoice_id` (FK → manual_entries.id, ON DELETE SET NULL).
+À la saisie d'une facture, panneau « Acomptes disponibles » (même société, même sens
+client/fournisseur, non imputés) → cases à cocher + « Net à régler ». En Trésorerie
+(réalisé sans FEC, prévisionnel totaux + détail), le règlement d'une facture est réduit
+de la somme de ses acomptes imputés (`buildImputedMap` + `netFactor` dans Tresorerie.tsx) —
+l'acompte ayant déjà été compté à sa propre date de paiement. Supprimer la facture libère
+ses acomptes (SET NULL en base + patch du store local). Badge « Acompte ✓ imputé ».

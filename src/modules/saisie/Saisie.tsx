@@ -91,6 +91,10 @@ export function Saisie() {
   // Édition / suppression de saisies existantes
   const [editingId,     setEditingId]     = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  // Phase 2 acomptes : ids des acomptes à imputer sur la facture en cours de saisie
+  const [imputeIds,     setImputeIds]     = useState<string[]>([])
+  // Phase 2 acomptes : ids des acomptes à imputer sur la facture en cours de saisie
+  const [imputeIds,     setImputeIds]     = useState<string[]>([])
   // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
@@ -205,6 +209,9 @@ export function Saisie() {
       payment_date: e.payment_date || '',
       operation_type: (e.operation_type ?? 'facture') as 'facture' | 'acompte' | 'reglement_n1',
     })
+    setImputeIds(manualEntries
+      .filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === String(e.id))
+      .map(a => String(a.id)))
     setMode('manual')
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setMsg('✏️ Modification en cours — éditez puis cliquez Enregistrer')
@@ -212,6 +219,7 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
+    setImputeIds([])
     setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'', operation_type:'facture' })); setSubSearch('')
     setMsg(null)
   }
@@ -226,7 +234,9 @@ export function Saisie() {
     if (error) { setSaving(false); setMsg('❌ ' + error.message); return }
 
     // Mettre à jour le store + rebuild RAW pour que tous les modules se mettent à jour
-    const newEntries = manualEntries.filter(en => String(en.id) !== id && (en as any).parent_id !== id)
+    const newEntries = manualEntries
+      .filter(en => String(en.id) !== id && (en as any).parent_id !== id)
+      .map(en => String(en.acompte_invoice_id ?? '') === id ? { ...en, acompte_invoice_id: null } : en)
     setManualEntries(newEntries)
     const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
     const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
@@ -252,6 +262,21 @@ export function Saisie() {
         ? { acc: '411', sub: 'Encaissement facture N-1 (411)',     hint: 'Encaissement d\'une facture client comptabilisée en N-1 — le produit est déjà dans le FEC N-1.' }
         : { acc: '401', sub: 'Règlement facture N-1 (401)',        hint: 'Paiement d\'une facture fournisseur comptabilisée en N-1 — la charge est déjà dans le FEC N-1.' })
     : null
+
+  // Acomptes non encore imputés, même société et même sens (client/fournisseur)
+  // que la facture en cours — proposés à l'imputation. En édition, les acomptes
+  // déjà imputés sur CETTE facture restent visibles (décochables).
+  const openAcomptes = useMemo(() => {
+    if (form.operation_type !== 'facture') return []
+    const co = form.company_key || filters.selCo[0] || ''
+    const isVente = form.category === 'Vente'
+    return manualEntries.filter(a =>
+      a.operation_type === 'acompte' &&
+      a.company_key === co &&
+      ((a.category === 'Vente') === isVente) &&
+      (!a.acompte_invoice_id || (editingId != null && String(a.acompte_invoice_id) === String(editingId)))
+    )
+  }, [manualEntries, form.operation_type, form.category, form.company_key, filters.selCo, editingId])
 
   // extractAcc importé depuis @/lib/categories
 
@@ -643,8 +668,30 @@ export function Saisie() {
       await refreshStore(newEntry)
     }
 
+    // Phase 2 : imputation des acomptes sélectionnés sur cette facture
+    if (form.operation_type === 'facture') {
+      const invId = String(newEntry.id)
+      const prev = wasEditing
+        ? manualEntries.filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === invId).map(a => String(a.id))
+        : []
+      const toSet     = imputeIds.filter(id => !prev.includes(id))
+      const toRelease = prev.filter(id => !imputeIds.includes(id))
+      if (toSet.length)     await sb.from('manual_entries').update({ acompte_invoice_id: invId } as any).in('id', toSet)
+      if (toRelease.length) await sb.from('manual_entries').update({ acompte_invoice_id: null } as any).in('id', toRelease)
+      if (toSet.length || toRelease.length) {
+        const cur = useAppStore.getState().manualEntries
+        useAppStore.getState().setManualEntries(cur.map(en => {
+          const idS = String(en.id)
+          if (toSet.includes(idS))     return { ...en, acompte_invoice_id: invId }
+          if (toRelease.includes(idS)) return { ...en, acompte_invoice_id: null }
+          return en
+        }))
+      }
+    }
+
     setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
     setEditingId(null)
+    setImputeIds([])
     setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'', operation_type:'facture' })); setSubSearch('')
     setEchDates([])
     setEchAmounts([])
@@ -886,6 +933,37 @@ export function Saisie() {
               <input type="text" value={form.invoice_number} onChange={e => setForm(f => ({...f, invoice_number:e.target.value}))} style={inputSt} placeholder="Ex : F2026-001" />
             </div>
 
+            {form.operation_type === 'facture' && openAcomptes.length > 0 && (
+              <div style={{ gridColumn:'1 / -1', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.25)', borderRadius:8, padding:'10px 12px' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#a78bfa', marginBottom:6 }}>
+                  💜 Acomptes disponibles — cochez pour les imputer sur cette facture
+                </div>
+                {openAcomptes.map(a => {
+                  const id = String(a.id)
+                  const amt = parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0
+                  const checked = imputeIds.includes(id)
+                  return (
+                    <label key={id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:11.5, color:'#cbd5e1', padding:'3px 0', cursor:'pointer' }}>
+                      <input type="checkbox" checked={checked}
+                        onChange={() => setImputeIds(p => checked ? p.filter(x => x !== id) : [...p, id])} />
+                      <span>{fmtDate(a.entry_date)} · {a.counterpart || a.label || 'Acompte'} · <strong style={{ fontFamily:'monospace' }}>{amt.toFixed(2)} €</strong></span>
+                    </label>
+                  )
+                })}
+                {imputeIds.length > 0 && (() => {
+                  const tot = openAcomptes.filter(a => imputeIds.includes(String(a.id)))
+                    .reduce((s, a) => s + (parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0), 0)
+                  const ttcF = parseFloat(form.amount_ttc || form.amount_ht || '0') || 0
+                  return (
+                    <div style={{ marginTop:6, fontSize:11, color:'#94a3b8' }}>
+                      Imputé : <strong style={{ color:'#a78bfa', fontFamily:'monospace' }}>{tot.toFixed(2)} €</strong>
+                      {ttcF > 0 && <> · Net à régler : <strong style={{ color:'#10b981', fontFamily:'monospace' }}>{Math.max(0, ttcF - tot).toFixed(2)} €</strong></>}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
             <div>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Contrepartie</label>
               <input type="text" value={form.counterpart} onChange={e => setForm(f => ({...f, counterpart:e.target.value}))} style={inputSt} placeholder="Fournisseur..." />
@@ -1090,7 +1168,7 @@ export function Saisie() {
                         color:      e.category==='Vente' ? '#10b981':'#ef4444' }}>
                         {e.category}
                       </span>
-                      {e.operation_type === 'acompte' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(139,92,246,0.12)', color:'#a78bfa' }}>Acompte</span>}
+                      {e.operation_type === 'acompte' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(139,92,246,0.12)', color:'#a78bfa' }}>{e.acompte_invoice_id ? 'Acompte ✓ imputé' : 'Acompte'}</span>}
                       {e.operation_type === 'reglement_n1' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(59,130,246,0.12)', color:'#60a5fa' }}>Règlt N-1</span>}
                     </td>
                     <td style={{ padding:'6px 8px', color:'#94a3b8', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>

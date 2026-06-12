@@ -86,6 +86,8 @@ export interface ManualEntry {
   source: 'manual' | 'ocr' | 'csv' | 'echeance'
   /** facture (défaut) · acompte (4091/4191, pas de P&L en N) · reglement_n1 (401/411, pas de P&L en N) */
   operation_type?: 'facture' | 'acompte' | 'reglement_n1'
+  /** Acompte uniquement : id de la facture finale sur laquelle il est imputé (migration 017). */
+  acompte_invoice_id?: string | null
   parent_id?: string | null
   invoice_url?: string
   created_at: string
