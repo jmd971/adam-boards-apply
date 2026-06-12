@@ -7,7 +7,7 @@ import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
 import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
-import { suggestFromPCG } from '@/lib/pcg'
+import { suggestFromPCG, pcgLabel } from '@/lib/pcg'
 import { CsvImportView, type CsvRow } from './CsvImportView'
 
 
@@ -247,38 +247,44 @@ export function Saisie() {
   // 2. Historique des saisies manuelles (tiers/libellé similaire)
   // 3. Mots-clés du libellé → plan comptable général (SUB_ALIASES)
 
-  // Niveau 1 : compte le plus fréquemment utilisé pour ce tiers dans le FEC.
-  // Recalculé uniquement quand le tiers/catégorie/société change (pas à chaque frappe du libellé).
+  // Niveau 1 : compte le plus fréquemment utilisé pour ce tiers dans le FEC
+  // (N-1 et N-2 prioritaires, puis N). On propose LE COMPTE EXACT du FEC avec son
+  // intitulé d'origine (ex : « TELESURVEILLANCE GARDIENNAGE (6110100000) ») — pas
+  // une sous-catégorie générique. Recalculé quand tiers/catégorie/société change.
   const fecSuggestion = useMemo(() => {
-    const cpt = normSub((form.counterpart || '').trim())
+    // Normalisation tolérante : ponctuation/tirets → espaces (« NEO-SURVEILLANCE » matche « neo surveillance »)
+    const norm = (s: string) => normSub(s).replace(/[^a-z0-9]+/g, ' ').trim()
+    const cpt = norm(form.counterpart || '')
     if (cpt.length < 3 || !RAW) return null
+    const tokens = cpt.split(' ').filter(t => t.length >= 2)
+    if (!tokens.length) return null
     const co = form.company_key || filters.selCo[0] || RAW.keys[0]
     if (!co) return null
     const cls = form.category === 'Vente' ? '7' : form.category === 'Immobilisation' ? '2' : '6'
     const counts: Record<string, number> = {}
-    for (const field of ['p1', 'pn'] as const) {
+    const labels: Record<string, string> = {}
+    for (const field of ['p1', 'p2', 'pn'] as const) {
       const data = (RAW.companies[co]?.[field] ?? {}) as Record<string, any>
       for (const [acc, acct] of Object.entries(data)) {
         if (!acc.startsWith(cls)) continue
-        // Match sur le libellé du compte OU sur le libellé de chaque écriture
-        const accLabelMatch = normSub(String((acct as any)?.l ?? '')).includes(cpt)
+        const accLabel = String((acct as any)?.l ?? '')
+        // Tous les mots du tiers présents dans le libellé du compte OU de l'écriture
+        const accLabelMatch = tokens.every(t => norm(accLabel).includes(t))
         for (const e of (((acct as any)?.e ?? []) as any[])) {
-          const eLbl = normSub(String(e?.[1] ?? ''))
-          if (accLabelMatch || eLbl.includes(cpt)) counts[acc] = (counts[acc] || 0) + 1
+          const eLbl = norm(String(e?.[1] ?? ''))
+          if (accLabelMatch || tokens.every(t => eLbl.includes(t))) {
+            counts[acc] = (counts[acc] || 0) + 1
+            if (accLabel && !labels[acc]) labels[acc] = accLabel
+          }
         }
       }
     }
     const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
     if (!best) return null
-    // Compte → sous-catégorie : code entre parenthèses le plus long qui préfixe le compte
-    const subs = catConfig?.subs ?? []
-    let bestSub: string | null = null, bestLen = 0
-    for (const sub of subs) {
-      const code = extractAcc(sub, '')
-      if (code && best[0].startsWith(code) && code.length > bestLen) { bestSub = sub; bestLen = code.length }
-    }
-    return bestSub ? { sub: bestSub, acc: best[0] } : null
-  }, [form.counterpart, form.category, form.company_key, RAW, catConfig, filters.selCo])
+    const acc = best[0]
+    const label = labels[acc] || pcgLabel(acc) || 'Compte'
+    return { sub: `${label} (${acc})`, acc }
+  }, [form.counterpart, form.category, form.company_key, RAW, filters.selCo])
 
   const suggestion = useMemo((): { sub: string; source: string } | null => {
     if (form.subcategory) return null
