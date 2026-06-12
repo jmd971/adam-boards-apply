@@ -285,7 +285,17 @@ export function Saisie() {
     if (fecSuggestion) return { sub: fecSuggestion.sub, source: `compte ${fecSuggestion.acc} déjà utilisé pour ce tiers` }
     const lbl = (form.label || '').toLowerCase().trim()
     const cpt = (form.counterpart || '').toLowerCase().trim()
-    // 2. Historique des saisies manuelles
+    // 2. Libellé → plan comptable général via mots-clés
+    const nl = normSub(lbl)
+    if (nl.length >= 3) {
+      for (const sub of (catConfig?.subs ?? [])) {
+        if ((SUB_ALIASES[sub] ?? []).some(a => {
+          const na = normSub(a)
+          return nl.includes(na) || (nl.length >= 4 && na.includes(nl))
+        })) return { sub, source: "d'après le libellé (plan comptable)" }
+      }
+    }
+    // 3. Historique des saisies manuelles
     if (lbl || cpt) {
       const subs = catConfig?.subs ?? []
       const scores: Record<string, number> = {}
@@ -306,16 +316,6 @@ export function Saisie() {
       }
       const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
       if (sorted.length > 0) return { sub: sorted[0][0], source: "d'après vos autres saisies" }
-    }
-    // 3. Libellé → plan comptable général via mots-clés
-    const nl = normSub(lbl)
-    if (nl.length >= 3) {
-      for (const sub of (catConfig?.subs ?? [])) {
-        if ((SUB_ALIASES[sub] ?? []).some(a => {
-          const na = normSub(a)
-          return nl.includes(na) || (nl.length >= 4 && na.includes(nl))
-        })) return { sub, source: "d'après le libellé (plan comptable)" }
-      }
     }
     return null
   }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig, fecSuggestion])
