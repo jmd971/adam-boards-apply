@@ -108,6 +108,28 @@ export function Tresorerie() {
           const entry = [cm.date, cm.label || cm.counterpart, enc ? 0 : cm.amount, enc ? cm.amount : 0, cm.piece || '', 0]
           push(enc, cm.category, cm.counterpart, cm.label || cm.counterpart, mi, cm.amount, entry)
         }
+        // Les opérations de trésorerie saisies (acomptes, règlements de factures N-1)
+        // ne sont PAS dans le FEC (le FEC N n'existe pas encore) → les ajouter au
+        // réalisé, uniquement pour les mois NON couverts par le FEC (anti double-compte
+        // quand le FEC N sera importé plus tard).
+        const fecMonths = new Set(cash.map((cm: any) => (cm.date || '').slice(0, 7)))
+        for (const me of manualEntries) {
+          if (me.company_key !== co) continue
+          if (me.operation_type !== 'acompte' && me.operation_type !== 'reglement_n1') continue
+          const ttc = parseFloat(me.amount_ttc || me.amount_ht_saisie || me.amount_ht || '0') || 0
+          if (ttc === 0) continue
+          const d = me.payment_date || me.entry_date
+          const ym = (d || '').slice(0, 7)
+          if (!ym || fecMonths.has(ym)) continue
+          const mi = miOf(ym)
+          if (mi < 0) continue
+          const enc = me.category === 'Vente'
+          const acc = me.account_num || (enc ? '411' : '401')
+          const lbl = me.subcategory || acc
+          const cat = enc ? 'Encaissements clients' : 'Décaissements fournisseurs'
+          const entry = [d, me.label || me.counterpart || lbl, enc ? 0 : ttc, enc ? ttc : 0, '', 0]
+          push(enc, cat, acc, lbl, mi, ttc, entry)
+        }
       } else {
         // Pas de FEC → réalisé reconstruit depuis les paiements des factures saisies (TTC)
         for (const me of manualEntries) {
@@ -216,10 +238,15 @@ export function Tresorerie() {
                 else dec += part
               }
             }
-          } else if (me.payment_date?.startsWith(m)) {
-            // Paiement ponctuel — cash flow TTC net des acomptes imputés
-            if (me.category === 'Vente') enc += ttc * f
-            else dec += ttc * f
+          } else {
+            // Acomptes / règlements N-1 : l'entry_date EST la date du mouvement
+            // si aucune date de paiement n'a été saisie.
+            const effDate = me.payment_date ||
+              ((me.operation_type === 'acompte' || me.operation_type === 'reglement_n1') ? me.entry_date : '')
+            if (effDate?.startsWith(m)) {
+              if (me.category === 'Vente') enc += ttc * f
+              else dec += ttc * f
+            }
           }
         }
       }
@@ -305,11 +332,15 @@ export function Tresorerie() {
                 bucket[key].factures.push(factureRow(d, Math.round(part)))
               }
             }
-          } else if (me.payment_date?.startsWith(m)) {
-            const bucket = isVente ? enc : dec
-            if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
-            bucket[key].vals[mi] += ttc * f
-            bucket[key].factures.push(factureRow(me.payment_date, Math.round(ttc * f)))
+          } else {
+            const effDate = me.payment_date ||
+              ((me.operation_type === 'acompte' || me.operation_type === 'reglement_n1') ? me.entry_date : '')
+            if (effDate?.startsWith(m)) {
+              const bucket = isVente ? enc : dec
+              if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
+              bucket[key].vals[mi] += ttc * f
+              bucket[key].factures.push(factureRow(effDate, Math.round(ttc * f)))
+            }
           }
         }
       }
