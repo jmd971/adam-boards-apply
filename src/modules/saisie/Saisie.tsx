@@ -93,8 +93,6 @@ export function Saisie() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   // Phase 2 acomptes : ids des acomptes à imputer sur la facture en cours de saisie
   const [imputeIds,     setImputeIds]     = useState<string[]>([])
-  // Phase 2 acomptes : ids des acomptes à imputer sur la facture en cours de saisie
-  const [imputeIds,     setImputeIds]     = useState<string[]>([])
   // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
