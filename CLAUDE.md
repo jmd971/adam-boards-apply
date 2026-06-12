@@ -1003,3 +1003,20 @@ main, régénérer depuis le xlsx). Helpers : `pcgLabel(code)` et `suggestFromPC
    (la suggestion porte alors le code exact, ex « Locations immobilières (6132) »)
 3. **Historique des saisies manuelles** (scoring tiers/libellé)
 Ne pas réordonner sans demande explicite — l'ordre 2↔3 a été inversé à la demande du 13/06/2026.
+
+### 37. Saisie — acomptes et règlements de factures N-1 (`operation_type`)
+
+`manual_entries.operation_type` (migration 016, appliquée sur les DEUX bases) :
+- `facture` (défaut) : comportement historique — charge/produit de l'exercice.
+- `acompte` : avance sur facture non encore reçue/émise. Compte auto : **4091**
+  (fournisseur, catégories Achat/Depense/Immobilisation) ou **4191** (client, Vente).
+- `reglement_n1` : encaissement/décaissement d'une facture comptabilisée en N-1.
+  Compte auto : **401** (fournisseur) ou **411** (client).
+
+**Invariant critique** : `buildRAW` EXCLUT `acompte` et `reglement_n1` du P&L
+(comme `source==='echeance'`) — ces opérations sont des mouvements de trésorerie purs,
+jamais des charges/produits de N. `manualEntriesToTransactions` (RFM/Ventes) les exclut
+aussi. Elles alimentent la trésorerie via `payment_date`/`entry_date` (compte 4xx hors
+catégories standard → branche eM/dM). Le formulaire masque la sous-catégorie et affiche
+le compte automatique + une explication. Badge « Acompte » / « Règlt N-1 » dans l'historique.
+Phase 2 envisagée (non implémentée) : imputation d'un acompte sur la facture finale.

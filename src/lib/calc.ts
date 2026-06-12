@@ -230,6 +230,10 @@ export function buildRAW(
 
   for (const me of manualEntries) {
     if (me.source === 'echeance') continue          // entrées-enfants : ignorées du P&L (gérées dans trésorerie)
+    // Acomptes (4091/4191) et règlements de factures N-1 (401/411) : mouvements de
+    // trésorerie purs, JAMAIS dans le P&L de N (la charge/produit est sur la facture
+    // finale ou déjà dans le FEC N-1).
+    if (me.operation_type === 'acompte' || me.operation_type === 'reglement_n1') continue
     const mco = me.company_key; if (!mco) continue
     if (!companies[mco]) { companies[mco] = { name: mco.replace(/_/g, ' '), pn: {}, p1: {}, p2: {}, bn: {}, b1: {}, b2: {}, bud: {}, cdN: {}, cdN1: {}, veN: [], veN1: [], cashN: [], cash1: [], cash2: [] }; allKeys.push(mco) }
     const mDate = me.entry_date; if (!mDate) continue

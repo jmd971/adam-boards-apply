@@ -111,6 +111,7 @@ export function Saisie() {
     counterpart:  '',
     payment_mode: 'virement',
     payment_date: '',
+    operation_type: 'facture' as 'facture' | 'acompte' | 'reglement_n1',
   })
 
   // TVA calculée automatiquement
@@ -202,6 +203,7 @@ export function Saisie() {
       counterpart:  e.counterpart || '',
       payment_mode: e.payment_mode || 'virement',
       payment_date: e.payment_date || '',
+      operation_type: (e.operation_type ?? 'facture') as 'facture' | 'acompte' | 'reglement_n1',
     })
     setMode('manual')
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -210,7 +212,7 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'', operation_type:'facture' })); setSubSearch('')
     setMsg(null)
   }
 
@@ -239,6 +241,17 @@ export function Saisie() {
     sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
+
+  // Compte automatique pour les opérations hors facture (trésorerie pure, pas de P&L en N)
+  const opInfo = form.operation_type === 'acompte'
+    ? (form.category === 'Vente'
+        ? { acc: '4191', sub: 'Acompte client reçu (4191)',        hint: 'Avance reçue avant émission de la facture — encaissement de trésorerie, aucun produit comptabilisé en N.' }
+        : { acc: '4091', sub: 'Acompte fournisseur versé (4091)',  hint: 'Avance versée avant réception de la facture — décaissement de trésorerie, aucune charge comptabilisée en N.' })
+    : form.operation_type === 'reglement_n1'
+    ? (form.category === 'Vente'
+        ? { acc: '411', sub: 'Encaissement facture N-1 (411)',     hint: 'Encaissement d\'une facture client comptabilisée en N-1 — le produit est déjà dans le FEC N-1.' }
+        : { acc: '401', sub: 'Règlement facture N-1 (401)',        hint: 'Paiement d\'une facture fournisseur comptabilisée en N-1 — la charge est déjà dans le FEC N-1.' })
+    : null
 
   // extractAcc importé depuis @/lib/categories
 
@@ -577,7 +590,7 @@ export function Saisie() {
       company_key:  companyKey,
       entry_date:   form.entry_date,
       category:     form.category,
-      subcategory:  form.subcategory,
+      subcategory:  opInfo ? opInfo.sub : form.subcategory,
       label:        form.label,
       invoice_number: form.invoice_number || null,
       amount_ttc:   String(ttc),
@@ -588,7 +601,8 @@ export function Saisie() {
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
       payment_date: !isEch && form.payment_date ? form.payment_date : null,
-      account_num:  extractAcc(form.subcategory, catConfig?.acc ?? '658'),
+      account_num:  opInfo ? opInfo.acc : extractAcc(form.subcategory, catConfig?.acc ?? '658'),
+      operation_type: form.operation_type,
       source:       (editingId ? 'manual' : (ocrFile ? 'ocr' : 'manual')) as 'manual' | 'ocr',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
       ...(isEch ? {
@@ -631,7 +645,7 @@ export function Saisie() {
 
     setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'', operation_type:'facture' })); setSubSearch('')
     setEchDates([])
     setEchAmounts([])
     setEchAmountsDirty(false)
@@ -742,6 +756,17 @@ export function Saisie() {
             </div>
 
             <div>
+              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Type d'opération</label>
+              <select value={form.operation_type}
+                onChange={e => setForm(f => ({ ...f, operation_type: e.target.value as 'facture' | 'acompte' | 'reglement_n1', subcategory: '' }))}
+                style={inputSt}>
+                <option value="facture">Facture</option>
+                <option value="acompte">Acompte (facture à recevoir / à émettre)</option>
+                <option value="reglement_n1">Règlement facture N-1</option>
+              </select>
+            </div>
+
+            <div>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Catégorie</label>
               <select value={form.category} onChange={e => {
                 setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))
@@ -751,7 +776,14 @@ export function Saisie() {
               </select>
             </div>
 
-            {/* ── Sous-catégorie : combobox avec recherche libre ── */}
+            {/* ── Sous-catégorie : combobox — ou compte automatique (acompte / règlement N-1) ── */}
+            {opInfo ? (
+            <div>
+              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Compte (automatique)</label>
+              <div style={{ ...inputSt, color:'#93c5fd', display:'flex', alignItems:'center', cursor:'default' }}>{opInfo.sub}</div>
+              <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', lineHeight:1.5 }}>ℹ️ {opInfo.hint}</div>
+            </div>
+            ) : (
             <div style={{ position:'relative' }}>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>
                 Sous-catégorie
@@ -815,6 +847,7 @@ export function Saisie() {
                 </div>
               )}
             </div>
+            )}
 
             <div>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Montant HT € *</label>
@@ -1057,6 +1090,8 @@ export function Saisie() {
                         color:      e.category==='Vente' ? '#10b981':'#ef4444' }}>
                         {e.category}
                       </span>
+                      {e.operation_type === 'acompte' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(139,92,246,0.12)', color:'#a78bfa' }}>Acompte</span>}
+                      {e.operation_type === 'reglement_n1' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(59,130,246,0.12)', color:'#60a5fa' }}>Règlt N-1</span>}
                     </td>
                     <td style={{ padding:'6px 8px', color:'#94a3b8', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {e.subcategory}{e.label ? ' — '+e.label : ''}
