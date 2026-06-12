@@ -241,35 +241,84 @@ export function Saisie() {
 
   // extractAcc importé depuis @/lib/categories
 
-  // Suggestion auto de sous-catégorie d'après l'historique des saisies (même catégorie,
-  // tiers ou libellé similaire). Vide si l'utilisateur a déjà choisi ou si pas d'indice.
-  const suggestedSub = useMemo(() => {
-    if (form.subcategory) return null
-    const lbl = (form.label || '').toLowerCase().trim()
-    const cpt = (form.counterpart || '').toLowerCase().trim()
-    if (!lbl && !cpt) return null
-    const subs = catConfig?.subs ?? []
-    const scores: Record<string, number> = {}
-    for (const e of manualEntries) {
-      if (e.category !== form.category || !e.subcategory) continue
-      if (!subs.includes(e.subcategory)) continue
-      const eLbl = (e.label || '').toLowerCase()
-      const eCpt = (e.counterpart || '').toLowerCase()
-      let score = 0
-      // Tiers identique ou inclusion → forte confiance
-      if (cpt && eCpt && (cpt === eCpt || (cpt.length >= 3 && eCpt.includes(cpt)) || (eCpt.length >= 3 && cpt.includes(eCpt)))) score += 5
-      // Tokens du libellé (>= 3 caractères)
-      if (lbl) {
-        const tokens = lbl.split(/\s+/).filter(t => t.length >= 3)
-        for (const t of tokens) {
-          if (eLbl.includes(t) || eCpt.includes(t)) score += 1
+  // ── Suggestion de sous-catégorie — cascade à 3 niveaux ──────────────────
+  // 1. Tiers déjà connu du FEC (N-1 prioritaire, puis N) → compte réellement utilisé
+  // 2. Historique des saisies manuelles (tiers/libellé similaire)
+  // 3. Mots-clés du libellé → plan comptable général (SUB_ALIASES)
+
+  // Niveau 1 : compte le plus fréquemment utilisé pour ce tiers dans le FEC.
+  // Recalculé uniquement quand le tiers/catégorie/société change (pas à chaque frappe du libellé).
+  const fecSuggestion = useMemo(() => {
+    const cpt = normSub((form.counterpart || '').trim())
+    if (cpt.length < 3 || !RAW) return null
+    const co = form.company_key || filters.selCo[0] || RAW.keys[0]
+    if (!co) return null
+    const cls = form.category === 'Vente' ? '7' : form.category === 'Immobilisation' ? '2' : '6'
+    const counts: Record<string, number> = {}
+    for (const field of ['p1', 'pn'] as const) {
+      const data = (RAW.companies[co]?.[field] ?? {}) as Record<string, any>
+      for (const [acc, acct] of Object.entries(data)) {
+        if (!acc.startsWith(cls)) continue
+        // Match sur le libellé du compte OU sur le libellé de chaque écriture
+        const accLabelMatch = normSub(String((acct as any)?.l ?? '')).includes(cpt)
+        for (const e of (((acct as any)?.e ?? []) as any[])) {
+          const eLbl = normSub(String(e?.[1] ?? ''))
+          if (accLabelMatch || eLbl.includes(cpt)) counts[acc] = (counts[acc] || 0) + 1
         }
       }
-      if (score > 0) scores[e.subcategory] = (scores[e.subcategory] || 0) + score
     }
-    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
-    return sorted.length > 0 ? sorted[0][0] : null
-  }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig])
+    const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+    if (!best) return null
+    // Compte → sous-catégorie : code entre parenthèses le plus long qui préfixe le compte
+    const subs = catConfig?.subs ?? []
+    let bestSub: string | null = null, bestLen = 0
+    for (const sub of subs) {
+      const code = extractAcc(sub, '')
+      if (code && best[0].startsWith(code) && code.length > bestLen) { bestSub = sub; bestLen = code.length }
+    }
+    return bestSub ? { sub: bestSub, acc: best[0] } : null
+  }, [form.counterpart, form.category, form.company_key, RAW, catConfig, filters.selCo])
+
+  const suggestion = useMemo((): { sub: string; source: string } | null => {
+    if (form.subcategory) return null
+    // 1. Tiers connu du FEC → compte réellement utilisé en N-1/N
+    if (fecSuggestion) return { sub: fecSuggestion.sub, source: `compte ${fecSuggestion.acc} déjà utilisé pour ce tiers` }
+    const lbl = (form.label || '').toLowerCase().trim()
+    const cpt = (form.counterpart || '').toLowerCase().trim()
+    // 2. Historique des saisies manuelles
+    if (lbl || cpt) {
+      const subs = catConfig?.subs ?? []
+      const scores: Record<string, number> = {}
+      for (const e of manualEntries) {
+        if (e.category !== form.category || !e.subcategory) continue
+        if (!subs.includes(e.subcategory)) continue
+        const eLbl = (e.label || '').toLowerCase()
+        const eCpt = (e.counterpart || '').toLowerCase()
+        let score = 0
+        if (cpt && eCpt && (cpt === eCpt || (cpt.length >= 3 && eCpt.includes(cpt)) || (eCpt.length >= 3 && cpt.includes(eCpt)))) score += 5
+        if (lbl) {
+          const tokens = lbl.split(/\s+/).filter(t => t.length >= 3)
+          for (const t of tokens) {
+            if (eLbl.includes(t) || eCpt.includes(t)) score += 1
+          }
+        }
+        if (score > 0) scores[e.subcategory] = (scores[e.subcategory] || 0) + score
+      }
+      const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+      if (sorted.length > 0) return { sub: sorted[0][0], source: "d'après vos autres saisies" }
+    }
+    // 3. Libellé → plan comptable général via mots-clés
+    const nl = normSub(lbl)
+    if (nl.length >= 3) {
+      for (const sub of (catConfig?.subs ?? [])) {
+        if ((SUB_ALIASES[sub] ?? []).some(a => {
+          const na = normSub(a)
+          return nl.includes(na) || (nl.length >= 4 && na.includes(nl))
+        })) return { sub, source: "d'après le libellé (plan comptable)" }
+      }
+    }
+    return null
+  }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig, fecSuggestion])
 
   // Sous-catégories filtrées par la recherche libre (aliases inclus)
   const filteredSubs = useMemo(() => {
@@ -734,14 +783,14 @@ export function Saisie() {
                   ))}
                 </div>
               )}
-              {/* Suggestion d'après l'historique */}
-              {!subOpen && suggestedSub && suggestedSub !== form.subcategory && (
-                <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6 }}>
-                  <span>💡</span>
+              {/* Suggestion : FEC N-1 → historique saisies → libellé/PCG */}
+              {!subOpen && suggestion && suggestion.sub !== form.subcategory && (
+                <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                  <span>💡 {suggestion.source} :</span>
                   <button type="button"
-                    onClick={() => { setForm(f => ({ ...f, subcategory: suggestedSub })); setSubSearch('') }}
+                    onClick={() => { setForm(f => ({ ...f, subcategory: suggestion.sub })); setSubSearch('') }}
                     style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
-                    {suggestedSub}
+                    {suggestion.sub}
                   </button>
                 </div>
               )}
