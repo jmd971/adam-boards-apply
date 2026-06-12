@@ -247,20 +247,20 @@ export function Saisie() {
   // 2. Historique des saisies manuelles (tiers/libellé similaire)
   // 3. Mots-clés du libellé → plan comptable général (SUB_ALIASES)
 
-  // Niveau 1 : compte le plus fréquemment utilisé pour ce tiers dans le FEC
-  // (N-1 et N-2 prioritaires, puis N). On propose LE COMPTE EXACT du FEC avec son
-  // intitulé d'origine (ex : « TELESURVEILLANCE GARDIENNAGE (6110100000) ») — pas
-  // une sous-catégorie générique. Recalculé quand tiers/catégorie/société change.
-  const fecSuggestion = useMemo(() => {
+  // Recherche du compte le plus fréquemment utilisé pour un tiers dans le FEC
+  // (N-1/N-2 prioritaires, puis N). Retourne LE COMPTE EXACT avec son intitulé
+  // d'origine (ex : « TELESURVEILLANCE GARDIENNAGE (6110100000) »).
+  // Fonction partagée : suggestion live (memo) + application directe après OCR.
+  const findFecAccount = (counterpart: string, category: ManualEntry['category'], companyKey?: string): { sub: string; acc: string } | null => {
     // Normalisation tolérante : ponctuation/tirets → espaces (« NEO-SURVEILLANCE » matche « neo surveillance »)
     const norm = (s: string) => normSub(s).replace(/[^a-z0-9]+/g, ' ').trim()
-    const cpt = norm(form.counterpart || '')
+    const cpt = norm(counterpart || '')
     if (cpt.length < 3 || !RAW) return null
     const tokens = cpt.split(' ').filter(t => t.length >= 2)
     if (!tokens.length) return null
-    const co = form.company_key || filters.selCo[0] || RAW.keys[0]
+    const co = companyKey || form.company_key || filters.selCo[0] || RAW.keys[0]
     if (!co) return null
-    const cls = form.category === 'Vente' ? '7' : form.category === 'Immobilisation' ? '2' : '6'
+    const cls = category === 'Vente' ? '7' : category === 'Immobilisation' ? '2' : '6'
     const counts: Record<string, number> = {}
     const labels: Record<string, string> = {}
     for (const field of ['p1', 'p2', 'pn'] as const) {
@@ -284,7 +284,12 @@ export function Saisie() {
     const acc = best[0]
     const label = labels[acc] || pcgLabel(acc) || 'Compte'
     return { sub: `${label} (${acc})`, acc }
-  }, [form.counterpart, form.category, form.company_key, RAW, filters.selCo])
+  }
+
+  const fecSuggestion = useMemo(
+    () => findFecAccount(form.counterpart, form.category),
+    [form.counterpart, form.category, form.company_key, RAW, filters.selCo]
+  )
 
   const suggestion = useMemo((): { sub: string; source: string } | null => {
     if (form.subcategory) return null
@@ -470,12 +475,15 @@ export function Saisie() {
           })
         : undefined
 
-      setOcrResult(`✅ Facture analysée : ${parsed.counterpart || ''} — HT: ${ht.toFixed(2)} € | TTC: ${ttc.toFixed(2)} € | TVA: ${calcTvaAmount(ht, ttc).toFixed(2)} €`)
+      // Priorité 1 : si le tiers est connu du FEC, son compte réel prime sur
+      // l'estimation OCR (ex : NEO SURVEILLANCE → 6110100000 TELESURVEILLANCE).
+      const fecAcc = findFecAccount(parsed.counterpart || '', ocrCat)
+      setOcrResult(`✅ Facture analysée : ${parsed.counterpart || ''} — HT: ${ht.toFixed(2)} € | TTC: ${ttc.toFixed(2)} € | TVA: ${calcTvaAmount(ht, ttc).toFixed(2)} €${fecAcc ? ` · compte ${fecAcc.acc} repris du FEC` : ''}`)
       setForm(f => ({
         ...f,
         entry_date:  parsed.date || f.entry_date,
         category:    ocrCat,
-        subcategory: matchedSub || parsed.subcategory || '',
+        subcategory: fecAcc?.sub || matchedSub || parsed.subcategory || '',
         label:       parsed.label || '',
         invoice_number: (parsed as any).invoice_number || (parsed as any).numero_facture || f.invoice_number,
         amount_ttc:  ttc > 0 ? String(ttc) : f.amount_ttc,
