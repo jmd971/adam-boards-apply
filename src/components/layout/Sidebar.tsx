@@ -98,7 +98,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
             <div style={{ fontSize:15, fontWeight:800, color:'#f1f5f9', letterSpacing:'-0.3px' }}>
               <span style={{ color:'#3b82f6' }}>adam</span>boards
             </div>
-            <div style={{ fontSize:9, color:'#475569', letterSpacing:'1.5px', textTransform:'uppercase', marginTop:1 }}>Tableau de bord financier</div>
+            <div style={{ fontSize:9, color:'#94a3b8', letterSpacing:'1.5px', textTransform:'uppercase', marginTop:1 }}>Tableau de bord financier</div>
             {tenantName && <div style={{ fontSize:9, color:'#3b82f6', marginTop:2, fontWeight:600 }}>{tenantName}</div>}
           </div>
         </div>
@@ -107,7 +107,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       {/* Sélecteur sociétés */}
       {companies.length > 0 && (
         <div style={{ padding:'10px 12px', borderBottom:'1px solid var(--border-0)', flexShrink:0 }}>
-          <div style={{ fontSize:9, fontWeight:700, color:'#475569', letterSpacing:'1px', textTransform:'uppercase', marginBottom:6 }}>
+          <div style={{ fontSize:9, fontWeight:700, color:'#94a3b8', letterSpacing:'1px', textTransform:'uppercase', marginBottom:6 }}>
             {user?.email?.split('@')[0] ?? 'Compte'}
           </div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
@@ -182,7 +182,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       {user && (
         <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border-0)', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
-            <div style={{ fontSize:10, color:'#475569', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{user.email}</div>
+            <div style={{ fontSize:10, color:'#94a3b8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{user.email}</div>
             <span style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:10, background:`${roleColor(role)}20`, color:roleColor(role), whiteSpace:'nowrap' }}>
               {roleLabel(role)}
             </span>

@@ -283,7 +283,7 @@ function SubCombo({ category, value, onChange }: {
           style={inputSt}
         />
         <span
-          style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#475569', cursor: 'pointer', pointerEvents: value ? 'auto' : 'none' }}
+          style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#94a3b8', cursor: 'pointer', pointerEvents: value ? 'auto' : 'none' }}
           onMouseDown={e => { e.preventDefault(); onChange(''); setSearch('') }}
         >{value ? '✕' : '▾'}</span>
       </div>
@@ -295,7 +295,7 @@ function SubCombo({ category, value, onChange }: {
           boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
         }}>
           {filtered.length === 0
-            ? <div style={{ padding: '8px 10px', fontSize: 11, color: '#475569', fontStyle: 'italic' }}>Aucun résultat</div>
+            ? <div style={{ padding: '8px 10px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>Aucun résultat</div>
             : filtered.map(sub => (
               <div key={sub}
                 onMouseDown={() => { onChange(sub); setSearch(''); setOpen(false) }}
@@ -406,7 +406,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
     return (
       <div style={{ background: '#0f172a', borderRadius: 12, padding: 28, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#14b8a6', marginBottom: 6 }}>Import fichier ventes / achats</div>
-        <div style={{ fontSize: 11, color: '#475569', marginBottom: 20, lineHeight: 1.6 }}>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 20, lineHeight: 1.6 }}>
           Accepte les fichiers <strong style={{ color: '#94a3b8' }}>CSV, TXT</strong> (séparateurs , ; ou tabulation).<br />
           Colonnes détectées automatiquement : date, libellé, tiers, montant HT, montant TTC, catégorie.<br />
           Export Excel → <em>Fichier → Enregistrer sous → CSV</em> avant import.
@@ -414,7 +414,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
 
         {companyKeys.length > 1 && (
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 10, color: '#94a3b8', display: 'block', marginBottom: 4 }}>Société</label>
+            <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>Société</label>
             <select value={companyKey} onChange={e => setCompanyKey(e.target.value)} style={inputSt}>
               {companyKeys.map(k => <option key={k} value={k}>{companyNames[k] || k}</option>)}
             </select>
@@ -434,7 +434,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
         >
           <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
           <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Glisser-déposer ou cliquer pour choisir</div>
-          <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>.csv · .txt</div>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>.csv · .txt</div>
         </div>
         <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: 'none' }}
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
@@ -456,7 +456,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
         <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#14b8a6' }}>🔗 Correspondance des colonnes — 📄 {fileName}</div>
-            <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
               {structure.dataRows.length} ligne{structure.dataRows.length > 1 ? 's' : ''} · {structure.rawHeaders.length} colonne{structure.rawHeaders.length > 1 ? 's' : ''} détectée{structure.rawHeaders.length > 1 ? 's' : ''}
             </div>
           </div>
@@ -483,7 +483,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                 border: `1px solid ${isMissing ? 'rgba(239,68,68,0.3)' : idx >= 0 ? 'rgba(20,184,166,0.25)' : 'rgba(255,255,255,0.08)'}`,
               }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: isMissing ? '#f87171' : '#e2e8f0', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  {idx >= 0 ? <span style={{ color: '#14b8a6' }}>✓</span> : <span style={{ color: '#475569' }}>○</span>}
+                  {idx >= 0 ? <span style={{ color: '#14b8a6' }}>✓</span> : <span style={{ color: '#94a3b8' }}>○</span>}
                   {f.label}
                   {f.required && <span style={{ color: '#f87171', fontSize: 13 }}>*</span>}
                 </div>
@@ -499,7 +499,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                   ))}
                 </select>
                 {idx >= 0 && sample(idx) && (
-                  <div style={{ fontSize: 10, color: '#475569', marginTop: 5, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 5, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     ex : {sample(idx)}
                   </div>
                 )}
@@ -510,7 +510,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
 
         {/* Pied : validation */}
         <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, fontSize: 11, color: missingRequired.length ? '#f59e0b' : '#475569' }}>
+          <div style={{ flex: 1, fontSize: 11, color: missingRequired.length ? '#f59e0b' : '#94a3b8' }}>
             {missingRequired.length > 0
               ? `⚠ Champ${missingRequired.length > 1 ? 's' : ''} obligatoire${missingRequired.length > 1 ? 's' : ''} non mappé${missingRequired.length > 1 ? 's' : ''} : ${missingRequired.map(f => f.label).join(', ')}`
               : '✓ Tous les champs obligatoires sont mappés'}
@@ -520,7 +520,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
               padding: '9px 22px', borderRadius: 8, fontSize: 13, fontWeight: 700,
               background: missingRequired.length === 0 ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.05)',
               border: `1px solid ${missingRequired.length === 0 ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.1)'}`,
-              color: missingRequired.length === 0 ? '#14b8a6' : '#475569',
+              color: missingRequired.length === 0 ? '#14b8a6' : '#94a3b8',
               cursor: missingRequired.length === 0 ? 'pointer' : 'not-allowed',
             }}>
             Prévisualiser →
@@ -541,7 +541,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
       <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#14b8a6' }}>📄 {fileName}</div>
-          <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
             {rows.length} ligne{rows.length > 1 ? 's' : ''} détectée{rows.length > 1 ? 's' : ''} · {selectedRows.length} sélectionnée{selectedRows.length > 1 ? 's' : ''}
           </div>
         </div>
@@ -675,7 +675,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
             padding: '9px 22px', borderRadius: 8, fontSize: 13, fontWeight: 700,
             background: selectedRows.length > 0 ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.05)',
             border: `1px solid ${selectedRows.length > 0 ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.1)'}`,
-            color: selectedRows.length > 0 ? '#14b8a6' : '#475569',
+            color: selectedRows.length > 0 ? '#14b8a6' : '#94a3b8',
             cursor: saving || selectedRows.length === 0 ? 'not-allowed' : 'pointer',
             opacity: saving ? 0.7 : 1,
           }}>

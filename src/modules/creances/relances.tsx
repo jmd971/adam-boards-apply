@@ -142,27 +142,27 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
       {showForm && (
         <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: 6, alignItems: 'end', padding: '8px 4px', marginBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
           <div>
-            <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Date</label>
+            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Date</label>
             <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputSt} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Type</label>
+            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Type</label>
             <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as Relance['type'] }))} style={{ ...inputSt, width: '100%' }}>
               {Object.entries(RELANCE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Montant (€)</label>
+            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Montant (€)</label>
             <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="optionnel" style={{ ...inputSt, width: '100%', fontFamily: 'monospace' }} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Statut</label>
+            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Statut</label>
             <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as Relance['status'] }))} style={{ ...inputSt, width: '100%' }}>
               {Object.entries(RELANCE_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={{ fontSize: 9, color: '#475569', display: 'block', marginBottom: 2 }}>Notes</label>
+            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Notes</label>
             <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Promesse de paiement, refus, etc." style={{ ...inputSt, width: '100%' }} />
           </div>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
@@ -179,7 +179,7 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
       )}
 
       {list.length === 0 ? (
-        <div style={{ fontSize: 11, color: '#475569', fontStyle: 'italic', padding: '4px 0' }}>
+        <div style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic', padding: '4px 0' }}>
           Aucune relance enregistrée.
         </div>
       ) : (
@@ -223,7 +223,7 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
                   <td style={{ padding: '5px 6px', textAlign: 'right' }}>
                     {!isReadOnly && (
                       <button onClick={() => handleDelete(r.id)} title="Supprimer"
-                        style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: 0 }}>×</button>
+                        style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 12, padding: 0 }}>×</button>
                     )}
                   </td>
                 </tr>

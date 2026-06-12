@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useAppStore } from '@/store'
-import { fmt, pct, fiscalIndex } from '@/lib/calc'
+import { fmt, pct, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { EcrituresModal } from '@/components/ui'
 import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
@@ -185,7 +186,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
           <div style={{ fontSize: 13, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
             Simulation What-if
           </div>
-          <span style={{ fontSize: 10, color: '#475569', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10 }}>
+          <span style={{ fontSize: 10, color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10 }}>
             Basé sur les données réelles du budget
           </span>
         </div>
@@ -249,7 +250,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
               style={{ flex: 1, accentColor: s.color, height: 4 }} />
             <span style={{
               fontSize: 12, fontFamily: 'monospace', fontWeight: 700, minWidth: 48, textAlign: 'right',
-              color: s.value > 0 ? '#10b981' : s.value < 0 ? '#ef4444' : '#475569',
+              color: s.value > 0 ? '#10b981' : s.value < 0 ? '#ef4444' : '#94a3b8',
             }}>
               {s.value > 0 ? '+' : ''}{s.value}%
             </span>
@@ -297,7 +298,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
               {isDirty && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 8, color: '#475569', minWidth: 30 }}>Base</span>
+                    <span style={{ fontSize: 8, color: '#94a3b8', minWidth: 30 }}>Base</span>
                     <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
                       <div style={{ width: `${baseW}%`, height: '100%', background: 'rgba(255,255,255,0.15)', borderRadius: 2 }} />
                     </div>
@@ -333,7 +334,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
             <span style={{ fontFamily: 'monospace', fontWeight: 700, marginLeft: 6, color: '#f59e0b' }}>
               {baseCa > 0 ? pct(baseEbe / baseCa) : '—'}
             </span>
-            <span style={{ color: '#475569', margin: '0 6px' }}>→</span>
+            <span style={{ color: '#94a3b8', margin: '0 6px' }}>→</span>
             <span style={{ fontFamily: 'monospace', fontWeight: 700, color: simEbe / simCa > baseEbe / baseCa ? '#10b981' : '#ef4444' }}>
               {simCa > 0 ? pct(simEbe / simCa) : '—'}
             </span>
@@ -343,7 +344,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
             <span style={{ fontFamily: 'monospace', fontWeight: 700, marginLeft: 6, color: '#3b82f6' }}>
               {baseCa > 0 ? pct(baseRe / baseCa) : '—'}
             </span>
-            <span style={{ color: '#475569', margin: '0 6px' }}>→</span>
+            <span style={{ color: '#94a3b8', margin: '0 6px' }}>→</span>
             <span style={{ fontFamily: 'monospace', fontWeight: 700, color: simRe / simCa > baseRe / baseCa ? '#10b981' : '#ef4444' }}>
               {simCa > 0 ? pct(simRe / simCa) : '—'}
             </span>
@@ -357,9 +358,9 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
             <thead>
               <tr style={{ background: '#080d1a' }}>
-                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#080d1a', zIndex: 2 }}>Indicateur</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#080d1a', zIndex: 2 }}>Indicateur</th>
                 {fiscalOrder.map(ai => (
-                  <th key={ai} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{MONTHS_SHORT[ai]}</th>
+                  <th key={ai} style={{ padding: '6px 4px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{MONTHS_SHORT[ai]}</th>
                 ))}
                 <th style={{ padding: '6px 10px', textAlign: 'right', color: '#3b82f6', fontWeight: 700, minWidth: 80, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Total</th>
               </tr>
@@ -451,6 +452,8 @@ export function Budget() {
   const [creating,     setCreating]     = useState(false)
   // Ajout manuel d'un compte (hors FEC)
   const [showAddAccount, setShowAddAccount] = useState(false)
+  // Détail des écritures réalisées pour un compte du budget (clic sur la ligne)
+  const [ecrModal, setEcrModal] = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
   const [newAccNum,    setNewAccNum]    = useState('')
   const [newAccLabel,  setNewAccLabel]  = useState('')
   const [newAccType,   setNewAccType]   = useState<'c' | 'p'>('c')
@@ -784,7 +787,7 @@ export function Budget() {
           background: '#0a0f1a', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
           padding: '8px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
         }}>
-          <span style={{ fontSize:10, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Versions</span>
+          <span style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Versions</span>
 
           {/* Chips versions */}
           {coVersions.map(v => (
@@ -798,10 +801,10 @@ export function Budget() {
                 {v.version_name}
               </span>
               <button onClick={e => { e.stopPropagation(); handleDuplicateVersion(v.version_name) }}
-                style={{ background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:11, padding:'0 1px', lineHeight:1 }}
+                style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:11, padding:'0 1px', lineHeight:1 }}
                 title="Dupliquer">📋</button>
               <button onClick={e => { e.stopPropagation(); handleDeleteVersion(v.version_name) }}
-                style={{ background:'none', border:'none', color:'#475569', cursor:'pointer', fontSize:12, padding:'0 1px', lineHeight:1 }}
+                style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:12, padding:'0 1px', lineHeight:1 }}
                 title="Supprimer">×</button>
             </div>
           ))}
@@ -836,7 +839,7 @@ export function Budget() {
           {coVersions.length >= 2 && (
             <>
               <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', flexShrink:0 }} />
-              <span style={{ fontSize:10, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Comparer avec</span>
+              <span style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Comparer avec</span>
               <select value={compareVersion} onChange={e => setCompareVersion(e.target.value)}
                 style={{ ...inputSt, fontSize:11, padding:'4px 8px' }}>
                 <option value="">— Aucune —</option>
@@ -866,7 +869,7 @@ export function Budget() {
                     <button key={f} onClick={() => setFilter(f)}
                       style={{ padding:'6px 10px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
                         background: filter===f ? 'rgba(59,130,246,0.2)' : 'transparent',
-                        color: filter===f ? '#93c5fd' : '#475569' }}>
+                        color: filter===f ? '#93c5fd' : '#94a3b8' }}>
                       {f==='all' ? 'Tous' : f==='charge' ? '📤 Charges' : '📥 Produits'}
                     </button>
                   ))}
@@ -881,7 +884,7 @@ export function Budget() {
                   )}
                   {Object.keys(coBud).length > 0 && (
                     <button onClick={handleGenerate}
-                      style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#475569', fontSize:12, cursor:'pointer' }}>
+                      style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize:12, cursor:'pointer' }}>
                       🔄 Régénérer
                     </button>
                   )}
@@ -889,7 +892,7 @@ export function Budget() {
                     style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
                       background: showAddAccount ? 'rgba(16,185,129,0.2)' : 'transparent',
                       border: `1px solid ${showAddAccount ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                      color: showAddAccount ? '#6ee7b7' : '#475569' }}>
+                      color: showAddAccount ? '#6ee7b7' : '#94a3b8' }}>
                     {showAddAccount ? '× Annuler' : '+ Ajouter un compte'}
                   </button>
                   <button onClick={handleSave} disabled={saving}
@@ -901,7 +904,7 @@ export function Budget() {
                       style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
                         background: showWhatIf ? 'rgba(139,92,246,0.2)' : 'transparent',
                         border: `1px solid ${showWhatIf ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                        color: showWhatIf ? '#a78bfa' : '#475569' }}>
+                        color: showWhatIf ? '#a78bfa' : '#94a3b8' }}>
                       Scénarios What-if
                     </button>
                   )}
@@ -946,13 +949,13 @@ export function Budget() {
                       <button type="button" onClick={() => setNewAccType('c')}
                         style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
                           background: newAccType === 'c' ? 'rgba(239,68,68,0.2)' : 'transparent',
-                          color: newAccType === 'c' ? '#fca5a5' : '#475569' }}>
+                          color: newAccType === 'c' ? '#fca5a5' : '#94a3b8' }}>
                         📤 Charge
                       </button>
                       <button type="button" onClick={() => setNewAccType('p')}
                         style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
                           background: newAccType === 'p' ? 'rgba(16,185,129,0.2)' : 'transparent',
-                          color: newAccType === 'p' ? '#6ee7b7' : '#475569' }}>
+                          color: newAccType === 'p' ? '#6ee7b7' : '#94a3b8' }}>
                         📥 Produit
                       </button>
                     </div>
@@ -1039,7 +1042,7 @@ export function Budget() {
                 <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
                   <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
                   <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucun budget défini</div>
-                  <div style={{ fontSize:12, color:'#475569', marginBottom:20 }}>
+                  <div style={{ fontSize:12, color:'#94a3b8', marginBottom:20 }}>
                     Cliquez sur <strong style={{ color:'#f59e0b' }}>⚡ Générer depuis FEC N-1</strong> pour pré-remplir automatiquement<br/>
                     le budget à partir des données de l'exercice précédent.
                   </div>
@@ -1053,10 +1056,10 @@ export function Budget() {
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                     <thead>
                       <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
-                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
-                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
+                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#94a3b8', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
+                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#94a3b8', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
                         {fiscalOrder.map(ai => (
-                          <th key={ai} style={{ padding:'8px 4px', textAlign:'center', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ai]}</th>
+                          <th key={ai} style={{ padding:'8px 4px', textAlign:'center', color:'#94a3b8', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ai]}</th>
                         ))}
                         <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
                       </tr>
@@ -1066,11 +1069,22 @@ export function Budget() {
                         const bv = v as any
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
+                        // Écritures réalisées (FEC + saisies) pour ce compte → modal au clic
+                        const ents = RAW ? mergeEntries(RAW, [budCo], 'pn', acc) : []
+                        const realN = ents.reduce((s, e) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
                         return (
                           <tr key={acc} style={{ borderBottom:'1px solid rgba(255,255,255,0.025)' }}>
-                            <td style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
-                              <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
+                            <td
+                              onClick={ents.length > 0 ? () => setEcrModal({ title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0 }) : undefined}
+                              title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
+                              style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap', cursor: ents.length > 0 ? 'pointer' : 'default' }}>
+                              <span style={{ fontFamily:'monospace', color:'#94a3b8', marginRight:6 }}>{acc}</span>
                               <span>{bv.l}</span>
+                              {ents.length > 0 && (
+                                <span style={{ marginLeft:6, fontSize:9, color:'#93c5fd', background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.25)', padding:'1px 5px', borderRadius:10 }}>
+                                  {ents.length} éc.
+                                </span>
+                              )}
                             </td>
                             <td style={{ padding:'3px 8px', textAlign:'center' }}>
                               <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10,
@@ -1132,13 +1146,15 @@ export function Budget() {
             <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
               <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
               <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucune version sélectionnée</div>
-              <div style={{ fontSize:12, color:'#475569' }}>
+              <div style={{ fontSize:12, color:'#94a3b8' }}>
                 Créez une nouvelle version dans le panneau de gauche.
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {ecrModal && <EcrituresModal {...ecrModal} onClose={() => setEcrModal(null)} />}
     </div>
   )
 }

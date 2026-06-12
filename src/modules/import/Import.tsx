@@ -365,7 +365,7 @@ export function Import() {
                         </span>
                         {item.detectedFiscalStart !== currentFiscal && (
                           <>
-                            <span style={{ color: '#475569' }}>— actuel : {MONTH_NAMES[currentFiscal]}</span>
+                            <span style={{ color: '#94a3b8' }}>— actuel : {MONTH_NAMES[currentFiscal]}</span>
                             <button
                               onClick={() => toggleUpdateFiscal(i)}
                               style={{

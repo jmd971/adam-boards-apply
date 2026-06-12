@@ -156,7 +156,7 @@ export function Objectifs() {
         <h2 style={{ fontSize:18, fontWeight:700, color:'var(--text-0)', margin:0 }}>
           Objectifs de Ventes et Achats
         </h2>
-        <div style={{ fontSize:11, color:'#475569', marginTop:4 }}>
+        <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>
           Calcul : Objectif Ventes = Dépenses Budget / Taux de marge
         </div>
       </div>
@@ -168,13 +168,13 @@ export function Objectifs() {
           const color = COLORS[idx % COLORS.length]
           const realRatePct = Math.round(d.realRate * 100)
           const targetPct   = Math.round(d.ratePct)
-          const realColor   = d.realVentes === 0 ? '#475569'
+          const realColor   = d.realVentes === 0 ? '#94a3b8'
                               : realRatePct >= targetPct ? '#10b981' : '#ef4444'
           return (
             <div key={co} style={cardSt}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6 }}>
                 <span style={{ fontSize:14, fontWeight:800, color }}>{co}</span>
-                <span style={{ fontSize:10, color:'#475569' }}>{d.name}</span>
+                <span style={{ fontSize:10, color:'#94a3b8' }}>{d.name}</span>
               </div>
               <div style={{ fontSize:10, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
                 Taux de marge prévisionnel
@@ -291,7 +291,7 @@ export function Objectifs() {
             const target  = Math.round(d.ratePct)
             const colorV  = '#10b981'
             const colorA  = pctA > 100 ? '#ef4444' : pctA > 90 ? '#f59e0b' : '#10b981'
-            const colorM  = d.realVentes === 0 ? '#475569' : pctM >= target ? '#10b981' : '#ef4444'
+            const colorM  = d.realVentes === 0 ? '#94a3b8' : pctM >= target ? '#10b981' : '#ef4444'
 
             const Bar = ({ pct, color }: { pct:number; color:string }) => (
               <div style={{ height:6, borderRadius:3, background:'rgba(255,255,255,0.05)', overflow:'hidden' }}>
@@ -310,7 +310,7 @@ export function Objectifs() {
                     <span style={{ color:'#cbd5e1', fontFamily:'monospace' }}>{fmt(d.realVentes)} / {fmt(d.objVentesAn)}</span>
                   </div>
                   <Bar pct={pctV} color={colorV} />
-                  <div style={{ textAlign:'right', fontSize:9.5, color:'#475569', marginTop:2 }}>{pctV}%</div>
+                  <div style={{ textAlign:'right', fontSize:9.5, color:'#94a3b8', marginTop:2 }}>{pctV}%</div>
                 </div>
 
                 {/* Achats */}

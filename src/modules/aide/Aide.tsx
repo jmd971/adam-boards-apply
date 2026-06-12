@@ -35,13 +35,13 @@ export function Aide() {
   const btnSt = (i: number): React.CSSProperties => ({
     padding:'10px 14px', fontSize:12, fontWeight: sec===i ? 700 : 500, cursor:'pointer',
     border:'none', borderBottom: sec===i ? '2px solid #3b82f6' : '2px solid transparent',
-    background:'transparent', color: sec===i ? '#f1f5f9' : '#475569', whiteSpace:'nowrap' as const,
+    background:'transparent', color: sec===i ? '#f1f5f9' : '#94a3b8', whiteSpace:'nowrap' as const,
   })
 
   return (
     <div style={{ padding:'20px 24px', maxWidth:900 }}>
       <div style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>Comprendre vos chiffres</div>
-      <div style={{ fontSize:13, color:'#475569', marginBottom:16 }}>
+      <div style={{ fontSize:13, color:'#94a3b8', marginBottom:16 }}>
         Chaque notion expliquée simplement, avec des exemples concrets.
         {RAW && <span style={{ marginLeft:12, color:'#334155' }}>· {RAW.keys.length} société(s) · {RAW.mn.length} mois N</span>}
       </div>
@@ -275,7 +275,7 @@ export function Aide() {
           <p style={body}>• Glissez le fichier dans la zone N ou N-1 — société et période détectées automatiquement.</p>
           <p style={body}>• Si les données semblent vides : vérifiez l'onglet Vérification (nombre d'écritures, équilibre D/C).</p>
         </div>
-        <div style={{ marginTop:20, padding:14, borderRadius:10, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', fontSize:12, color:'#475569' }}>
+        <div style={{ marginTop:20, padding:14, borderRadius:10, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', fontSize:12, color:'#94a3b8' }}>
           <span style={{ color:'#10b981', fontWeight:700 }}>Adam Boards</span> · Développé par <span style={{ color:'#94a3b8' }}>Jean-Marc Dolmaire</span>
         </div>
       </div>}

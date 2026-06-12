@@ -409,7 +409,7 @@ export function Rapprochement() {
           <span style={{ fontSize: 22 }}>🏦</span>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>Rapprochement bancaire</h2>
         </div>
-        <p style={{ fontSize: 12, color: '#475569', margin: 0 }}>
+        <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
           Importez un relevé bancaire CSV et rapprochez-le avec les écritures FEC du compte 512.
         </p>
       </div>
@@ -442,7 +442,7 @@ export function Rapprochement() {
               <>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>{fileName}</div>
-                <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
                   {bankLines.length} lignes importées · Cliquer pour remplacer
                 </div>
               </>
@@ -468,7 +468,7 @@ export function Rapprochement() {
                 <div key={i} style={{ fontSize: 10, color: '#94a3b8' }}>{w}</div>
               ))}
               {csvWarnings.length > 5 && (
-                <div style={{ fontSize: 10, color: '#475569' }}>+{csvWarnings.length - 5} autres...</div>
+                <div style={{ fontSize: 10, color: '#94a3b8' }}>+{csvWarnings.length - 5} autres...</div>
               )}
             </div>
           )}
@@ -550,7 +550,7 @@ export function Rapprochement() {
               padding: '12px 14px', borderRadius: 10,
               background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
             }}>
-              <div style={{ fontSize: 9, color: '#475569', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
+              <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
                 {k.label}
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: k.color }}>
@@ -595,7 +595,7 @@ export function Rapprochement() {
                   style={{
                     padding: '6px 10px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
                     background: statusFilter === f ? 'rgba(59,130,246,0.2)' : 'transparent',
-                    color: statusFilter === f ? '#93c5fd' : '#475569',
+                    color: statusFilter === f ? '#93c5fd' : '#94a3b8',
                   }}>
                   {lbl} ({cnt})
                 </button>
@@ -623,34 +623,34 @@ export function Rapprochement() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ background: '#0a0f1a', position: 'sticky', top: 0, zIndex: 5 }}>
-                <th style={{ padding: '8px 10px', textAlign: 'center', color: '#475569', fontWeight: 600, width: 30, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'center', color: '#94a3b8', fontWeight: 600, width: 30, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   Statut
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   Date banque
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 180 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 180 }}>
                   Libellé banque
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 90 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 90 }}>
                   Montant banque
                 </th>
                 <th style={{ padding: '8px 4px', textAlign: 'center', color: '#334155', borderBottom: '1px solid rgba(255,255,255,0.08)', width: 30 }}>
                   ↔
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   Date FEC
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 180 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 180 }}>
                   Libellé FEC
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 90 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 90 }}>
                   Montant FEC
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                   Pièce
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 70 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 70 }}>
                   Écart
                 </th>
               </tr>
@@ -700,12 +700,12 @@ export function Rapprochement() {
                     }}>
                       {fecAmt !== null ? `${fmt(fecAmt)} €` : '—'}
                     </td>
-                    <td style={{ padding: '5px 10px', color: '#475569', fontFamily: 'monospace', fontSize: 10 }}>
+                    <td style={{ padding: '5px 10px', color: '#94a3b8', fontFamily: 'monospace', fontSize: 10 }}>
                       {r.fec?.piece ?? '—'}
                     </td>
                     <td style={{
                       padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-                      color: r.delta ? (Math.abs(r.delta) < 1 ? '#475569' : '#f59e0b') : '#1e293b',
+                      color: r.delta ? (Math.abs(r.delta) < 1 ? '#94a3b8' : '#f59e0b') : '#1e293b',
                     }}>
                       {r.delta !== undefined ? `${r.delta > 0 ? '+' : ''}${fmt(r.delta)} €` : r.status === 'matched' ? '0' : '—'}
                     </td>
@@ -725,15 +725,15 @@ export function Rapprochement() {
           border: '1px solid rgba(255,255,255,0.06)',
         }}>
           <div>
-            <div style={{ fontSize: 9, color: '#475569', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total banque</div>
+            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total banque</div>
             <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#3b82f6' }}>{fmt(stats.totalBank)} €</div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: '#475569', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total FEC (512)</div>
+            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total FEC (512)</div>
             <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#8b5cf6' }}>{fmt(stats.totalFec)} €</div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: '#475569', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Écart net</div>
+            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Écart net</div>
             <div style={{
               fontSize: 16, fontWeight: 700, fontFamily: 'monospace',
               color: Math.abs(stats.ecart) < 1 ? '#10b981' : '#ef4444',
@@ -754,7 +754,7 @@ export function Rapprochement() {
           <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', marginBottom: 8 }}>
             Importez votre relevé bancaire
           </div>
-          <div style={{ fontSize: 12, color: '#475569', maxWidth: 400, margin: '0 auto', lineHeight: 1.6 }}>
+          <div style={{ fontSize: 12, color: '#94a3b8', maxWidth: 400, margin: '0 auto', lineHeight: 1.6 }}>
             Glissez un fichier CSV de votre banque dans la zone d'import ci-dessus.<br />
             Le système détectera automatiquement le format et rapprochera<br />
             les lignes avec les écritures du compte 512 de votre FEC.
@@ -774,7 +774,7 @@ export function Rapprochement() {
       )}
 
       {bankLines.length > 0 && filtered.length === 0 && (
-        <div style={{ padding: 32, textAlign: 'center', color: '#475569', fontSize: 12 }}>
+        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
           Aucun résultat avec les filtres actuels.
         </div>
       )}

@@ -234,7 +234,7 @@ export function Complementaire() {
 
             {/* Saisonnalité CA N vs N-1 */}
             <div style={{ background:'#0f172a', borderRadius:12, padding:16, border:'1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:4 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:4 }}>
                 Saisonnalité CA
               </div>
               {hasN1 && (
@@ -265,7 +265,7 @@ export function Complementaire() {
 
             {/* Top clients */}
             <div style={{ background:'#0f172a', borderRadius:12, padding:16, border:'1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>
                 Top clients / comptes 411
               </div>
               {topClients.length === 0 ? (
@@ -300,7 +300,7 @@ export function Complementaire() {
 
             {/* Répartition des charges */}
             <div style={{ background:'#0f172a', borderRadius:12, padding:16, border:'1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>
                 Répartition des charges
               </div>
               {chargeBreakdown.length === 0 ? (
@@ -327,7 +327,7 @@ export function Complementaire() {
 
             {/* Top 15 comptes par volume */}
             <div style={{ background:'#0f172a', borderRadius:12, padding:16, border:'1px solid rgba(255,255,255,0.06)' }}>
-              <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>
                 Top comptes par volume
               </div>
               <div style={{ display:'flex', flexDirection:'column', gap:4, maxHeight:280, overflowY:'auto' }}>

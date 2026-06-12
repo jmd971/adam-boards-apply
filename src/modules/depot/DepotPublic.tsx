@@ -102,14 +102,14 @@ export function DepotPublic({ token }: Props) {
           <div style={{ fontSize: 20, fontWeight: 800 }}>
             <span style={{ color: '#3b82f6' }}>adam</span>boards
           </div>
-          <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
             Portail de dépôt de fichiers comptables
           </div>
         </div>
 
         {/* Loading */}
         {stage === 'loading' && (
-          <div style={{ textAlign: 'center', color: '#475569', fontSize: 13 }}>
+          <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
             Vérification du lien...
           </div>
         )}
@@ -143,11 +143,11 @@ export function DepotPublic({ token }: Props) {
               padding: '12px 16px', borderRadius: 10, marginBottom: 16,
               background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)',
             }}>
-              <div style={{ fontSize: 11, color: '#475569', marginBottom: 2 }}>Dossier</div>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Dossier</div>
               <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>
                 {link.label || link.company_key}
               </div>
-              <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
                 Période : {link.period}
               </div>
             </div>
@@ -167,7 +167,7 @@ export function DepotPublic({ token }: Props) {
               <div style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9', marginBottom: 4 }}>
                 Glissez votre fichier FEC ici
               </div>
-              <div style={{ fontSize: 12, color: '#475569' }}>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>
                 ou cliquez pour sélectionner (.txt, .csv)
               </div>
               <input type="file" accept=".txt,.csv" style={{ display: 'none' }} onChange={onFileSelect} />
@@ -187,7 +187,7 @@ export function DepotPublic({ token }: Props) {
             <div style={{ fontSize: 13, color: '#93c5fd', fontWeight: 600 }}>
               Envoi en cours...
             </div>
-            <div style={{ fontSize: 11, color: '#475569', marginTop: 4 }}>{fileName}</div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{fileName}</div>
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
@@ -202,7 +202,7 @@ export function DepotPublic({ token }: Props) {
             <div style={{ fontSize: 15, fontWeight: 700, color: '#6ee7b7', marginBottom: 4 }}>
               Fichier déposé avec succès
             </div>
-            <div style={{ fontSize: 12, color: '#475569' }}>
+            <div style={{ fontSize: 12, color: '#94a3b8' }}>
               {fileName} — Votre comptable sera notifié.
             </div>
             <button onClick={() => { setStage('ready'); setFileName('') }}
