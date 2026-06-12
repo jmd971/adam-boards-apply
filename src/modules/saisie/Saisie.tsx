@@ -94,8 +94,9 @@ export function Saisie() {
   // Phase 2 acomptes : ids des acomptes à imputer sur la facture en cours de saisie
   const [imputeIds,     setImputeIds]     = useState<string[]>([])
   // Règlement rapide depuis l'historique : marquer une facture déjà saisie comme payée
-  const [payingId, setPayingId] = useState<string | null>(null)
-  const [payDate,  setPayDate]  = useState('')
+  const [payingId,  setPayingId]  = useState<string | null>(null)
+  const [payDate,   setPayDate]   = useState('')
+  const [payAmount, setPayAmount] = useState('')
   // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
@@ -248,18 +249,46 @@ export function Saisie() {
     setMsg('✅ Facture supprimée')
     setTimeout(() => setMsg(null), 3000)
   }
-  // Marquer une facture déjà saisie comme réglée : pose payment_date, la trésorerie
-  // prend le mouvement à cette date. Pas de rebuild RAW (le P&L ne dépend pas du paiement).
+  // Enregistrer un règlement (total ou PARTIEL) sur une facture déjà saisie.
+  // - Paiement unique soldant la facture → simple payment_date.
+  // - Paiement partiel, ou paiements successifs à des dates différentes →
+  //   liste de paiements (dates + montants) via echeancier_data, déjà gérée
+  //   partout en trésorerie. Le P&L ne dépend pas du paiement → pas de rebuild RAW.
   const handleQuickPay = async (id: string) => {
     if (!payDate) return
+    const entry = manualEntries.find(en => String(en.id) === id)
+    if (!entry) return
+    const ttc = parseFloat(entry.amount_ttc || entry.amount_ht_saisie || entry.amount_ht || '0') || 0
+    const isEch = entry.payment_mode === 'echeancier' && (entry.echeancier_data as any)?.dates?.length
+    const prevDates: string[] = isEch ? [...(entry.echeancier_data as any).dates] : []
+    const prevAmounts: number[] = isEch
+      ? ((entry.echeancier_data as any).amounts
+          ? [...(entry.echeancier_data as any).amounts]
+          : prevDates.map(() => ttc / prevDates.length))
+      : []
+    const remaining = Math.max(0, ttc - prevAmounts.reduce((s, v) => s + v, 0))
+    const wanted = parseFloat((payAmount || '').replace(',', '.'))
+    const amt = Math.min(isFinite(wanted) && wanted > 0 ? wanted : (remaining || ttc), remaining || ttc)
+    if (amt <= 0) return
     setSaving(true)
-    const { error } = await sb.from('manual_entries').update({ payment_date: payDate }).eq('id', id)
+    const fullSingle = !isEch && Math.abs(amt - ttc) < 0.01
+    const patch: any = fullSingle
+      ? { payment_date: payDate }
+      : {
+          payment_mode: 'echeancier',
+          payment_date: null,
+          echeancier_data: { nb: prevDates.length + 1, delai_jours: 0, dates: [...prevDates, payDate], amounts: [...prevAmounts, amt] },
+        }
+    const { error } = await sb.from('manual_entries').update(patch).eq('id', id)
     setSaving(false)
     if (error) { setMsg('❌ ' + error.message); return }
-    setManualEntries(manualEntries.map(en => String(en.id) === id ? { ...en, payment_date: payDate } : en))
+    setManualEntries(manualEntries.map(en => String(en.id) === id ? { ...en, ...patch } : en))
     setPayingId(null)
-    setMsg('✅ Règlement enregistré — visible en trésorerie')
-    setTimeout(() => setMsg(null), 3000)
+    const reste = remaining - amt
+    setMsg(fullSingle
+      ? '✅ Règlement enregistré — visible en trésorerie'
+      : `✅ Paiement de ${amt.toFixed(2)} € enregistré${reste > 0.01 ? ` — reste ${reste.toFixed(2)} €` : ' — facture soldée'}`)
+    setTimeout(() => setMsg(null), 4000)
   }
 
   const sortIcon = (col: typeof sortCol) =>
@@ -1186,26 +1215,44 @@ export function Saisie() {
                   <tr key={e.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                     <td style={{ padding:'6px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}>{fmtDate(e.entry_date)}</td>
                     <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : '#334155', whiteSpace:'nowrap', fontSize:11 }}>
-                      {e.payment_mode === 'echeancier'
-                        ? <span style={{ color:'#8b5cf6', fontSize:10 }}>échelonné</span>
-                        : e.payment_date ? fmtDate(e.payment_date)
-                        : payingId === String(e.id) ? (
+                      {(() => {
+                        const ttcE = parseFloat(e.amount_ttc || e.amount_ht_saisie || e.amount_ht || '0') || 0
+                        const isEchE = e.payment_mode === 'echeancier' && (e.echeancier_data as any)?.dates?.length
+                        const amtsE: number[] | undefined = isEchE ? (e.echeancier_data as any).amounts : undefined
+                        const paidSum = isEchE ? (amtsE ? amtsE.reduce((s, v) => s + v, 0) : ttcE) : 0
+                        const reste = Math.max(0, ttcE - paidSum)
+                        const openPay = (def: number) => { if (!isReadOnly) { setPayingId(String(e.id)); setPayDate(new Date().toISOString().slice(0, 10)); setPayAmount(def > 0 ? def.toFixed(2) : '') } }
+                        if (payingId === String(e.id)) return (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}>
                             <input type="date" value={payDate} onChange={ev => setPayDate(ev.target.value)}
                               style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'#cbd5e1', fontSize:10, padding:'2px 4px', outline:'none' }} />
+                            <input type="number" step="0.01" min="0" value={payAmount} onChange={ev => setPayAmount(ev.target.value)}
+                              title="Montant payé (partiel possible)"
+                              style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'#cbd5e1', fontSize:10, padding:'2px 4px', width:70, textAlign:'right', outline:'none', fontFamily:'monospace' }} />
                             <button onClick={() => handleQuickPay(String(e.id))} disabled={saving || !payDate}
                               style={{ background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.35)', color:'#10b981', borderRadius:4, fontSize:10, padding:'2px 6px', cursor:'pointer' }}>✓</button>
                             <button onClick={() => setPayingId(null)}
                               style={{ background:'none', border:'none', color:'#94a3b8', fontSize:10, cursor:'pointer', padding:'2px 2px' }}>✕</button>
                           </span>
-                        ) : (
-                          <button onClick={() => { if (!isReadOnly) { setPayingId(String(e.id)); setPayDate(new Date().toISOString().slice(0, 10)) } }}
-                            disabled={isReadOnly}
-                            title="Marquer cette facture comme réglée"
+                        )
+                        if (e.payment_date) return fmtDate(e.payment_date)
+                        if (isEchE && reste <= 0.01) return <span style={{ color:'#10b981', fontSize:10 }}>soldée ({(e.echeancier_data as any).dates.length} paiement{(e.echeancier_data as any).dates.length > 1 ? 's' : ''})</span>
+                        if (isEchE) return (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
+                            <span style={{ color:'#8b5cf6', fontSize:10 }}>reste {reste.toFixed(2)} €</span>
+                            <button onClick={() => openPay(reste)} disabled={isReadOnly}
+                              title="Ajouter un paiement partiel"
+                              style={{ background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', borderRadius:10, fontSize:10, padding:'1px 7px', cursor: isReadOnly ? 'default' : 'pointer' }}>+</button>
+                          </span>
+                        )
+                        return (
+                          <button onClick={() => openPay(ttcE)} disabled={isReadOnly}
+                            title="Enregistrer un règlement (total ou partiel)"
                             style={{ background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)', color:'#10b981', borderRadius:10, fontSize:10, padding:'2px 8px', cursor: isReadOnly ? 'default' : 'pointer' }}>
                             💰 Régler
                           </button>
-                        )}
+                        )
+                      })()}
                     </td>
                     <td style={{ padding:'6px 8px', whiteSpace:'nowrap', fontSize:11 }}>
                       <span style={{ color:'#60a5fa', fontWeight:500 }}>
