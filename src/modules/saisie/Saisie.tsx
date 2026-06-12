@@ -458,10 +458,32 @@ export function Saisie() {
             { type: 'text', text: OCR_PROMPT }
           ]}]
 
-      const session = await sb.auth.getSession()
+      // Garde-fou : les photos de plusieurs Mo font échouer l'upload (limite passerelle)
+      if (file.size > 9 * 1024 * 1024) {
+        setOcrResult(null)
+        setMsg('⚠️ Fichier trop volumineux pour l\'OCR (max ~9 Mo). Réduisez la photo ou utilisez un PDF — la facture peut être saisie manuellement.')
+        setMode('manual')
+        return
+      }
+
+      // Jeton FRAIS obligatoire : après ~1h d'inactivité, getSession() renvoie un jeton
+      // périmé → la passerelle répond 401 SANS en-têtes CORS → le navigateur classe ça
+      // en « erreur réseau ». On rafraîchit si le jeton expire dans moins de 60 s.
+      let { data: { session } } = await sb.auth.getSession()
+      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60_000)) {
+        const { data: refreshed } = await sb.auth.refreshSession()
+        session = refreshed.session ?? session
+      }
+      if (!session?.access_token) {
+        setOcrResult(null)
+        setMsg('⚠️ Session expirée — reconnectez-vous puis relancez le scan.')
+        setMode('manual')
+        return
+      }
+
       const resp = await fetch(OCR_PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.data.session?.access_token}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ model: 'claude-opus-4-7', max_tokens: 500, messages }),
       }).catch(() => null)
 
@@ -477,6 +499,7 @@ export function Saisie() {
       if (!resp.ok) {
         const errBody = await resp.text().catch(() => '')
         const reason = resp.status === 429 ? 'quota API dépassé'
+          : resp.status === 401 ? 'session expirée — reconnectez-vous'
           : resp.status >= 500 ? 'serveur OCR indisponible'
           : `erreur ${resp.status}`
         setOcrResult(null)
