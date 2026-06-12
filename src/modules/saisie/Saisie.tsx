@@ -93,6 +93,9 @@ export function Saisie() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   // Phase 2 acomptes : ids des acomptes à imputer sur la facture en cours de saisie
   const [imputeIds,     setImputeIds]     = useState<string[]>([])
+  // Règlement rapide depuis l'historique : marquer une facture déjà saisie comme payée
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [payDate,  setPayDate]  = useState('')
   // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
@@ -245,6 +248,20 @@ export function Saisie() {
     setMsg('✅ Facture supprimée')
     setTimeout(() => setMsg(null), 3000)
   }
+  // Marquer une facture déjà saisie comme réglée : pose payment_date, la trésorerie
+  // prend le mouvement à cette date. Pas de rebuild RAW (le P&L ne dépend pas du paiement).
+  const handleQuickPay = async (id: string) => {
+    if (!payDate) return
+    setSaving(true)
+    const { error } = await sb.from('manual_entries').update({ payment_date: payDate }).eq('id', id)
+    setSaving(false)
+    if (error) { setMsg('❌ ' + error.message); return }
+    setManualEntries(manualEntries.map(en => String(en.id) === id ? { ...en, payment_date: payDate } : en))
+    setPayingId(null)
+    setMsg('✅ Règlement enregistré — visible en trésorerie')
+    setTimeout(() => setMsg(null), 3000)
+  }
+
   const sortIcon = (col: typeof sortCol) =>
     sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
 
@@ -1171,7 +1188,24 @@ export function Saisie() {
                     <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : '#334155', whiteSpace:'nowrap', fontSize:11 }}>
                       {e.payment_mode === 'echeancier'
                         ? <span style={{ color:'#8b5cf6', fontSize:10 }}>échelonné</span>
-                        : e.payment_date ? fmtDate(e.payment_date) : <span style={{ color:'#334155' }}>—</span>}
+                        : e.payment_date ? fmtDate(e.payment_date)
+                        : payingId === String(e.id) ? (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}>
+                            <input type="date" value={payDate} onChange={ev => setPayDate(ev.target.value)}
+                              style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'#cbd5e1', fontSize:10, padding:'2px 4px', outline:'none' }} />
+                            <button onClick={() => handleQuickPay(String(e.id))} disabled={saving || !payDate}
+                              style={{ background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.35)', color:'#10b981', borderRadius:4, fontSize:10, padding:'2px 6px', cursor:'pointer' }}>✓</button>
+                            <button onClick={() => setPayingId(null)}
+                              style={{ background:'none', border:'none', color:'#94a3b8', fontSize:10, cursor:'pointer', padding:'2px 2px' }}>✕</button>
+                          </span>
+                        ) : (
+                          <button onClick={() => { if (!isReadOnly) { setPayingId(String(e.id)); setPayDate(new Date().toISOString().slice(0, 10)) } }}
+                            disabled={isReadOnly}
+                            title="Marquer cette facture comme réglée"
+                            style={{ background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)', color:'#10b981', borderRadius:10, fontSize:10, padding:'2px 8px', cursor: isReadOnly ? 'default' : 'pointer' }}>
+                            💰 Régler
+                          </button>
+                        )}
                     </td>
                     <td style={{ padding:'6px 8px', whiteSpace:'nowrap', fontSize:11 }}>
                       <span style={{ color:'#60a5fa', fontWeight:500 }}>
