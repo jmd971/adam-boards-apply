@@ -125,7 +125,7 @@ export function Tresorerie() {
             const ds: string[] = (me.echeancier_data as any).dates
             const amts: number[] | undefined = (me.echeancier_data as any).amounts
             const eq = (ttc * f) / ds.length
-            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] != null ? amts[i] * f : eq }))
+            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] != null ? amts[i] : eq }))
           } else if (me.payment_date) {
             pays.push({ date: me.payment_date, amt: ttc * f })
           } else if (isOp) {
@@ -162,7 +162,7 @@ export function Tresorerie() {
             const ds: string[] = (me.echeancier_data as any).dates
             const amts: number[] | undefined = (me.echeancier_data as any).amounts
             const eq = (ttc * f) / ds.length
-            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] != null ? amts[i] * f : eq }))
+            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] != null ? amts[i] : eq }))
           } else {
             pays.push({ date: me.payment_date || me.entry_date, amt: ttc * f })
           }
@@ -249,7 +249,7 @@ export function Tresorerie() {
             for (let idx = 0; idx < echDates.length; idx++) {
               const d = echDates[idx]
               if (d.startsWith(m)) {
-                const part = echAmounts?.[idx] != null ? echAmounts[idx] * f : equalPart
+                const part = echAmounts?.[idx] != null ? echAmounts[idx] : equalPart
                 if (me.category === 'Vente') enc += part
                 else dec += part
               }
@@ -341,7 +341,7 @@ export function Tresorerie() {
             for (let idx = 0; idx < echDates.length; idx++) {
               const d = echDates[idx]
               if (d.startsWith(m)) {
-                const part = echAmounts?.[idx] != null ? echAmounts[idx] * f : equalPart
+                const part = echAmounts?.[idx] != null ? echAmounts[idx] : equalPart
                 const bucket = isVente ? enc : dec
                 if (!bucket[key]) bucket[key] = { label, vals: Array(forecastMs.length).fill(0), factures: [] }
                 bucket[key].vals[mi] += part

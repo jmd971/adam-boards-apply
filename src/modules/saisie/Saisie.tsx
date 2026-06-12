@@ -266,12 +266,16 @@ export function Saisie() {
           ? [...(entry.echeancier_data as any).amounts]
           : prevDates.map(() => ttc / prevDates.length))
       : []
-    const remaining = Math.max(0, ttc - prevAmounts.reduce((s, v) => s + v, 0))
+    // Acomptes imputés sur cette facture : déjà payés à leur propre date → réduisent le solde
+    const imputedSum = manualEntries
+      .filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === id)
+      .reduce((s, a) => s + (parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0), 0)
+    const remaining = Math.max(0, ttc - imputedSum - prevAmounts.reduce((s, v) => s + v, 0))
     const wanted = parseFloat((payAmount || '').replace(',', '.'))
     const amt = Math.min(isFinite(wanted) && wanted > 0 ? wanted : (remaining || ttc), remaining || ttc)
     if (amt <= 0) return
     setSaving(true)
-    const fullSingle = !isEch && Math.abs(amt - ttc) < 0.01
+    const fullSingle = !isEch && imputedSum < 0.01 && Math.abs(amt - ttc) < 0.01
     const patch: any = fullSingle
       ? { payment_date: payDate }
       : {
@@ -1220,7 +1224,10 @@ export function Saisie() {
                         const isEchE = e.payment_mode === 'echeancier' && (e.echeancier_data as any)?.dates?.length
                         const amtsE: number[] | undefined = isEchE ? (e.echeancier_data as any).amounts : undefined
                         const paidSum = isEchE ? (amtsE ? amtsE.reduce((s, v) => s + v, 0) : ttcE) : 0
-                        const reste = Math.max(0, ttcE - paidSum)
+                        const imputedE = manualEntries
+                          .filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === String(e.id))
+                          .reduce((s, a) => s + (parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0), 0)
+                        const reste = Math.max(0, ttcE - imputedE - paidSum)
                         const openPay = (def: number) => { if (!isReadOnly) { setPayingId(String(e.id)); setPayDate(new Date().toISOString().slice(0, 10)); setPayAmount(def > 0 ? def.toFixed(2) : '') } }
                         if (payingId === String(e.id)) return (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}>
@@ -1236,13 +1243,15 @@ export function Saisie() {
                           </span>
                         )
                         if (e.payment_date) return fmtDate(e.payment_date)
-                        const paysTitle = isEchE
-                          ? ((e.echeancier_data as any).dates as string[])
-                              .map((d, i) => `${fmtDate(d)} : ${(amtsE?.[i] ?? ttcE / (e.echeancier_data as any).dates.length).toFixed(2)} €`)
-                              .join('\n')
-                          : ''
-                        if (isEchE && reste <= 0.01) return <span title={paysTitle} style={{ color:'#10b981', fontSize:10, cursor:'help' }}>soldée ({(e.echeancier_data as any).dates.length} paiement{(e.echeancier_data as any).dates.length > 1 ? 's' : ''})</span>
-                        if (isEchE) return (
+                        const paysTitle = [
+                          imputedE > 0 ? `Acompte imputé : ${imputedE.toFixed(2)} €` : '',
+                          ...(isEchE
+                            ? ((e.echeancier_data as any).dates as string[])
+                                .map((d, i) => `${fmtDate(d)} : ${(amtsE?.[i] ?? ttcE / (e.echeancier_data as any).dates.length).toFixed(2)} €`)
+                            : []),
+                        ].filter(Boolean).join('\n')
+                        if ((isEchE || imputedE > 0) && reste <= 0.01) return <span title={paysTitle} style={{ color:'#10b981', fontSize:10, cursor:'help' }}>soldée{isEchE ? ` (${(e.echeancier_data as any).dates.length} paiement${(e.echeancier_data as any).dates.length > 1 ? 's' : ''}${imputedE > 0 ? ' + acompte' : ''})` : ' (acompte)'}</span>
+                        if (isEchE || imputedE > 0) return (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
                             <span title={paysTitle} style={{ color:'#8b5cf6', fontSize:10, cursor:'help' }}>reste {reste.toFixed(2)} €</span>
                             <button onClick={() => openPay(reste)} disabled={isReadOnly}
