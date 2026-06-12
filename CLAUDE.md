@@ -26,7 +26,11 @@ gh api repos/jmd971/adam-boards-apply/contents/src/path/to/file.tsx \
 
 - Branche `develop` → déploiement automatique sur **demo.adamboards.fr**
 - Ne jamais pousser directement sur `main`/`prod` sans demande explicite
-- Supabase project ref : `fuxelqeizkmksapnetqz`
+- **DEUX bases Supabase distinctes** (vérifié dans les bundles le 12/06/2026) :
+  - Démo (`demo.adamboards.fr`) → ref `fuxelqeizkmksapnetqz`
+  - Prod (`app.adamboards.fr`)  → ref `bsjzhtpzvjtyrambyvrl` (projet « ADAM_BOARD_APPLI_PROD »)
+  - ⚠️ Toute migration SQL doit être appliquée sur **les deux** projets. Un compte
+    utilisateur créé sur la démo n'existe PAS en prod (et inversement).
 
 ---
 
