@@ -95,6 +95,11 @@ export function useCompanyData() {
 
     if (raw.keys.length > 0) {
       setFilters({ selCo: raw.keys, budCo: raw.keys[0] ?? '' })
+    } else {
+      // Compte/tenant sans aucune donnée (ni FEC ni saisie) : purger les sociétés
+      // persistées en localStorage par une session précédente — sinon le nom d'une
+      // société d'un AUTRE compte resterait affiché en tête du Dashboard.
+      setFilters({ selCo: [], budCo: '' })
     }
 
     // Période = exercice courant N (RAW.mn), fallback N-1 puis N-2 si pas de N.
@@ -107,6 +112,10 @@ export function useCompanyData() {
     const defaultSet = raw.mn.length ? raw.mn : raw.m1.length ? raw.m1 : raw.m2.length ? raw.m2 : []
     if (defaultSet.length > 0) {
       setFilters({ startM: defaultSet[0], endM: defaultSet[defaultSet.length - 1] })
+    } else {
+      // Aucune donnée : purger aussi la période persistée (sinon « Jan 26 → Avr 26 »
+      // d'une session précédente reste affiché dans la barre du haut).
+      setFilters({ startM: '', endM: '' })
     }
 
     setDataLoading(false)
