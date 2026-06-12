@@ -7,6 +7,7 @@ import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
 import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
+import { suggestFromPCG } from '@/lib/pcg'
 import { CsvImportView, type CsvRow } from './CsvImportView'
 
 
@@ -285,7 +286,8 @@ export function Saisie() {
     if (fecSuggestion) return { sub: fecSuggestion.sub, source: `compte ${fecSuggestion.acc} déjà utilisé pour ce tiers` }
     const lbl = (form.label || '').toLowerCase().trim()
     const cpt = (form.counterpart || '').toLowerCase().trim()
-    // 2. Libellé → plan comptable général via mots-clés
+    // 2. Libellé → plan comptable : d'abord les alias métier, puis les intitulés
+    //    officiels du PCG 2025 (référentiel ANC 2022-06, src/lib/pcg.ts)
     const nl = normSub(lbl)
     if (nl.length >= 3) {
       for (const sub of (catConfig?.subs ?? [])) {
@@ -294,6 +296,10 @@ export function Saisie() {
           return nl.includes(na) || (nl.length >= 4 && na.includes(nl))
         })) return { sub, source: "d'après le libellé (plan comptable)" }
       }
+      // Recherche directe dans le PCG officiel (classe selon la catégorie)
+      const cls = form.category === 'Vente' ? '7' : form.category === 'Immobilisation' ? '2' : '6'
+      const pcg = suggestFromPCG(lbl, cls)
+      if (pcg) return { sub: `${pcg.l} (${pcg.c})`, source: 'd\'après le libellé (PCG 2025)' }
     }
     // 3. Historique des saisies manuelles
     if (lbl || cpt) {
