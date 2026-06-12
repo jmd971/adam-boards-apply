@@ -108,27 +108,43 @@ export function Tresorerie() {
           const entry = [cm.date, cm.label || cm.counterpart, enc ? 0 : cm.amount, enc ? cm.amount : 0, cm.piece || '', 0]
           push(enc, cm.category, cm.counterpart, cm.label || cm.counterpart, mi, cm.amount, entry)
         }
-        // Les opérations de trésorerie saisies (acomptes, règlements de factures N-1)
-        // ne sont PAS dans le FEC (le FEC N n'existe pas encore) → les ajouter au
-        // réalisé, uniquement pour les mois NON couverts par le FEC (anti double-compte
-        // quand le FEC N sera importé plus tard).
+        // Paiements saisis NON couverts par le FEC : le FEC fait foi sur SES mois,
+        // mais un règlement (total ou partiel) tombant sur un mois sans FEC doit
+        // apparaître — sinon un paiement 2026 reste invisible tant que le FEC 2026
+        // n'est pas importé. Concerne : paiements explicites des factures saisies
+        // (payment_date ou échéancier), acomptes et règlements N-1.
         const fecMonths = new Set(cash.map((cm: any) => (cm.date || '').slice(0, 7)))
         for (const me of manualEntries) {
-          if (me.company_key !== co) continue
-          if (me.operation_type !== 'acompte' && me.operation_type !== 'reglement_n1') continue
+          if (me.company_key !== co || me.source === 'echeance') continue
           const ttc = parseFloat(me.amount_ttc || me.amount_ht_saisie || me.amount_ht || '0') || 0
           if (ttc === 0) continue
-          const d = me.payment_date || me.entry_date
-          const ym = (d || '').slice(0, 7)
-          if (!ym || fecMonths.has(ym)) continue
-          const mi = miOf(ym)
-          if (mi < 0) continue
+          const isOp = me.operation_type === 'acompte' || me.operation_type === 'reglement_n1'
+          const f = netFactor(me, ttc, imputed)
+          const pays: { date: string; amt: number }[] = []
+          if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+            const ds: string[] = (me.echeancier_data as any).dates
+            const amts: number[] | undefined = (me.echeancier_data as any).amounts
+            const eq = (ttc * f) / ds.length
+            ds.forEach((d, i) => pays.push({ date: d, amt: amts?.[i] != null ? amts[i] * f : eq }))
+          } else if (me.payment_date) {
+            pays.push({ date: me.payment_date, amt: ttc * f })
+          } else if (isOp) {
+            // Acomptes / règlements N-1 : la date de saisie EST la date du mouvement
+            pays.push({ date: me.entry_date, amt: ttc })
+          }
+          if (!pays.length) continue
           const enc = me.category === 'Vente'
           const acc = me.account_num || (enc ? '411' : '401')
           const lbl = me.subcategory || acc
-          const cat = enc ? 'Encaissements clients' : 'Décaissements fournisseurs'
-          const entry = [d, me.label || me.counterpart || lbl, enc ? 0 : ttc, enc ? ttc : 0, '', 0]
-          push(enc, cat, acc, lbl, mi, ttc, entry)
+          const cat = (enc ? catOf(acc, ENC_CATS) : catOf(acc, DEC_CATS)) || (enc ? 'Encaissements clients' : 'Décaissements fournisseurs')
+          for (const p of pays) {
+            const ym = (p.date || '').slice(0, 7)
+            if (!ym || fecMonths.has(ym)) continue
+            const mi = miOf(ym)
+            if (mi < 0) continue
+            const entry = [p.date, me.label || me.counterpart || lbl, enc ? 0 : p.amt, enc ? p.amt : 0, '', 0]
+            push(enc, cat, acc, lbl, mi, p.amt, entry)
+          }
         }
       } else {
         // Pas de FEC → réalisé reconstruit depuis les paiements des factures saisies (TTC)

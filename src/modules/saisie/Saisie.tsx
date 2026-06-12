@@ -1236,10 +1236,15 @@ export function Saisie() {
                           </span>
                         )
                         if (e.payment_date) return fmtDate(e.payment_date)
-                        if (isEchE && reste <= 0.01) return <span style={{ color:'#10b981', fontSize:10 }}>soldée ({(e.echeancier_data as any).dates.length} paiement{(e.echeancier_data as any).dates.length > 1 ? 's' : ''})</span>
+                        const paysTitle = isEchE
+                          ? ((e.echeancier_data as any).dates as string[])
+                              .map((d, i) => `${fmtDate(d)} : ${(amtsE?.[i] ?? ttcE / (e.echeancier_data as any).dates.length).toFixed(2)} €`)
+                              .join('\n')
+                          : ''
+                        if (isEchE && reste <= 0.01) return <span title={paysTitle} style={{ color:'#10b981', fontSize:10, cursor:'help' }}>soldée ({(e.echeancier_data as any).dates.length} paiement{(e.echeancier_data as any).dates.length > 1 ? 's' : ''})</span>
                         if (isEchE) return (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
-                            <span style={{ color:'#8b5cf6', fontSize:10 }}>reste {reste.toFixed(2)} €</span>
+                            <span title={paysTitle} style={{ color:'#8b5cf6', fontSize:10, cursor:'help' }}>reste {reste.toFixed(2)} €</span>
                             <button onClick={() => openPay(reste)} disabled={isReadOnly}
                               title="Ajouter un paiement partiel"
                               style={{ background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', borderRadius:10, fontSize:10, padding:'1px 7px', cursor: isReadOnly ? 'default' : 'pointer' }}>+</button>
