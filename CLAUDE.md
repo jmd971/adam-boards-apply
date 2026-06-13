@@ -26,7 +26,11 @@ gh api repos/jmd971/adam-boards-apply/contents/src/path/to/file.tsx \
 
 - Branche `develop` → déploiement automatique sur **demo.adamboards.fr**
 - Ne jamais pousser directement sur `main`/`prod` sans demande explicite
-- Supabase project ref : `fuxelqeizkmksapnetqz`
+- **DEUX bases Supabase distinctes** (vérifié dans les bundles le 12/06/2026) :
+  - Démo (`demo.adamboards.fr`) → ref `fuxelqeizkmksapnetqz`
+  - Prod (`app.adamboards.fr`)  → ref `bsjzhtpzvjtyrambyvrl` (projet « ADAM_BOARD_APPLI_PROD »)
+  - ⚠️ Toute migration SQL doit être appliquée sur **les deux** projets. Un compte
+    utilisateur créé sur la démo n'existe PAS en prod (et inversement).
 
 ---
 
@@ -986,3 +990,40 @@ Crée atomiquement le tenant + le rôle admin. **Sans cet appel**, l'utilisateur
 sans tenant ni rôle (vues vides, rôle Consultation).
 NB : Supabase exige la **confirmation d'email** avant la première connexion
 (`email_confirmed_at`) — cause n°1 des « je ne peux pas me connecter ».
+
+### 36. Plan comptable — référentiel officiel `src/lib/pcg.ts`
+
+PCG 2025 officiel (règlement ANC n°2022-06) : **856 comptes** générés depuis
+`PCG_2025_Plan_Comptable_General.xlsx` (fourni par Jean-Marc — ne pas éditer le TS à la
+main, régénérer depuis le xlsx). Helpers : `pcgLabel(code)` et `suggestFromPCG(texte, classe)`.
+
+**Suggestion de sous-catégorie en Saisie — ordre de priorité imposé :**
+1. **Tiers connu du FEC** (p1 = N-1 prioritaire, puis pn) → compte le plus utilisé pour ce tiers
+2. **Libellé** → alias métier (`SUB_ALIASES`), puis intitulés officiels du PCG
+   (la suggestion porte alors le code exact, ex « Locations immobilières (6132) »)
+3. **Historique des saisies manuelles** (scoring tiers/libellé)
+Ne pas réordonner sans demande explicite — l'ordre 2↔3 a été inversé à la demande du 13/06/2026.
+
+### 37. Saisie — acomptes et règlements de factures N-1 (`operation_type`)
+
+`manual_entries.operation_type` (migration 016, appliquée sur les DEUX bases) :
+- `facture` (défaut) : comportement historique — charge/produit de l'exercice.
+- `acompte` : avance sur facture non encore reçue/émise. Compte auto : **4091**
+  (fournisseur, catégories Achat/Depense/Immobilisation) ou **4191** (client, Vente).
+- `reglement_n1` : encaissement/décaissement d'une facture comptabilisée en N-1.
+  Compte auto : **401** (fournisseur) ou **411** (client).
+
+**Invariant critique** : `buildRAW` EXCLUT `acompte` et `reglement_n1` du P&L
+(comme `source==='echeance'`) — ces opérations sont des mouvements de trésorerie purs,
+jamais des charges/produits de N. `manualEntriesToTransactions` (RFM/Ventes) les exclut
+aussi. Elles alimentent la trésorerie via `payment_date`/`entry_date` (compte 4xx hors
+catégories standard → branche eM/dM). Le formulaire masque la sous-catégorie et affiche
+le compte automatique + une explication. Badge « Acompte » / « Règlt N-1 » dans l'historique.
+**Phase 2 — imputation (migration 017, appliquée sur les DEUX bases)** :
+`manual_entries.acompte_invoice_id` (FK → manual_entries.id, ON DELETE SET NULL).
+À la saisie d'une facture, panneau « Acomptes disponibles » (même société, même sens
+client/fournisseur, non imputés) → cases à cocher + « Net à régler ». En Trésorerie
+(réalisé sans FEC, prévisionnel totaux + détail), le règlement d'une facture est réduit
+de la somme de ses acomptes imputés (`buildImputedMap` + `netFactor` dans Tresorerie.tsx) —
+l'acompte ayant déjà été compté à sa propre date de paiement. Supprimer la facture libère
+ses acomptes (SET NULL en base + patch du store local). Badge « Acompte ✓ imputé ».

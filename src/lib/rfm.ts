@@ -151,6 +151,7 @@ export function manualEntriesToTransactions(
   return entries
     .filter(e =>
       e.category === 'Vente' &&
+      (e.operation_type ?? 'facture') === 'facture' &&
       e.counterpart?.trim() &&
       e.entry_date &&
       (selCo.length === 0 || selCo.includes(e.company_key))

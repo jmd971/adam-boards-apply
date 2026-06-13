@@ -7,6 +7,7 @@ import { canWrite, type Role } from '@/lib/roles'
 import type { ManualEntry } from '@/types'
 import { useTenantId } from '@/store'
 import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
+import { suggestFromPCG, pcgLabel } from '@/lib/pcg'
 import { CsvImportView, type CsvRow } from './CsvImportView'
 
 
@@ -90,6 +91,12 @@ export function Saisie() {
   // Édition / suppression de saisies existantes
   const [editingId,     setEditingId]     = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  // Phase 2 acomptes : ids des acomptes à imputer sur la facture en cours de saisie
+  const [imputeIds,     setImputeIds]     = useState<string[]>([])
+  // Règlement rapide depuis l'historique : marquer une facture déjà saisie comme payée
+  const [payingId,  setPayingId]  = useState<string | null>(null)
+  const [payDate,   setPayDate]   = useState('')
+  const [payAmount, setPayAmount] = useState('')
   // Montants HT par échéance (modifiables). Synchronisé sur echDates.length.
   // Si l'utilisateur n'a pas touché → on les recalcule en équitable à partir du HT.
   const [echAmounts,    setEchAmounts]    = useState<number[]>([])
@@ -110,6 +117,7 @@ export function Saisie() {
     counterpart:  '',
     payment_mode: 'virement',
     payment_date: '',
+    operation_type: 'facture' as 'facture' | 'acompte' | 'reglement_n1',
   })
 
   // TVA calculée automatiquement
@@ -201,7 +209,11 @@ export function Saisie() {
       counterpart:  e.counterpart || '',
       payment_mode: e.payment_mode || 'virement',
       payment_date: e.payment_date || '',
+      operation_type: (e.operation_type ?? 'facture') as 'facture' | 'acompte' | 'reglement_n1',
     })
+    setImputeIds(manualEntries
+      .filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === String(e.id))
+      .map(a => String(a.id)))
     setMode('manual')
     window.scrollTo({ top: 0, behavior: 'smooth' })
     setMsg('✏️ Modification en cours — éditez puis cliquez Enregistrer')
@@ -209,7 +221,8 @@ export function Saisie() {
 
   const handleCancelEdit = () => {
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
+    setImputeIds([])
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'', operation_type:'facture' })); setSubSearch('')
     setMsg(null)
   }
 
@@ -223,7 +236,9 @@ export function Saisie() {
     if (error) { setSaving(false); setMsg('❌ ' + error.message); return }
 
     // Mettre à jour le store + rebuild RAW pour que tous les modules se mettent à jour
-    const newEntries = manualEntries.filter(en => String(en.id) !== id && (en as any).parent_id !== id)
+    const newEntries = manualEntries
+      .filter(en => String(en.id) !== id && (en as any).parent_id !== id)
+      .map(en => String(en.acompte_invoice_id ?? '') === id ? { ...en, acompte_invoice_id: null } : en)
     setManualEntries(newEntries)
     const { data: cd } = await sb.from('company_data').select('*').eq('tenant_id', tenantId)
     const { data: bd } = await sb.from('budget').select('*').eq('tenant_id', tenantId)
@@ -234,42 +249,179 @@ export function Saisie() {
     setMsg('✅ Facture supprimée')
     setTimeout(() => setMsg(null), 3000)
   }
+  // Enregistrer un règlement (total ou PARTIEL) sur une facture déjà saisie.
+  // - Paiement unique soldant la facture → simple payment_date.
+  // - Paiement partiel, ou paiements successifs à des dates différentes →
+  //   liste de paiements (dates + montants) via echeancier_data, déjà gérée
+  //   partout en trésorerie. Le P&L ne dépend pas du paiement → pas de rebuild RAW.
+  const handleQuickPay = async (id: string) => {
+    if (!payDate) return
+    const entry = manualEntries.find(en => String(en.id) === id)
+    if (!entry) return
+    const ttc = parseFloat(entry.amount_ttc || entry.amount_ht_saisie || entry.amount_ht || '0') || 0
+    const isEch = entry.payment_mode === 'echeancier' && (entry.echeancier_data as any)?.dates?.length
+    const prevDates: string[] = isEch ? [...(entry.echeancier_data as any).dates] : []
+    const prevAmounts: number[] = isEch
+      ? ((entry.echeancier_data as any).amounts
+          ? [...(entry.echeancier_data as any).amounts]
+          : prevDates.map(() => ttc / prevDates.length))
+      : []
+    // Acomptes imputés sur cette facture : déjà payés à leur propre date → réduisent le solde
+    const imputedSum = manualEntries
+      .filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === id)
+      .reduce((s, a) => s + (parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0), 0)
+    const remaining = Math.max(0, ttc - imputedSum - prevAmounts.reduce((s, v) => s + v, 0))
+    const wanted = parseFloat((payAmount || '').replace(',', '.'))
+    const amt = Math.min(isFinite(wanted) && wanted > 0 ? wanted : (remaining || ttc), remaining || ttc)
+    if (amt <= 0) return
+    setSaving(true)
+    const fullSingle = !isEch && imputedSum < 0.01 && Math.abs(amt - ttc) < 0.01
+    const patch: any = fullSingle
+      ? { payment_date: payDate }
+      : {
+          payment_mode: 'echeancier',
+          payment_date: null,
+          echeancier_data: { nb: prevDates.length + 1, delai_jours: 0, dates: [...prevDates, payDate], amounts: [...prevAmounts, amt] },
+        }
+    const { error } = await sb.from('manual_entries').update(patch).eq('id', id)
+    setSaving(false)
+    if (error) { setMsg('❌ ' + error.message); return }
+    setManualEntries(manualEntries.map(en => String(en.id) === id ? { ...en, ...patch } : en))
+    setPayingId(null)
+    const reste = remaining - amt
+    setMsg(fullSingle
+      ? '✅ Règlement enregistré — visible en trésorerie'
+      : `✅ Paiement de ${amt.toFixed(2)} € enregistré${reste > 0.01 ? ` — reste ${reste.toFixed(2)} €` : ' — facture soldée'}`)
+    setTimeout(() => setMsg(null), 4000)
+  }
+
   const sortIcon = (col: typeof sortCol) =>
     sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : ' ↕'
 
   const catConfig = CATEGORIES.find(c => c.cat === form.category)
 
+  // Compte automatique pour les opérations hors facture (trésorerie pure, pas de P&L en N)
+  const opInfo = form.operation_type === 'acompte'
+    ? (form.category === 'Vente'
+        ? { acc: '4191', sub: 'Acompte client reçu (4191)',        hint: 'Avance reçue avant émission de la facture — encaissement de trésorerie, aucun produit comptabilisé en N.' }
+        : { acc: '4091', sub: 'Acompte fournisseur versé (4091)',  hint: 'Avance versée avant réception de la facture — décaissement de trésorerie, aucune charge comptabilisée en N.' })
+    : form.operation_type === 'reglement_n1'
+    ? (form.category === 'Vente'
+        ? { acc: '411', sub: 'Encaissement facture N-1 (411)',     hint: 'Encaissement d\'une facture client comptabilisée en N-1 — le produit est déjà dans le FEC N-1.' }
+        : { acc: '401', sub: 'Règlement facture N-1 (401)',        hint: 'Paiement d\'une facture fournisseur comptabilisée en N-1 — la charge est déjà dans le FEC N-1.' })
+    : null
+
+  // Acomptes non encore imputés, même société et même sens (client/fournisseur)
+  // que la facture en cours — proposés à l'imputation. En édition, les acomptes
+  // déjà imputés sur CETTE facture restent visibles (décochables).
+  const openAcomptes = useMemo(() => {
+    if (form.operation_type !== 'facture') return []
+    const co = form.company_key || filters.selCo[0] || ''
+    const isVente = form.category === 'Vente'
+    return manualEntries.filter(a =>
+      a.operation_type === 'acompte' &&
+      a.company_key === co &&
+      ((a.category === 'Vente') === isVente) &&
+      (!a.acompte_invoice_id || (editingId != null && String(a.acompte_invoice_id) === String(editingId)))
+    )
+  }, [manualEntries, form.operation_type, form.category, form.company_key, filters.selCo, editingId])
+
   // extractAcc importé depuis @/lib/categories
 
-  // Suggestion auto de sous-catégorie d'après l'historique des saisies (même catégorie,
-  // tiers ou libellé similaire). Vide si l'utilisateur a déjà choisi ou si pas d'indice.
-  const suggestedSub = useMemo(() => {
-    if (form.subcategory) return null
-    const lbl = (form.label || '').toLowerCase().trim()
-    const cpt = (form.counterpart || '').toLowerCase().trim()
-    if (!lbl && !cpt) return null
-    const subs = catConfig?.subs ?? []
-    const scores: Record<string, number> = {}
-    for (const e of manualEntries) {
-      if (e.category !== form.category || !e.subcategory) continue
-      if (!subs.includes(e.subcategory)) continue
-      const eLbl = (e.label || '').toLowerCase()
-      const eCpt = (e.counterpart || '').toLowerCase()
-      let score = 0
-      // Tiers identique ou inclusion → forte confiance
-      if (cpt && eCpt && (cpt === eCpt || (cpt.length >= 3 && eCpt.includes(cpt)) || (eCpt.length >= 3 && cpt.includes(eCpt)))) score += 5
-      // Tokens du libellé (>= 3 caractères)
-      if (lbl) {
-        const tokens = lbl.split(/\s+/).filter(t => t.length >= 3)
-        for (const t of tokens) {
-          if (eLbl.includes(t) || eCpt.includes(t)) score += 1
+  // ── Suggestion de sous-catégorie — cascade à 3 niveaux ──────────────────
+  // 1. Tiers déjà connu du FEC (N-1 prioritaire, puis N) → compte réellement utilisé
+  // 2. Historique des saisies manuelles (tiers/libellé similaire)
+  // 3. Mots-clés du libellé → plan comptable général (SUB_ALIASES)
+
+  // Recherche du compte le plus fréquemment utilisé pour un tiers dans le FEC
+  // (N-1/N-2 prioritaires, puis N). Retourne LE COMPTE EXACT avec son intitulé
+  // d'origine (ex : « TELESURVEILLANCE GARDIENNAGE (6110100000) »).
+  // Fonction partagée : suggestion live (memo) + application directe après OCR.
+  const findFecAccount = (counterpart: string, category: ManualEntry['category'], companyKey?: string): { sub: string; acc: string } | null => {
+    // Normalisation tolérante : ponctuation/tirets → espaces (« NEO-SURVEILLANCE » matche « neo surveillance »)
+    const norm = (s: string) => normSub(s).replace(/[^a-z0-9]+/g, ' ').trim()
+    const cpt = norm(counterpart || '')
+    if (cpt.length < 3 || !RAW) return null
+    const tokens = cpt.split(' ').filter(t => t.length >= 2)
+    if (!tokens.length) return null
+    const co = companyKey || form.company_key || filters.selCo[0] || RAW.keys[0]
+    if (!co) return null
+    const cls = category === 'Vente' ? '7' : category === 'Immobilisation' ? '2' : '6'
+    const counts: Record<string, number> = {}
+    const labels: Record<string, string> = {}
+    for (const field of ['p1', 'p2', 'pn'] as const) {
+      const data = (RAW.companies[co]?.[field] ?? {}) as Record<string, any>
+      for (const [acc, acct] of Object.entries(data)) {
+        if (!acc.startsWith(cls)) continue
+        const accLabel = String((acct as any)?.l ?? '')
+        // Tous les mots du tiers présents dans le libellé du compte OU de l'écriture
+        const accLabelMatch = tokens.every(t => norm(accLabel).includes(t))
+        for (const e of (((acct as any)?.e ?? []) as any[])) {
+          const eLbl = norm(String(e?.[1] ?? ''))
+          if (accLabelMatch || tokens.every(t => eLbl.includes(t))) {
+            counts[acc] = (counts[acc] || 0) + 1
+            if (accLabel && !labels[acc]) labels[acc] = accLabel
+          }
         }
       }
-      if (score > 0) scores[e.subcategory] = (scores[e.subcategory] || 0) + score
     }
-    const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
-    return sorted.length > 0 ? sorted[0][0] : null
-  }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig])
+    const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]
+    if (!best) return null
+    const acc = best[0]
+    const label = labels[acc] || pcgLabel(acc) || 'Compte'
+    return { sub: `${label} (${acc})`, acc }
+  }
+
+  const fecSuggestion = useMemo(
+    () => findFecAccount(form.counterpart, form.category),
+    [form.counterpart, form.category, form.company_key, RAW, filters.selCo]
+  )
+
+  const suggestion = useMemo((): { sub: string; source: string } | null => {
+    if (form.subcategory) return null
+    // 1. Tiers connu du FEC → compte réellement utilisé en N-1/N
+    if (fecSuggestion) return { sub: fecSuggestion.sub, source: `compte ${fecSuggestion.acc} déjà utilisé pour ce tiers` }
+    const lbl = (form.label || '').toLowerCase().trim()
+    const cpt = (form.counterpart || '').toLowerCase().trim()
+    // 2. Libellé → plan comptable : d'abord les alias métier, puis les intitulés
+    //    officiels du PCG 2025 (référentiel ANC 2022-06, src/lib/pcg.ts)
+    const nl = normSub(lbl)
+    if (nl.length >= 3) {
+      for (const sub of (catConfig?.subs ?? [])) {
+        if ((SUB_ALIASES[sub] ?? []).some(a => {
+          const na = normSub(a)
+          return nl.includes(na) || (nl.length >= 4 && na.includes(nl))
+        })) return { sub, source: "d'après le libellé (plan comptable)" }
+      }
+      // Recherche directe dans le PCG officiel (classe selon la catégorie)
+      const cls = form.category === 'Vente' ? '7' : form.category === 'Immobilisation' ? '2' : '6'
+      const pcg = suggestFromPCG(lbl, cls)
+      if (pcg) return { sub: `${pcg.l} (${pcg.c})`, source: 'd\'après le libellé (PCG 2025)' }
+    }
+    // 3. Historique des saisies manuelles
+    if (lbl || cpt) {
+      const subs = catConfig?.subs ?? []
+      const scores: Record<string, number> = {}
+      for (const e of manualEntries) {
+        if (e.category !== form.category || !e.subcategory) continue
+        if (!subs.includes(e.subcategory)) continue
+        const eLbl = (e.label || '').toLowerCase()
+        const eCpt = (e.counterpart || '').toLowerCase()
+        let score = 0
+        if (cpt && eCpt && (cpt === eCpt || (cpt.length >= 3 && eCpt.includes(cpt)) || (eCpt.length >= 3 && cpt.includes(eCpt)))) score += 5
+        if (lbl) {
+          const tokens = lbl.split(/\s+/).filter(t => t.length >= 3)
+          for (const t of tokens) {
+            if (eLbl.includes(t) || eCpt.includes(t)) score += 1
+          }
+        }
+        if (score > 0) scores[e.subcategory] = (scores[e.subcategory] || 0) + score
+      }
+      const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1])
+      if (sorted.length > 0) return { sub: sorted[0][0], source: "d'après vos autres saisies" }
+    }
+    return null
+  }, [form.label, form.counterpart, form.category, form.subcategory, manualEntries, catConfig, fecSuggestion])
 
   // Sous-catégories filtrées par la recherche libre (aliases inclus)
   const filteredSubs = useMemo(() => {
@@ -356,10 +508,32 @@ export function Saisie() {
             { type: 'text', text: OCR_PROMPT }
           ]}]
 
-      const session = await sb.auth.getSession()
+      // Garde-fou : les photos de plusieurs Mo font échouer l'upload (limite passerelle)
+      if (file.size > 9 * 1024 * 1024) {
+        setOcrResult(null)
+        setMsg('⚠️ Fichier trop volumineux pour l\'OCR (max ~9 Mo). Réduisez la photo ou utilisez un PDF — la facture peut être saisie manuellement.')
+        setMode('manual')
+        return
+      }
+
+      // Jeton FRAIS obligatoire : après ~1h d'inactivité, getSession() renvoie un jeton
+      // périmé → la passerelle répond 401 SANS en-têtes CORS → le navigateur classe ça
+      // en « erreur réseau ». On rafraîchit si le jeton expire dans moins de 60 s.
+      let { data: { session } } = await sb.auth.getSession()
+      if (!session?.access_token || (session.expires_at && session.expires_at * 1000 < Date.now() + 60_000)) {
+        const { data: refreshed } = await sb.auth.refreshSession()
+        session = refreshed.session ?? session
+      }
+      if (!session?.access_token) {
+        setOcrResult(null)
+        setMsg('⚠️ Session expirée — reconnectez-vous puis relancez le scan.')
+        setMode('manual')
+        return
+      }
+
       const resp = await fetch(OCR_PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.data.session?.access_token}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ model: 'claude-opus-4-7', max_tokens: 500, messages }),
       }).catch(() => null)
 
@@ -375,6 +549,7 @@ export function Saisie() {
       if (!resp.ok) {
         const errBody = await resp.text().catch(() => '')
         const reason = resp.status === 429 ? 'quota API dépassé'
+          : resp.status === 401 ? 'session expirée — reconnectez-vous'
           : resp.status >= 500 ? 'serveur OCR indisponible'
           : `erreur ${resp.status}`
         setOcrResult(null)
@@ -409,12 +584,15 @@ export function Saisie() {
           })
         : undefined
 
-      setOcrResult(`✅ Facture analysée : ${parsed.counterpart || ''} — HT: ${ht.toFixed(2)} € | TTC: ${ttc.toFixed(2)} € | TVA: ${calcTvaAmount(ht, ttc).toFixed(2)} €`)
+      // Priorité 1 : si le tiers est connu du FEC, son compte réel prime sur
+      // l'estimation OCR (ex : NEO SURVEILLANCE → 6110100000 TELESURVEILLANCE).
+      const fecAcc = findFecAccount(parsed.counterpart || '', ocrCat)
+      setOcrResult(`✅ Facture analysée : ${parsed.counterpart || ''} — HT: ${ht.toFixed(2)} € | TTC: ${ttc.toFixed(2)} € | TVA: ${calcTvaAmount(ht, ttc).toFixed(2)} €${fecAcc ? ` · compte ${fecAcc.acc} repris du FEC` : ''}`)
       setForm(f => ({
         ...f,
         entry_date:  parsed.date || f.entry_date,
         category:    ocrCat,
-        subcategory: matchedSub || parsed.subcategory || '',
+        subcategory: fecAcc?.sub || matchedSub || parsed.subcategory || '',
         label:       parsed.label || '',
         invoice_number: (parsed as any).invoice_number || (parsed as any).numero_facture || f.invoice_number,
         amount_ttc:  ttc > 0 ? String(ttc) : f.amount_ttc,
@@ -508,7 +686,7 @@ export function Saisie() {
       company_key:  companyKey,
       entry_date:   form.entry_date,
       category:     form.category,
-      subcategory:  form.subcategory,
+      subcategory:  opInfo ? opInfo.sub : form.subcategory,
       label:        form.label,
       invoice_number: form.invoice_number || null,
       amount_ttc:   String(ttc),
@@ -519,7 +697,8 @@ export function Saisie() {
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
       payment_date: !isEch && form.payment_date ? form.payment_date : null,
-      account_num:  extractAcc(form.subcategory, catConfig?.acc ?? '658'),
+      account_num:  opInfo ? opInfo.acc : extractAcc(form.subcategory, catConfig?.acc ?? '658'),
+      operation_type: form.operation_type,
       source:       (editingId ? 'manual' : (ocrFile ? 'ocr' : 'manual')) as 'manual' | 'ocr',
       ...(invoiceUrl ? { invoice_url: invoiceUrl } : {}),
       ...(isEch ? {
@@ -560,9 +739,31 @@ export function Saisie() {
       await refreshStore(newEntry)
     }
 
+    // Phase 2 : imputation des acomptes sélectionnés sur cette facture
+    if (form.operation_type === 'facture') {
+      const invId = String(newEntry.id)
+      const prev = wasEditing
+        ? manualEntries.filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === invId).map(a => String(a.id))
+        : []
+      const toSet     = imputeIds.filter(id => !prev.includes(id))
+      const toRelease = prev.filter(id => !imputeIds.includes(id))
+      if (toSet.length)     await sb.from('manual_entries').update({ acompte_invoice_id: invId } as any).in('id', toSet)
+      if (toRelease.length) await sb.from('manual_entries').update({ acompte_invoice_id: null } as any).in('id', toRelease)
+      if (toSet.length || toRelease.length) {
+        const cur = useAppStore.getState().manualEntries
+        useAppStore.getState().setManualEntries(cur.map(en => {
+          const idS = String(en.id)
+          if (toSet.includes(idS))     return { ...en, acompte_invoice_id: invId }
+          if (toRelease.includes(idS)) return { ...en, acompte_invoice_id: null }
+          return en
+        }))
+      }
+    }
+
     setMsg(wasEditing ? '✅ Facture modifiée et tableaux mis à jour' : '✅ Entrée ajoutée et tableaux mis à jour')
     setEditingId(null)
-    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'' })); setSubSearch('')
+    setImputeIds([])
+    setForm(f => ({ ...f, label:'', invoice_number:'', amount_ttc:'', amount_ht:'', counterpart:'', subcategory:'', payment_date:'', operation_type:'facture' })); setSubSearch('')
     setEchDates([])
     setEchAmounts([])
     setEchAmountsDirty(false)
@@ -673,6 +874,17 @@ export function Saisie() {
             </div>
 
             <div>
+              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Type d'opération</label>
+              <select value={form.operation_type}
+                onChange={e => setForm(f => ({ ...f, operation_type: e.target.value as 'facture' | 'acompte' | 'reglement_n1', subcategory: '' }))}
+                style={inputSt}>
+                <option value="facture">Facture</option>
+                <option value="acompte">Acompte (facture à recevoir / à émettre)</option>
+                <option value="reglement_n1">Règlement facture N-1</option>
+              </select>
+            </div>
+
+            <div>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Catégorie</label>
               <select value={form.category} onChange={e => {
                 setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))
@@ -682,7 +894,14 @@ export function Saisie() {
               </select>
             </div>
 
-            {/* ── Sous-catégorie : combobox avec recherche libre ── */}
+            {/* ── Sous-catégorie : combobox — ou compte automatique (acompte / règlement N-1) ── */}
+            {opInfo ? (
+            <div>
+              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Compte (automatique)</label>
+              <div style={{ ...inputSt, color:'#93c5fd', display:'flex', alignItems:'center', cursor:'default' }}>{opInfo.sub}</div>
+              <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', lineHeight:1.5 }}>ℹ️ {opInfo.hint}</div>
+            </div>
+            ) : (
             <div style={{ position:'relative' }}>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>
                 Sous-catégorie
@@ -734,18 +953,19 @@ export function Saisie() {
                   ))}
                 </div>
               )}
-              {/* Suggestion d'après l'historique */}
-              {!subOpen && suggestedSub && suggestedSub !== form.subcategory && (
-                <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6 }}>
-                  <span>💡</span>
+              {/* Suggestion : FEC N-1 → historique saisies → libellé/PCG */}
+              {!subOpen && suggestion && suggestion.sub !== form.subcategory && (
+                <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                  <span>💡 {suggestion.source} :</span>
                   <button type="button"
-                    onClick={() => { setForm(f => ({ ...f, subcategory: suggestedSub })); setSubSearch('') }}
+                    onClick={() => { setForm(f => ({ ...f, subcategory: suggestion.sub })); setSubSearch('') }}
                     style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
-                    {suggestedSub}
+                    {suggestion.sub}
                   </button>
                 </div>
               )}
             </div>
+            )}
 
             <div>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Montant HT € *</label>
@@ -783,6 +1003,37 @@ export function Saisie() {
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>N° de facture</label>
               <input type="text" value={form.invoice_number} onChange={e => setForm(f => ({...f, invoice_number:e.target.value}))} style={inputSt} placeholder="Ex : F2026-001" />
             </div>
+
+            {form.operation_type === 'facture' && openAcomptes.length > 0 && (
+              <div style={{ gridColumn:'1 / -1', background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.25)', borderRadius:8, padding:'10px 12px' }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#a78bfa', marginBottom:6 }}>
+                  💜 Acomptes disponibles — cochez pour les imputer sur cette facture
+                </div>
+                {openAcomptes.map(a => {
+                  const id = String(a.id)
+                  const amt = parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0
+                  const checked = imputeIds.includes(id)
+                  return (
+                    <label key={id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:11.5, color:'#cbd5e1', padding:'3px 0', cursor:'pointer' }}>
+                      <input type="checkbox" checked={checked}
+                        onChange={() => setImputeIds(p => checked ? p.filter(x => x !== id) : [...p, id])} />
+                      <span>{fmtDate(a.entry_date)} · {a.counterpart || a.label || 'Acompte'} · <strong style={{ fontFamily:'monospace' }}>{amt.toFixed(2)} €</strong></span>
+                    </label>
+                  )
+                })}
+                {imputeIds.length > 0 && (() => {
+                  const tot = openAcomptes.filter(a => imputeIds.includes(String(a.id)))
+                    .reduce((s, a) => s + (parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0), 0)
+                  const ttcF = parseFloat(form.amount_ttc || form.amount_ht || '0') || 0
+                  return (
+                    <div style={{ marginTop:6, fontSize:11, color:'#94a3b8' }}>
+                      Imputé : <strong style={{ color:'#a78bfa', fontFamily:'monospace' }}>{tot.toFixed(2)} €</strong>
+                      {ttcF > 0 && <> · Net à régler : <strong style={{ color:'#10b981', fontFamily:'monospace' }}>{Math.max(0, ttcF - tot).toFixed(2)} €</strong></>}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
 
             <div>
               <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Contrepartie</label>
@@ -968,9 +1219,54 @@ export function Saisie() {
                   <tr key={e.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                     <td style={{ padding:'6px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}>{fmtDate(e.entry_date)}</td>
                     <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : '#334155', whiteSpace:'nowrap', fontSize:11 }}>
-                      {e.payment_mode === 'echeancier'
-                        ? <span style={{ color:'#8b5cf6', fontSize:10 }}>échelonné</span>
-                        : e.payment_date ? fmtDate(e.payment_date) : <span style={{ color:'#334155' }}>—</span>}
+                      {(() => {
+                        const ttcE = parseFloat(e.amount_ttc || e.amount_ht_saisie || e.amount_ht || '0') || 0
+                        const isEchE = e.payment_mode === 'echeancier' && (e.echeancier_data as any)?.dates?.length
+                        const amtsE: number[] | undefined = isEchE ? (e.echeancier_data as any).amounts : undefined
+                        const paidSum = isEchE ? (amtsE ? amtsE.reduce((s, v) => s + v, 0) : ttcE) : 0
+                        const imputedE = manualEntries
+                          .filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === String(e.id))
+                          .reduce((s, a) => s + (parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0), 0)
+                        const reste = Math.max(0, ttcE - imputedE - paidSum)
+                        const openPay = (def: number) => { if (!isReadOnly) { setPayingId(String(e.id)); setPayDate(new Date().toISOString().slice(0, 10)); setPayAmount(def > 0 ? def.toFixed(2) : '') } }
+                        if (payingId === String(e.id)) return (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}>
+                            <input type="date" value={payDate} onChange={ev => setPayDate(ev.target.value)}
+                              style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'#cbd5e1', fontSize:10, padding:'2px 4px', outline:'none' }} />
+                            <input type="number" step="0.01" min="0" value={payAmount} onChange={ev => setPayAmount(ev.target.value)}
+                              title="Montant payé (partiel possible)"
+                              style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'#cbd5e1', fontSize:10, padding:'2px 4px', width:70, textAlign:'right', outline:'none', fontFamily:'monospace' }} />
+                            <button onClick={() => handleQuickPay(String(e.id))} disabled={saving || !payDate}
+                              style={{ background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.35)', color:'#10b981', borderRadius:4, fontSize:10, padding:'2px 6px', cursor:'pointer' }}>✓</button>
+                            <button onClick={() => setPayingId(null)}
+                              style={{ background:'none', border:'none', color:'#94a3b8', fontSize:10, cursor:'pointer', padding:'2px 2px' }}>✕</button>
+                          </span>
+                        )
+                        if (e.payment_date) return fmtDate(e.payment_date)
+                        const paysTitle = [
+                          imputedE > 0 ? `Acompte imputé : ${imputedE.toFixed(2)} €` : '',
+                          ...(isEchE
+                            ? ((e.echeancier_data as any).dates as string[])
+                                .map((d, i) => `${fmtDate(d)} : ${(amtsE?.[i] ?? ttcE / (e.echeancier_data as any).dates.length).toFixed(2)} €`)
+                            : []),
+                        ].filter(Boolean).join('\n')
+                        if ((isEchE || imputedE > 0) && reste <= 0.01) return <span title={paysTitle} style={{ color:'#10b981', fontSize:10, cursor:'help' }}>soldée{isEchE ? ` (${(e.echeancier_data as any).dates.length} paiement${(e.echeancier_data as any).dates.length > 1 ? 's' : ''}${imputedE > 0 ? ' + acompte' : ''})` : ' (acompte)'}</span>
+                        if (isEchE || imputedE > 0) return (
+                          <span style={{ display:'inline-flex', alignItems:'center', gap:5 }}>
+                            <span title={paysTitle} style={{ color:'#8b5cf6', fontSize:10, cursor:'help' }}>reste {reste.toFixed(2)} €</span>
+                            <button onClick={() => openPay(reste)} disabled={isReadOnly}
+                              title="Ajouter un paiement partiel"
+                              style={{ background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', borderRadius:10, fontSize:10, padding:'1px 7px', cursor: isReadOnly ? 'default' : 'pointer' }}>+</button>
+                          </span>
+                        )
+                        return (
+                          <button onClick={() => openPay(ttcE)} disabled={isReadOnly}
+                            title="Enregistrer un règlement (total ou partiel)"
+                            style={{ background:'rgba(16,185,129,0.08)', border:'1px solid rgba(16,185,129,0.25)', color:'#10b981', borderRadius:10, fontSize:10, padding:'2px 8px', cursor: isReadOnly ? 'default' : 'pointer' }}>
+                            💰 Régler
+                          </button>
+                        )
+                      })()}
                     </td>
                     <td style={{ padding:'6px 8px', whiteSpace:'nowrap', fontSize:11 }}>
                       <span style={{ color:'#60a5fa', fontWeight:500 }}>
@@ -988,6 +1284,8 @@ export function Saisie() {
                         color:      e.category==='Vente' ? '#10b981':'#ef4444' }}>
                         {e.category}
                       </span>
+                      {e.operation_type === 'acompte' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(139,92,246,0.12)', color:'#a78bfa' }}>{e.acompte_invoice_id ? 'Acompte ✓ imputé' : 'Acompte'}</span>}
+                      {e.operation_type === 'reglement_n1' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(59,130,246,0.12)', color:'#60a5fa' }}>Règlt N-1</span>}
                     </td>
                     <td style={{ padding:'6px 8px', color:'#94a3b8', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {e.subcategory}{e.label ? ' — '+e.label : ''}

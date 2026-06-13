@@ -160,10 +160,23 @@ export function Creances() {
       if (me.category !== 'Vente') continue            // créances clients = ventes uniquement
       if (me.source === 'echeance') continue            // échéances-enfants : planning d'encaissement, pas une facture
       if (!selCo.includes(me.company_key)) continue
+      // Acomptes reçus et règlements N-1 : mouvements de trésorerie, pas des créances
+      if (me.operation_type === 'acompte' || me.operation_type === 'reglement_n1') continue
       const ttc = parseFloat(me.amount_ttc || me.amount_ht || '0') || 0
       if (ttc <= 0) continue
       const paid = me.payment_mode === 'comptant' || (!!me.payment_date && me.payment_date <= todayISO)
       if (paid) continue
+      // Paiements partiels (échéancier) : créance ouverte = TTC − paiements déjà encaissés
+      let openTtc = ttc
+      if (me.payment_mode === 'echeancier' && (me.echeancier_data as any)?.dates?.length) {
+        const ds: string[] = (me.echeancier_data as any).dates
+        const amts: number[] | undefined = (me.echeancier_data as any).amounts
+        const eq = ttc / ds.length
+        let paidSum = 0
+        ds.forEach((d, i) => { if (d && d <= todayISO) paidSum += amts?.[i] ?? eq })
+        openTtc = Math.max(0, ttc - paidSum)
+        if (openTtc <= 0.01) continue
+      }
       const client  = (me.counterpart || me.label || me.subcategory || 'Client').trim()
       const acct    = `SA·${client}`
       const dateStr = me.entry_date || ''
@@ -171,9 +184,9 @@ export function Creances() {
       const piece   = me.invoice_number || ''
       if (!map[acct]) { map[acct] = { name: client, account: acct, companyKey: me.company_key, total: 0, bk: 4, entries: [], invoices: [], oldest: '', oldestDays: 0, nbInvoices: 0 }; saisieKeys.push(acct) }
       const row = map[acct]
-      row.total += Math.round(ttc)
-      row.invoices.push({ date: dateStr, label: me.label || client, debit: ttc, credit: 0, piece, age, bucket: getBucket(age) })
-      row.entries.push([dateStr, me.label || client, ttc, 0, piece, 0, '', me.invoice_url || ''])
+      row.total += Math.round(openTtc)
+      row.invoices.push({ date: dateStr, label: me.label || client, debit: openTtc, credit: 0, piece, age, bucket: getBucket(age) })
+      row.entries.push([dateStr, me.label || client, openTtc, 0, piece, 0, '', me.invoice_url || ''])
       row.nbInvoices += 1
       if (!row.oldest || (dateStr && dateStr < row.oldest)) { row.oldest = dateStr; row.oldestDays = ageDays(dateStr); row.bk = getBucket(row.oldestDays) }
     }
