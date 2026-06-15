@@ -52,14 +52,19 @@ export function Objectifs() {
 
   // Édition inline du taux par société (string pour gérer "" pendant la saisie)
   const [edits, setEdits] = useState<Record<string, string>>({})
+  // Édition inline des heures facturables / an
+  const [hours, setHours] = useState<Record<string, string>>({})
 
   useEffect(() => {
     const init: Record<string, string> = {}
+    const initH: Record<string, string> = {}
     for (const co of selCo) {
       const o = objByCompany[co]
-      init[co] = o?.target_margin_rate != null ? String(o.target_margin_rate) : ''
+      init[co]  = o?.target_margin_rate != null ? String(o.target_margin_rate) : ''
+      initH[co] = o?.billable_hours != null ? String(o.billable_hours) : ''
     }
     setEdits(init)
+    setHours(initH)
   }, [selCo.join(','), objData])
 
   const saveRate = async (co: string) => {
@@ -68,6 +73,14 @@ export function Objectifs() {
     if (rate != null && !isFinite(rate)) return
     try { await upsert(co, { target_margin_rate: rate }) }
     catch (err) { console.error('[objectifs] save error:', err) }
+  }
+
+  const saveHours = async (co: string) => {
+    const val = (hours[co] ?? '').trim()
+    const h = val === '' ? null : parseFloat(val.replace(',', '.'))
+    if (h != null && !isFinite(h)) return
+    try { await upsert(co, { billable_hours: h }) }
+    catch (err) { console.error('[objectifs] save hours error:', err) }
   }
 
   // ── Calculs par société ──────────────────────────────────────────────
@@ -83,6 +96,13 @@ export function Objectifs() {
 
       const objVentesAn  = taux > 0 ? Math.round(depenses / taux) : 0
       const objAchatsAn  = Math.max(0, objVentesAn - depenses)
+
+      // Coût horaire (solopreneurs / prestataires) — uniquement si heures renseignées
+      const editedH = parseFloat((hours[co] ?? '').replace(',', '.'))
+      const storedH = objByCompany[co]?.billable_hours
+      const billableHours = isFinite(editedH) ? editedH : (storedH ?? 0)
+      const coutHoraireRevient = billableHours > 0 ? Math.round(depenses / billableHours) : 0
+      const tauxHoraireCible   = billableHours > 0 ? Math.round(objVentesAn / billableHours) : 0
 
       const realVentes = sumAccs(RAW, [co], 'pn', msN, CA_PREFIXES)
       const realAchats = sumAccs(RAW, [co], 'pn', msN, ACHATS_PREFIXES, true)
@@ -105,10 +125,13 @@ export function Objectifs() {
         avancementV:   objVentesAn > 0 ? realVentes / objVentesAn : 0,
         avancementA:   objAchatsAn > 0 ? realAchats / objAchatsAn : 0,
         ecart:         realVentes - objVentesAn,
+        billableHours,
+        coutHoraireRevient,
+        tauxHoraireCible,
       }
     }
     return r
-  }, [RAW, selCo.join(','), msN.join(','), budData, edits, objByCompany])
+  }, [RAW, selCo.join(','), msN.join(','), budData, edits, hours, objByCompany])
 
   if (!RAW) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:256, fontSize:13, color:'var(--text-2)' }}>
@@ -205,6 +228,41 @@ export function Objectifs() {
                 Taux réel N : <span style={{ color: realColor, fontWeight:700 }}>
                   {d.realVentes > 0 ? `${realRatePct}%` : '—'}
                 </span>
+              </div>
+
+              {/* Coût horaire — solopreneurs / prestataires de services */}
+              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize:10, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:6, display:'flex', alignItems:'center', gap:5 }}>
+                  ⏱ Coût horaire
+                  <span style={{ textTransform:'none', letterSpacing:0, color:'#64748b' }}>(prestations)</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#94a3b8', marginBottom:8 }}>
+                  <span>Heures facturables / an</span>
+                  <input
+                    type="number" step="1" min="0"
+                    value={hours[co] ?? ''}
+                    onChange={e => setHours(p => ({ ...p, [co]: e.target.value }))}
+                    onBlur={() => saveHours(co)}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                    placeholder="ex : 1200"
+                    style={{ flex:1, minWidth:0, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, color:'#cbd5e1', fontSize:12, padding:'4px 8px', outline:'none', textAlign:'right', fontFamily:'monospace' }} />
+                </div>
+                {d.billableHours > 0 ? (
+                  <div style={{ display:'grid', gap:6 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.15)', borderRadius:6 }}>
+                      <span style={{ fontSize:10.5, color:'#94a3b8' }} title="Dépenses fixes / heures facturables — seuil pour couvrir vos charges">Coût de revient</span>
+                      <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:'#fca5a5' }}>{fmt(d.coutHoraireRevient)} €/h</span>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:`${color}12`, border:`1px solid ${color}33`, borderRadius:6 }}>
+                      <span style={{ fontSize:10.5, color:'#94a3b8' }} title="Objectif de ventes / heures facturables — taux pour atteindre votre marge cible">Taux horaire cible</span>
+                      <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color }}>{fmt(d.tauxHoraireCible)} €/h</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontSize:10, color:'#64748b', fontStyle:'italic' }}>
+                    Renseignez vos heures facturables pour calculer votre taux horaire.
+                  </div>
+                )}
               </div>
             </div>
           )
