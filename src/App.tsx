@@ -15,6 +15,7 @@ import { Equilibre }        from '@/modules/equilibre/Equilibre'
 import { Objectifs }        from '@/modules/objectifs/Objectifs'
 import { Bilan }            from '@/modules/bilan/Bilan'
 import { Ratios }           from '@/modules/ratios/Ratios'
+import { Tva }              from '@/modules/tva/Tva'
 import { Import }           from '@/modules/import/Import'
 import { Budget }           from '@/modules/budget/Budget'
 import { Saisie }           from '@/modules/saisie/Saisie'
@@ -149,6 +150,7 @@ function AppInner() {
       objectifs:      ['Objectifs',       <Objectifs />],
       bilan:          ['Bilan',           <Bilan />],
       ratios:         ['Ratios',          <Ratios />],
+      tva:            ['TVA',             <Tva />],
       import:         ['Import',          <Import />],
       budget:         ['Budget',          <Budget />],
       saisie:         ['Saisie',          <Saisie />],

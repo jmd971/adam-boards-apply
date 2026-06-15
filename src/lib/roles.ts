@@ -3,7 +3,7 @@ import type { TabId } from '@/types'
 export type Role = 'superadmin' | 'admin' | 'comptable' | 'viewer'
 
 const ADMIN_TABS: TabId[] = [
-  'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
+  'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios', 'tva',
   'import', 'budget', 'saisie', 'tresorerie', 'verification', 'creances',
   'complementaire', 'rapprochement', 'depot', 'aide', 'ventes', 'parametres',
 ]
@@ -14,12 +14,12 @@ const ROLE_TABS: Record<Role, TabId[]> = {
   superadmin: ADMIN_TABS,
   admin:      ADMIN_TABS,
   comptable: [
-    'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios',
+    'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios', 'tva',
     'budget', 'saisie', 'tresorerie', 'creances', 'complementaire',
     'rapprochement', 'depot', 'aide', 'ventes',
   ],
   viewer: [
-    'dashboard', 'cr', 'sig', 'equilibre', 'bilan', 'ratios',
+    'dashboard', 'cr', 'sig', 'equilibre', 'bilan', 'ratios', 'tva',
     'complementaire', 'aide', 'ventes',
   ],
 }

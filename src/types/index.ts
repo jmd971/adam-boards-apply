@@ -267,7 +267,7 @@ export interface PrevRow {
 
 export type TabId =
   | 'dashboard'
-  | 'cr' | 'sig' | 'equilibre' | 'objectifs' | 'bilan' | 'ratios'
+  | 'cr' | 'sig' | 'equilibre' | 'objectifs' | 'bilan' | 'ratios' | 'tva'
   | 'import' | 'budget' | 'saisie' | 'verification' | 'complementaire'
   | 'tresorerie' | 'creances' | 'rapprochement' | 'depot' | 'aide' | 'ventes' | 'parametres'
 
