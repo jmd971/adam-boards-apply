@@ -44,7 +44,7 @@ export function useCompanyData() {
       const fiscalSettings: Record<string, number> = {}
       const vatSettings: Record<string, { enabled: boolean; rates: Record<string, number> }> = {}
       const forecastSettings: Record<string, { delaiClient: number; delaiFourn: number; remb: number; soldeInitial: number }> = {}
-      for (const r of (csRes.data ?? []) as Array<{ company_key: string; fiscal_year_start_month: number; vat_enabled?: boolean; vat_rates?: Record<string, number> | null }>) {
+      for (const r of (csRes.data ?? []) as Array<{ company_key: string; fiscal_year_start_month: number; vat_enabled?: boolean; vat_rates?: Record<string, number> | null; forecast_params?: Record<string, number> | null }>) {
         fiscalSettings[r.company_key] = r.fiscal_year_start_month
         vatSettings[r.company_key] = { enabled: !!r.vat_enabled, rates: r.vat_rates ?? {} }
         const fp = (r.forecast_params ?? {}) as any
