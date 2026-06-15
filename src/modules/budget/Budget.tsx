@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useAppStore } from '@/store'
 import { fmt, pct, fiscalIndex } from '@/lib/calc'
 import { sb } from '@/lib/supabase'
@@ -586,6 +586,54 @@ export function Budget() {
     setFillModal(null)
   }
 
+  // ── Sous-comptes : un compte parent peut être détaillé en sous-lignes nommées.
+  // Le b[] du parent = somme des enfants → l'aval (trésorerie/dashboard/objectifs)
+  // continue de lire bv.b sans rien savoir des sous-comptes (zéro régression).
+  const sumChildren = (children: any[]): number[] => {
+    const b = Array(12).fill(0)
+    for (const ch of children) (ch.b ?? []).forEach((v: number, i: number) => { b[i] += v || 0 })
+    return b
+  }
+  const commitData = (newData: Record<string, any>) => {
+    setBudVersions(budVersions.map(v =>
+      v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newData } : v))
+    setBudData({ ...budData, [budCo]: newData } as any)
+  }
+  // Ajouter un sous-compte. Le 1er enfant reprend les montants actuels du parent
+  // (le total ne tombe pas à 0) ; les suivants démarrent à 0.
+  const addChild = (acc: string) => {
+    const cur = coBud[acc]; if (!cur) return
+    const children = [...(cur.children ?? [])]
+    const isFirst = children.length === 0
+    const childB = isFirst ? [...(cur.b ?? Array(12).fill(0))] : Array(12).fill(0)
+    children.push({ name: '', b: childB })
+    commitData({ ...coBud, [acc]: { ...cur, children, b: sumChildren(children) } })
+  }
+  const handleChildCell = (acc: string, ci: number, fi: number, val: string) => {
+    const num = parseFloat(val.replace(',', '.')) || 0
+    const cur = coBud[acc]; if (!cur?.children) return
+    const children = cur.children.map((ch: any, i: number) => {
+      if (i !== ci) return ch
+      const b = [...(ch.b ?? Array(12).fill(0))]; b[fi] = num
+      return { ...ch, b }
+    })
+    commitData({ ...coBud, [acc]: { ...cur, children, b: sumChildren(children) } })
+  }
+  const renameChild = (acc: string, ci: number, name: string) => {
+    const cur = coBud[acc]; if (!cur?.children) return
+    const children = cur.children.map((ch: any, i: number) => i === ci ? { ...ch, name } : ch)
+    commitData({ ...coBud, [acc]: { ...cur, children } })
+  }
+  const removeChild = (acc: string, ci: number) => {
+    const cur = coBud[acc]; if (!cur?.children) return
+    const children = cur.children.filter((_: any, i: number) => i !== ci)
+    // Plus d'enfant → le compte redevient éditable directement, b conservé (dernière somme).
+    const next = children.length > 0
+      ? { ...cur, children, b: sumChildren(children) }
+      : (() => { const { children: _drop, ...rest } = cur; return rest })()
+    commitData({ ...coBud, [acc]: next })
+  }
+
   const handleSave = async () => {
     if (!selVersion) return
     setSaving(true)
@@ -976,22 +1024,28 @@ export function Budget() {
                     <tbody>
                       {accounts.map(([acc, v]) => {
                         const bv = v as any
+                        const children = (bv.children ?? []) as any[]
+                        const hasChildren = children.length > 0
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
+                        const inputBase: React.CSSProperties = { width:66, padding:'3px 4px', textAlign:'right', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, fontSize:11, fontFamily:'monospace', outline:'none' }
                         return (
-                          <tr key={acc} style={{ borderBottom:'1px solid rgba(255,255,255,0.025)' }}>
+                          <Fragment key={acc}>
+                          <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
                             <td style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
                               <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
                               <span>{bv.l}</span>
-                              <button onClick={() => openFillModal(acc)}
-                                title="Recopier un montant sur plusieurs mois"
-                                style={{
-                                  marginLeft: 8, background:'transparent',
-                                  border:'1px solid rgba(255,255,255,0.08)',
-                                  color:'#64748b', cursor:'pointer', fontSize: 10,
-                                  padding:'1px 7px', borderRadius: 5,
-                                }}>
-                                ↻ Recopier
+                              {!hasChildren && (
+                                <button onClick={() => openFillModal(acc)}
+                                  title="Recopier un montant sur plusieurs mois"
+                                  style={{ marginLeft: 8, background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
+                                  ↻ Recopier
+                                </button>
+                              )}
+                              <button onClick={() => addChild(acc)}
+                                title="Ajouter un sous-compte (ex : OpenAI, Claude…)"
+                                style={{ marginLeft: 6, background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
+                                ＋ sous-compte
                               </button>
                             </td>
                             <td style={{ padding:'3px 8px', textAlign:'center' }}>
@@ -1003,20 +1057,45 @@ export function Budget() {
                             </td>
                             {Array(12).fill(0).map((_, fi) => (
                               <td key={fi} style={{ padding:'2px 2px' }}>
-                                <input
-                                  type="number" value={bv.b?.[fi] ?? 0}
-                                  onChange={e => handleCell(acc, fi, e.target.value)}
-                                  style={{ width:66, padding:'3px 4px', textAlign:'right',
-                                    background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)',
-                                    borderRadius:4, color: isCharge ? '#fca5a5':'#6ee7b7',
-                                    fontSize:11, fontFamily:'monospace', outline:'none' }}
-                                />
+                                {hasChildren ? (
+                                  <div style={{ ...inputBase, color:'#8b5cf6', background:'transparent', border:'1px solid transparent' }}>
+                                    {fmt(bv.b?.[fi] ?? 0)}
+                                  </div>
+                                ) : (
+                                  <input type="number" value={bv.b?.[fi] ?? 0}
+                                    onChange={e => handleCell(acc, fi, e.target.value)}
+                                    style={{ ...inputBase, color: isCharge ? '#fca5a5':'#6ee7b7' }} />
+                                )}
                               </td>
                             ))}
                             <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600 }}>
                               {fmt(total)}
                             </td>
                           </tr>
+                          {children.map((ch, ci) => (
+                            <tr key={ci} style={{ borderBottom: ci === children.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none', background:'rgba(139,92,246,0.03)' }}>
+                              <td style={{ padding:'2px 12px 2px 28px', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                                <span style={{ color:'#a78bfa', marginRight:6, fontSize:11 }}>└</span>
+                                <input type="text" value={ch.name} placeholder="Sous-compte (ex : OpenAI)"
+                                  onChange={e => renameChild(acc, ci, e.target.value)}
+                                  style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', width:150 }} />
+                                <button onClick={() => removeChild(acc, ci)} title="Supprimer ce sous-compte"
+                                  style={{ marginLeft:6, background:'transparent', border:'none', color:'#64748b', cursor:'pointer', fontSize:11 }}>✕</button>
+                              </td>
+                              <td />
+                              {Array(12).fill(0).map((_, fi) => (
+                                <td key={fi} style={{ padding:'2px 2px' }}>
+                                  <input type="number" value={ch.b?.[fi] ?? 0}
+                                    onChange={e => handleChildCell(acc, ci, fi, e.target.value)}
+                                    style={{ ...inputBase, color: isCharge ? '#fca5a5':'#6ee7b7' }} />
+                                </td>
+                              ))}
+                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8', fontSize:10 }}>
+                                {fmt((ch.b ?? []).reduce((s: number, x: number) => s + (x||0), 0))}
+                              </td>
+                            </tr>
+                          ))}
+                          </Fragment>
                         )
                       })}
                     </tbody>

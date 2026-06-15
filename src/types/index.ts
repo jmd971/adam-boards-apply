@@ -217,9 +217,12 @@ export interface BudgetData {
 }
 
 export interface BudgetAccount {
-  b: number[]   // 12 mois
+  b: number[]   // 12 mois (si children : somme des sous-comptes)
   t: 'c' | 'p' // charge ou produit
   l: string     // libellé
+  /** Sous-comptes nommés (ex : OpenAI, Claude sous « Abonnements logiciels »).
+   *  Le b[] du parent = somme des children. L'aval lit toujours b (total). */
+  children?: { name: string; b: number[] }[]
 }
 
 // ─── Clients / VE ──────────────────────────────────────────────────────────
