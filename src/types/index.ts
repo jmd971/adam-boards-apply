@@ -223,6 +223,8 @@ export interface BudgetAccount {
   /** Sous-comptes nommés (ex : OpenAI, Claude sous « Abonnements logiciels »).
    *  Le b[] du parent = somme des children. L'aval lit toujours b (total). */
   children?: { name: string; b: number[] }[]
+  /** Commentaire / hypothèse documentant le montant budgété (ex : « +3% indexation »). */
+  note?: string
 }
 
 // ─── Clients / VE ──────────────────────────────────────────────────────────

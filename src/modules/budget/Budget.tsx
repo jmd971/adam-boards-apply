@@ -448,6 +448,7 @@ export function Budget() {
     freq: number
     resetOthers: boolean
   } | null>(null)
+  const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -632,6 +633,16 @@ export function Budget() {
       ? { ...cur, children, b: sumChildren(children) }
       : (() => { const { children: _drop, ...rest } = cur; return rest })()
     commitData({ ...coBud, [acc]: next })
+  }
+
+  const saveNote = () => {
+    if (!noteModal) return
+    const { acc, text } = noteModal
+    const cur = coBud[acc]; if (!cur) { setNoteModal(null); return }
+    const t = text.trim()
+    const next = t ? { ...cur, note: t } : (() => { const { note: _d, ...rest } = cur; return rest })()
+    commitData({ ...coBud, [acc]: next })
+    setNoteModal(null)
   }
 
   const handleSave = async () => {
@@ -1047,6 +1058,16 @@ export function Budget() {
                                 style={{ marginLeft: 6, background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
                                 ＋ sous-compte
                               </button>
+                              <button onClick={() => setNoteModal({ acc, text: bv.note ?? '' })}
+                                title={bv.note ? bv.note : 'Ajouter une hypothèse / un commentaire'}
+                                style={{ marginLeft: 6, background: bv.note ? 'rgba(245,158,11,0.12)' : 'transparent', border:`1px solid ${bv.note ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: bv.note ? '#f59e0b' : '#64748b', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
+                                {bv.note ? '💬 hypothèse' : '💬'}
+                              </button>
+                              {bv.note && (
+                                <span style={{ marginLeft:8, fontSize:10, color:'#f59e0b', fontStyle:'italic', opacity:0.85 }} title={bv.note}>
+                                  {bv.note.length > 60 ? bv.note.slice(0, 60) + '…' : bv.note}
+                                </span>
+                              )}
                             </td>
                             <td style={{ padding:'3px 8px', textAlign:'center' }}>
                               <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10,
@@ -1277,6 +1298,36 @@ export function Budget() {
           </div>
         )
       })()}
+
+      {noteModal && (
+        <div onClick={() => setNoteModal(null)}
+          style={{ position:'fixed', inset: 0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex: 100 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'#0a0f1a', borderRadius: 14, padding: '22px 26px', minWidth: 480, maxWidth: 560, border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color:'#f1f5f9', marginBottom: 4 }}>
+              Hypothèse / commentaire
+            </div>
+            <div style={{ fontSize: 11, color:'#64748b', fontFamily:'monospace', marginBottom: 16 }}>
+              {noteModal.acc} — {(coBud[noteModal.acc] as any)?.l ?? ''}
+            </div>
+            <textarea autoFocus value={noteModal.text}
+              onChange={e => setNoteModal(m => m && { ...m, text: e.target.value })}
+              placeholder="Ex : Loyer +3% indexation · CA +10% vs N-1 · prestation ponctuelle non reconduite…"
+              rows={5}
+              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#cbd5e1', fontSize:12, padding:'10px 12px', outline:'none', resize:'vertical', fontFamily:'inherit', lineHeight:1.6 }} />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
+              <button onClick={() => setNoteModal(null)}
+                style={{ padding:'6px 14px', borderRadius: 8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize: 12, cursor:'pointer' }}>
+                Annuler
+              </button>
+              <button onClick={saveNote}
+                style={{ padding:'6px 14px', borderRadius: 8, background:'rgba(245,158,11,0.2)', border:'1px solid rgba(245,158,11,0.4)', color:'#f59e0b', fontSize: 12, fontWeight: 700, cursor:'pointer' }}>
+                ✓ Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
