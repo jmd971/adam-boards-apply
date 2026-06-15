@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react'
-import { useAppStore } from '@/store'
+import React, { useMemo, useState, useEffect } from 'react'
+import { useAppStore, useTenantId } from '@/store'
+import { sb } from '@/lib/supabase'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
 import { ENC_CATS, DEC_CATS, catOf, vatRateForAccount } from '@/lib/tresoCats'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
@@ -46,12 +47,19 @@ export function Tresorerie() {
   const manualEntries = useAppStore(s => s.manualEntries)
   const budData       = useAppStore(s => s.budData)
   const vatSettings   = useAppStore(s => s.vatSettings)
+  const forecastSettings = useAppStore(s => s.forecastSettings)
+  const setForecastSettings = useAppStore(s => s.setForecastSettings)
+  const tenantId      = useTenantId()
   const { selectedMs } = usePeriodFilter()
 
   const [view,     setView]     = useState<'realise'|'prev'>('realise')
   const [expanded, setExpanded] = useState<Record<string,boolean>>({})
   const [modal,    setModal]    = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
-  const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number;soldeInitial:number}>>({})
+  const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number;soldeInitial:number}>>(forecastSettings)
+  const [savingParams, setSavingParams] = useState(false)
+  const [paramsMsg, setParamsMsg] = useState<string|null>(null)
+  // Recharger les paramètres persistés quand ils arrivent du store (chargement async)
+  useEffect(() => { setParams(forecastSettings) }, [forecastSettings])
   const { data: bank } = useBankAccounts()
   // Solde initial du forecast : la somme des comptes bancaires saisis prime sur la
   // valeur manuelle "Solde initial" (rétro-compat) → fallback à 0 si aucun des deux.
@@ -68,6 +76,34 @@ export function Tresorerie() {
   const months = selectedMs
 
   const getP = (co: string) => params[co] ?? { delaiClient:45, delaiFourn:30, remb:0, soldeInitial:0 }
+
+  // Sauvegarde des paramètres prévisionnels par société (company_settings.forecast_params).
+  // upsert sur (tenant_id, company_key) : company_settings a déjà une ligne par société
+  // (exercice fiscal / TVA) — on ne fait que poser le JSON forecast_params.
+  const saveParams = async () => {
+    if (!tenantId) return
+    setSavingParams(true)
+    try {
+      const rows = selCo.map(co => ({
+        tenant_id: tenantId,
+        company_key: co,
+        forecast_params: getP(co),
+      }))
+      const { error } = await sb.from('company_settings')
+        .upsert(rows, { onConflict: 'tenant_id,company_key' })
+      if (error) throw error
+      // Mettre à jour le store pour cohérence immédiate dans toute l'app
+      const next = { ...forecastSettings }
+      for (const co of selCo) next[co] = getP(co)
+      setForecastSettings(next)
+      setParamsMsg('✅ Paramètres enregistrés')
+    } catch (e: any) {
+      setParamsMsg('❌ ' + (e?.message || 'Erreur'))
+    } finally {
+      setSavingParams(false)
+      setTimeout(() => setParamsMsg(null), 3000)
+    }
+  }
 
   // ── Données réalisées (cash réel) ──────────────────────────────────────
   // Source = mouvements de trésorerie reconstruits du FEC (cashN, classe 5, TTC), groupés
@@ -529,9 +565,16 @@ export function Tresorerie() {
                 ⚙️ Paramètres
               </div>
               {paramsOpen && (
-                <button onClick={e=>{e.stopPropagation();setShowHelp(h=>!h)}} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
-                  {showHelp?'▾':'▸'} Comment ça marche ?
-                </button>
+                <div style={{display:'flex',alignItems:'center',gap:10}} onClick={e=>e.stopPropagation()}>
+                  {paramsMsg && <span style={{fontSize:10,color:paramsMsg.startsWith('✅')?'var(--green)':'var(--red)'}}>{paramsMsg}</span>}
+                  <button onClick={()=>setShowHelp(h=>!h)} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
+                    {showHelp?'▾':'▸'} Comment ça marche ?
+                  </button>
+                  <button onClick={saveParams} disabled={savingParams}
+                    style={{fontSize:10,fontWeight:700,color:'#93c5fd',background:'rgba(59,130,246,0.15)',border:'1px solid rgba(59,130,246,0.3)',cursor:savingParams?'default':'pointer',padding:'3px 12px',borderRadius:5}}>
+                    {savingParams?'Enregistrement…':'💾 Enregistrer'}
+                  </button>
+                </div>
               )}
             </div>
             {paramsOpen && (<>

@@ -15,6 +15,7 @@ export function useCompanyData() {
   const setBudVersions  = useAppStore(s => s.setBudVersions)
   const setFiscalSettings = useAppStore(s => s.setFiscalSettings)
   const setVatSettings  = useAppStore(s => s.setVatSettings)
+  const setForecastSettings = useAppStore(s => s.setForecastSettings)
   const setDataLoading  = useAppStore(s => s.setDataLoading)
   const setFilters      = useAppStore(s => s.setFilters)
 
@@ -42,9 +43,19 @@ export function useCompanyData() {
 
       const fiscalSettings: Record<string, number> = {}
       const vatSettings: Record<string, { enabled: boolean; rates: Record<string, number> }> = {}
+      const forecastSettings: Record<string, { delaiClient: number; delaiFourn: number; remb: number; soldeInitial: number }> = {}
       for (const r of (csRes.data ?? []) as Array<{ company_key: string; fiscal_year_start_month: number; vat_enabled?: boolean; vat_rates?: Record<string, number> | null }>) {
         fiscalSettings[r.company_key] = r.fiscal_year_start_month
         vatSettings[r.company_key] = { enabled: !!r.vat_enabled, rates: r.vat_rates ?? {} }
+        const fp = (r.forecast_params ?? {}) as any
+        if (fp && Object.keys(fp).length > 0) {
+          forecastSettings[r.company_key] = {
+            delaiClient:  Number(fp.delaiClient)  || 0,
+            delaiFourn:   Number(fp.delaiFourn)   || 0,
+            remb:         Number(fp.remb)         || 0,
+            soldeInitial: Number(fp.soldeInitial) || 0,
+          }
+        }
       }
 
       return {
@@ -53,6 +64,7 @@ export function useCompanyData() {
         manualEntries: (meRes.data ?? []) as ManualEntry[],
         fiscalSettings,
         vatSettings,
+        forecastSettings,
       }
     },
     staleTime: 5 * 60 * 1000,
@@ -68,12 +80,13 @@ export function useCompanyData() {
       return
     }
 
-    const { companyData = [], budgets = [], manualEntries = [], fiscalSettings = {}, vatSettings = {} } = query.data ?? {}
+    const { companyData = [], budgets = [], manualEntries = [], fiscalSettings = {}, vatSettings = {}, forecastSettings = {} } = query.data ?? {}
     const raw = buildRAW(companyData, budgets as any, manualEntries, fiscalSettings)
     setRAW(raw)
     setManualEntries(manualEntries)
     setFiscalSettings(fiscalSettings)
     setVatSettings(vatSettings)
+    setForecastSettings(forecastSettings)
 
     const bd: Record<string, any> = {}
     const bs: Record<string, string> = {}
