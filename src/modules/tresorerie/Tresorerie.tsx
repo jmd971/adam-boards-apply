@@ -4,6 +4,7 @@ import { sb } from '@/lib/supabase'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
 import { ENC_CATS, DEC_CATS, catOf, vatRateForAccount } from '@/lib/tresoCats'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
+import { useEffectiveBudData } from '@/hooks/useEffectiveBudData'
 import { KpiCard, EcrituresModal } from '@/components/ui'
 import { BankAccountsPanel } from './BankAccountsPanel'
 import { useBankAccounts } from './useBankAccounts'
@@ -45,7 +46,7 @@ export function Tresorerie() {
   const RAW           = useAppStore(s => s.RAW)
   const filters       = useAppStore(s => s.filters)
   const manualEntries = useAppStore(s => s.manualEntries)
-  const budData       = useAppStore(s => s.budData)
+  const budData       = useEffectiveBudData()  // respecte la version sélectionnée dans la TopBar
   const vatSettings   = useAppStore(s => s.vatSettings)
   const forecastSettings = useAppStore(s => s.forecastSettings)
   const setForecastSettings = useAppStore(s => s.setForecastSettings)
@@ -67,6 +68,7 @@ export function Tresorerie() {
     (bank?.sumByCompany?.[co] ?? params[co]?.soldeInitial ?? 0)
   const [secOpen,     setSecOpen]     = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
   const [paramsOpen,  setParamsOpen]  = useState(true)
+  const [prevSrc,     setPrevSrc]     = useState<{echeance:boolean;budget:boolean}>({ echeance:true, budget:true })
   const [prevRowOpen, setPrevRowOpen] = useState<Record<string,boolean>>({})
   const [dayRowOpen, setDayRowOpen]   = useState<Record<string,boolean>>({})
   const [showHelp,    setShowHelp]    = useState(false)
@@ -253,7 +255,8 @@ export function Tresorerie() {
     let cum = selCo.reduce((s, co) => s + soldeInitialPerCo(co), 0)
     return forecastMs.map((m,mi) => {
       let enc=0, dec=0
-      for (const co of selCo) {
+      // Source « Prévisionnel budget » (case à cocher) — budget de la version active
+      if (prevSrc.budget) for (const co of selCo) {
         const bd=(budData as any)[co]??{}, p=getP(co)
         const vat = vatSettings[co]
         const dC=Math.max(0,Math.round(p.delaiClient/30)), dF=Math.max(0,Math.round(p.delaiFourn/30))
@@ -268,9 +271,8 @@ export function Tresorerie() {
         }
         dec+=p.remb
       }
-      // Saisies manuelles : échéanciers et paiements ponctuels tombant ce mois prévisionnel
-      // Uniquement les mois qui ne sont PAS déjà dans le réalisé (évite le double comptage).
-      if (!realisedMonthsSet.has(m)) {
+      // Source « Échéances à venir » (case à cocher) — saisies manuelles, mois hors réalisé.
+      if (prevSrc.echeance && !realisedMonthsSet.has(m)) {
         for (const me of manualEntries) {
           if (!selCo.includes(me.company_key)) continue
           // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
@@ -306,7 +308,7 @@ export function Tresorerie() {
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
-  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(','), prevSrc])
 
   // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
   const forecastDetail = useMemo(() => {
@@ -318,7 +320,7 @@ export function Tresorerie() {
     const realisedMonthsSet = new Set(months)
     for (let mi = 0; mi < forecastMs.length; mi++) {
       const m = forecastMs[mi]
-      for (const co of selCo) {
+      if (prevSrc.budget) for (const co of selCo) {
         const bd = (budData as any)[co] ?? {}, p = getP(co)
         const vat = vatSettings[co]
         const dC = Math.max(0, Math.round(p.delaiClient/30))
@@ -346,9 +348,8 @@ export function Tresorerie() {
           dec[k].vals[mi] += Math.round(p.remb)
         }
       }
-      // Saisies manuelles (échéanciers + paiements ponctuels) : même filtre que les totaux
-      // → uniquement les mois hors réalisé, pour éviter le double comptage.
-      if (!realisedMonthsSet.has(m)) {
+      // Saisies manuelles (échéances) — case « Échéances à venir », mois hors réalisé.
+      if (prevSrc.echeance && !realisedMonthsSet.has(m)) {
         for (const me of manualEntries) {
           if (!selCo.includes(me.company_key)) continue
           // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
@@ -398,7 +399,7 @@ export function Tresorerie() {
       }
     }
     return { enc, dec }
-  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(','), prevSrc])
 
   // ── Vue journalière ────────────────────────────────────────────────────
   const dayForecast = useMemo(() => {
@@ -610,7 +611,21 @@ export function Tresorerie() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
               <thead>
                 <tr style={{background:'var(--bg-1)'}}>
-                  <th style={{...thSt,textAlign:'left',minWidth:200,paddingLeft:12}}>Poste</th>
+                  <th style={{...thSt,textAlign:'left',minWidth:200,paddingLeft:12}}>
+                    <div>Poste</div>
+                    <div style={{display:'flex',gap:12,marginTop:5,fontWeight:400,textTransform:'none',letterSpacing:0}}>
+                      <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:10,color:'var(--text-2)'}}>
+                        <input type="checkbox" checked={prevSrc.echeance}
+                          onChange={e=>setPrevSrc(s=>({...s,echeance:e.target.checked}))} />
+                        Échéances à venir
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:10,color:'var(--text-2)'}}>
+                        <input type="checkbox" checked={prevSrc.budget}
+                          onChange={e=>setPrevSrc(s=>({...s,budget:e.target.checked}))} />
+                        Prévisionnel budget
+                      </label>
+                    </div>
+                  </th>
                   {forecast.map(r=><th key={r.month} style={{...thSt,minWidth:65}}>{r.month}</th>)}
                   <th style={{...thSt,color:'var(--blue)',minWidth:85}}>Total</th>
                 </tr>
