@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Fragment } from 'react'
+import { pcgLabel } from '@/lib/pcg'
 import { useAppStore } from '@/store'
-import { fmt, pct, fiscalIndex, mergeEntries } from '@/lib/calc'
-import { EcrituresModal } from '@/components/ui'
+import { fmt, pct, fiscalIndex } from '@/lib/calc'
 import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
@@ -75,16 +75,9 @@ const PRESETS: Scenario[] = [
 
 interface WhatIfProps {
   coBud: Record<string, any>
-  startMonth?: number
 }
 
-function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
-  // Ordre d'affichage des mois selon le début d'exercice fiscal
-  // ex: startMonth=10 → [9, 10, 11, 0, 1, 2, 3, 4, 5, 6, 7, 8] (Oct en premier)
-  const fiscalOrder = useMemo(
-    () => Array(12).fill(0).map((_, d) => (startMonth - 1 + d) % 12),
-    [startMonth]
-  )
+function WhatIfPanel({ coBud }: WhatIfProps) {
   const [caVar, setCaVar]       = useState(0)
   const [achVar, setAchVar]     = useState(0)
   const [servVar, setServVar]   = useState(0)
@@ -186,7 +179,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
           <div style={{ fontSize: 13, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
             Simulation What-if
           </div>
-          <span style={{ fontSize: 10, color: '#94a3b8', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10 }}>
+          <span style={{ fontSize: 10, color: '#475569', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10 }}>
             Basé sur les données réelles du budget
           </span>
         </div>
@@ -250,7 +243,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
               style={{ flex: 1, accentColor: s.color, height: 4 }} />
             <span style={{
               fontSize: 12, fontFamily: 'monospace', fontWeight: 700, minWidth: 48, textAlign: 'right',
-              color: s.value > 0 ? '#10b981' : s.value < 0 ? '#ef4444' : '#94a3b8',
+              color: s.value > 0 ? '#10b981' : s.value < 0 ? '#ef4444' : '#475569',
             }}>
               {s.value > 0 ? '+' : ''}{s.value}%
             </span>
@@ -298,7 +291,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
               {isDirty && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 8, color: '#94a3b8', minWidth: 30 }}>Base</span>
+                    <span style={{ fontSize: 8, color: '#475569', minWidth: 30 }}>Base</span>
                     <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
                       <div style={{ width: `${baseW}%`, height: '100%', background: 'rgba(255,255,255,0.15)', borderRadius: 2 }} />
                     </div>
@@ -334,7 +327,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
             <span style={{ fontFamily: 'monospace', fontWeight: 700, marginLeft: 6, color: '#f59e0b' }}>
               {baseCa > 0 ? pct(baseEbe / baseCa) : '—'}
             </span>
-            <span style={{ color: '#94a3b8', margin: '0 6px' }}>→</span>
+            <span style={{ color: '#475569', margin: '0 6px' }}>→</span>
             <span style={{ fontFamily: 'monospace', fontWeight: 700, color: simEbe / simCa > baseEbe / baseCa ? '#10b981' : '#ef4444' }}>
               {simCa > 0 ? pct(simEbe / simCa) : '—'}
             </span>
@@ -344,7 +337,7 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
             <span style={{ fontFamily: 'monospace', fontWeight: 700, marginLeft: 6, color: '#3b82f6' }}>
               {baseCa > 0 ? pct(baseRe / baseCa) : '—'}
             </span>
-            <span style={{ color: '#94a3b8', margin: '0 6px' }}>→</span>
+            <span style={{ color: '#475569', margin: '0 6px' }}>→</span>
             <span style={{ fontFamily: 'monospace', fontWeight: 700, color: simRe / simCa > baseRe / baseCa ? '#10b981' : '#ef4444' }}>
               {simCa > 0 ? pct(simRe / simCa) : '—'}
             </span>
@@ -358,9 +351,9 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
             <thead>
               <tr style={{ background: '#080d1a' }}>
-                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#080d1a', zIndex: 2 }}>Indicateur</th>
-                {fiscalOrder.map(ai => (
-                  <th key={ai} style={{ padding: '6px 4px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{MONTHS_SHORT[ai]}</th>
+                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#080d1a', zIndex: 2 }}>Indicateur</th>
+                {MONTHS_SHORT.map(m => (
+                  <th key={m} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{m}</th>
                 ))}
                 <th style={{ padding: '6px 10px', textAlign: 'right', color: '#3b82f6', fontWeight: 700, minWidth: 80, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Total</th>
               </tr>
@@ -391,13 +384,12 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
                     }}>
                       {label}
                     </td>
-                    {fiscalOrder.map((ai) => {
-                      const m = simMonthly[ai]
+                    {simMonthly.map((m, i) => {
                       const val = m[key as keyof typeof m] ?? 0
-                      const base = baseMonthly[ai][key as keyof typeof baseMonthly[0]] ?? 0
+                      const base = baseMonthly[i][key as keyof typeof baseMonthly[0]] ?? 0
                       const diff = val - base
                       return (
-                        <td key={ai} style={{ padding: '4px 4px', textAlign: 'right', fontFamily: 'monospace' }}>
+                        <td key={i} style={{ padding: '4px 4px', textAlign: 'right', fontFamily: 'monospace' }}>
                           <div style={{ color: val < 0 ? '#ef4444' : color, fontWeight: isBold ? 600 : 400 }}>
                             {fmt(val)}
                           </div>
@@ -431,14 +423,13 @@ function WhatIfPanel({ coBud, startMonth = 1 }: WhatIfProps) {
 }
 
 export function Budget() {
-  const RAW            = useAppStore(s => s.RAW)
-  const filters        = useAppStore(s => s.filters)
-  const budData        = useAppStore(s => s.budData)
-  const setBudData     = useAppStore(s => s.setBudData)
-  const budVersions    = useAppStore(s => s.budVersions)
+  const RAW          = useAppStore(s => s.RAW)
+  const filters      = useAppStore(s => s.filters)
+  const budData      = useAppStore(s => s.budData)
+  const setBudData   = useAppStore(s => s.setBudData)
+  const budVersions  = useAppStore(s => s.budVersions)
   const setBudVersions = useAppStore(s => s.setBudVersions)
-  const tenantId       = useAppStore(s => s.tenantId)
-  const fiscalSettings = useAppStore(s => s.fiscalSettings)
+  const tenantId     = useAppStore(s => s.tenantId)
 
   const [budCo,        setBudCo]        = useState(filters.selCo[0] ?? '')
   const [selVersion,   setSelVersion]   = useState<string>('')
@@ -450,13 +441,15 @@ export function Budget() {
   const [showWhatIf,   setShowWhatIf]   = useState(false)
   const [newVersionName, setNewVersionName] = useState('')
   const [creating,     setCreating]     = useState(false)
-  // Ajout manuel d'un compte (hors FEC)
-  const [showAddAccount, setShowAddAccount] = useState(false)
-  // Détail des écritures réalisées pour un compte du budget (clic sur la ligne)
-  const [ecrModal, setEcrModal] = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
-  const [newAccNum,    setNewAccNum]    = useState('')
-  const [newAccLabel,  setNewAccLabel]  = useState('')
-  const [newAccType,   setNewAccType]   = useState<'c' | 'p'>('c')
+  const [fillModal,    setFillModal]    = useState<{
+    acc: string
+    amount: string
+    startM: number
+    count: number
+    freq: number
+    resetOthers: boolean
+  } | null>(null)
+  const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -480,14 +473,6 @@ export function Budget() {
   const coBud = useMemo(
     () => (budVersions.find(v => v.company_key === budCo && v.version_name === selVersion)?.data ?? {}) as Record<string, any>,
     [budVersions, budCo, selVersion]
-  )
-
-  // Exercice fiscal de la société sélectionnée
-  const startMonth  = fiscalSettings[budCo] ?? 1
-  // Ordre d'affichage des colonnes mois (calendaire si startMonth=1, sinon fiscal)
-  const fiscalOrder = useMemo(
-    () => Array(12).fill(0).map((_, d) => (startMonth - 1 + d) % 12),
-    [startMonth]
   )
 
   // ── Comparaison de versions (#7 bis) ─────────────────────────────────────
@@ -563,26 +548,102 @@ export function Budget() {
     setBudData({ ...budData, [budCo]: newData } as any)
   }
 
-  // Ajoute un compte manuel (hors FEC) au budget courant. Le compte est créé avec
-  // un tableau b[12]=0 — l'utilisateur saisit ensuite les montants mois par mois.
-  const handleAddAccount = () => {
-    const accNum = newAccNum.trim()
-    if (!accNum) { setMsg('❌ Numéro de compte requis'); setTimeout(() => setMsg(null), 3000); return }
-    if (!/^\d{3,}/.test(accNum)) { setMsg('❌ Le numéro de compte doit commencer par au moins 3 chiffres'); setTimeout(() => setMsg(null), 3000); return }
-    if (coBud[accNum]) { setMsg('❌ Compte déjà existant dans cette version'); setTimeout(() => setMsg(null), 3000); return }
-    const newAcc = { b: Array(12).fill(0), t: newAccType, l: newAccLabel.trim() || accNum }
-    const newData = { ...coBud, [accNum]: newAcc }
+  const computeFillPositions = (startM: number, count: number, freq: number): number[] => {
+    const positions: number[] = []
+    for (let i = 0; i < count; i++) {
+      const pos = startM + i * freq
+      if (pos >= 12) break
+      positions.push(pos)
+    }
+    return positions
+  }
+
+  const openFillModal = (acc: string) => {
+    const cur = coBud[acc] ?? { b: Array(12).fill(0) }
+    const firstNonZero = (cur.b ?? []).find((v: number) => v > 0) ?? 0
+    setFillModal({
+      acc,
+      amount: firstNonZero > 0 ? String(firstNonZero) : '',
+      startM: 0,
+      count: 12,
+      freq: 1,
+      resetOthers: false,
+    })
+  }
+
+  const applyFill = () => {
+    if (!fillModal) return
+    const { acc, amount, startM, count, freq, resetOthers } = fillModal
+    const num = parseFloat(amount.replace(',', '.')) || 0
+    const cur = coBud[acc] ?? { b: Array(12).fill(0), t: 'c', l: acc }
+    const newB = resetOthers ? Array(12).fill(0) : [...(cur.b ?? Array(12).fill(0))]
+    const positions = computeFillPositions(startM, count, freq)
+    for (const pos of positions) newB[pos] = num
+    const newData = { ...coBud, [acc]: { ...cur, b: newB } }
     const updated = budVersions.map(v =>
       v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newData } : v
     )
     setBudVersions(updated)
     setBudData({ ...budData, [budCo]: newData } as any)
-    setNewAccNum('')
-    setNewAccLabel('')
-    setNewAccType('c')
-    setShowAddAccount(false)
-    setMsg('✅ Compte ajouté — pensez à saisir les montants puis sauvegarder')
-    setTimeout(() => setMsg(null), 4000)
+    setFillModal(null)
+  }
+
+  // ── Sous-comptes : un compte parent peut être détaillé en sous-lignes nommées.
+  // Le b[] du parent = somme des enfants → l'aval (trésorerie/dashboard/objectifs)
+  // continue de lire bv.b sans rien savoir des sous-comptes (zéro régression).
+  const sumChildren = (children: any[]): number[] => {
+    const b = Array(12).fill(0)
+    for (const ch of children) (ch.b ?? []).forEach((v: number, i: number) => { b[i] += v || 0 })
+    return b
+  }
+  const commitData = (newData: Record<string, any>) => {
+    setBudVersions(budVersions.map(v =>
+      v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newData } : v))
+    setBudData({ ...budData, [budCo]: newData } as any)
+  }
+  // Ajouter un sous-compte. Le 1er enfant reprend les montants actuels du parent
+  // (le total ne tombe pas à 0) ; les suivants démarrent à 0.
+  const addChild = (acc: string) => {
+    const cur = coBud[acc]; if (!cur) return
+    const children = [...(cur.children ?? [])]
+    const isFirst = children.length === 0
+    const childB = isFirst ? [...(cur.b ?? Array(12).fill(0))] : Array(12).fill(0)
+    children.push({ name: '', b: childB })
+    commitData({ ...coBud, [acc]: { ...cur, children, b: sumChildren(children) } })
+  }
+  const handleChildCell = (acc: string, ci: number, fi: number, val: string) => {
+    const num = parseFloat(val.replace(',', '.')) || 0
+    const cur = coBud[acc]; if (!cur?.children) return
+    const children = cur.children.map((ch: any, i: number) => {
+      if (i !== ci) return ch
+      const b = [...(ch.b ?? Array(12).fill(0))]; b[fi] = num
+      return { ...ch, b }
+    })
+    commitData({ ...coBud, [acc]: { ...cur, children, b: sumChildren(children) } })
+  }
+  const renameChild = (acc: string, ci: number, name: string) => {
+    const cur = coBud[acc]; if (!cur?.children) return
+    const children = cur.children.map((ch: any, i: number) => i === ci ? { ...ch, name } : ch)
+    commitData({ ...coBud, [acc]: { ...cur, children } })
+  }
+  const removeChild = (acc: string, ci: number) => {
+    const cur = coBud[acc]; if (!cur?.children) return
+    const children = cur.children.filter((_: any, i: number) => i !== ci)
+    // Plus d'enfant → le compte redevient éditable directement, b conservé (dernière somme).
+    const next = children.length > 0
+      ? { ...cur, children, b: sumChildren(children) }
+      : (() => { const { children: _drop, ...rest } = cur; return rest })()
+    commitData({ ...coBud, [acc]: next })
+  }
+
+  const saveNote = () => {
+    if (!noteModal) return
+    const { acc, text } = noteModal
+    const cur = coBud[acc]; if (!cur) { setNoteModal(null); return }
+    const t = text.trim()
+    const next = t ? { ...cur, note: t } : (() => { const { note: _d, ...rest } = cur; return rest })()
+    commitData({ ...coBud, [acc]: next })
+    setNoteModal(null)
   }
 
   const handleSave = async () => {
@@ -660,57 +721,6 @@ export function Budget() {
     setTimeout(() => setMsg(null), 4000)
   }
 
-  const handleDuplicateVersion = async (sourceVn: string) => {
-    const source = budVersions.find(
-      v => v.company_key === budCo && v.version_name === sourceVn
-    )
-    if (!source) return
-
-    let suggested = `${sourceVn} (copie)`
-    let i = 2
-    while (coVersions.find(v => v.version_name === suggested)) {
-      suggested = `${sourceVn} (copie ${i++})`
-    }
-
-    const vn = prompt(
-      `Nom de la nouvelle version (basée sur "${sourceVn}") :`,
-      suggested
-    )?.trim()
-    if (!vn) return
-    if (coVersions.find(v => v.version_name === vn)) {
-      setMsg('❌ Une version avec ce nom existe déjà')
-      setTimeout(() => setMsg(null), 3000)
-      return
-    }
-
-    setCreating(true)
-    const clonedData = JSON.parse(JSON.stringify(source.data ?? {}))
-
-    const { data: insertedRows, error } = await sb.from('budget').upsert(
-      { tenant_id: tenantId, company_key: budCo, version_name: vn,
-        data: clonedData, status: 'draft' },
-      { onConflict: 'tenant_id,company_key,version_name' }
-    ).select()
-    setCreating(false)
-
-    if (error) {
-      setMsg('❌ ' + error.message)
-      setTimeout(() => setMsg(null), 6000)
-      return
-    }
-
-    setBudVersions([...budVersions, {
-      id: (insertedRows as any)?.[0]?.id,
-      company_key: budCo,
-      version_name: vn,
-      data: clonedData,
-      status: 'draft' as const,
-    }])
-    setSelVersion(vn)
-    setMsg(`✅ Version "${vn}" créée à partir de "${sourceVn}"`)
-    setTimeout(() => setMsg(null), 4000)
-  }
-
   const handleDeleteVersion = async (vn: string) => {
     if (!confirm(`Supprimer la version "${vn}" ?`)) return
     const { error } = await sb.from('budget')
@@ -758,6 +768,27 @@ export function Budget() {
       .sort(([a], [b]) => a.localeCompare(b))
   }, [coBud, filter, search])
 
+  // Regroupement par compte racine (3 chiffres PCG) — couche d'AFFICHAGE only.
+  // Un groupe = un parent (somme, lecture seule) + ses sous-comptes réels dépliables.
+  const groups = useMemo(() => {
+    const byRoot: Record<string, [string, any][]> = {}
+    for (const [acc, v] of accounts) {
+      const root = acc.slice(0, 3)
+      ;(byRoot[root] ??= []).push([acc, v])
+    }
+    return Object.entries(byRoot)
+      .map(([root, entries]) => {
+        const b = Array(12).fill(0)
+        for (const [, v] of entries) ((v as any).b ?? []).forEach((x: number, i: number) => { b[i] += x || 0 })
+        const isCharge = entries[0]?.[1]?.t === 'c'
+        // « plat » si un seul compte égal à la racine (ex : « 607 » seul) → pas de regroupement
+        const flat = entries.length === 1 && entries[0][0] === root
+        return { root, entries, b, isCharge, flat, total: b.reduce((s, x) => s + x, 0) }
+      })
+      .sort((a, b) => a.root.localeCompare(b.root))
+  }, [accounts])
+  const [grpOpen, setGrpOpen] = useState<Record<string, boolean>>({})
+
   if (!RAW) return (
     <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
   )
@@ -779,79 +810,102 @@ export function Budget() {
 
       {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444', display:'block', marginBottom:8 }}>{msg}</span>}
 
-      {/* Layout vertical : barre versions en haut, éditeur en dessous */}
-      <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+      {/* Main layout: version list left, editor right */}
+      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
 
-        {/* Barre versions horizontale */}
+        {/* Left panel: version list */}
         <div style={{
+          width: 220, flexShrink: 0,
           background: '#0a0f1a', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
-          padding: '8px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap',
+          padding: '12px 10px',
         }}>
-          <span style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Versions</span>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+            Versions
+          </div>
 
-          {/* Chips versions */}
+          {coVersions.length === 0 && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: '#334155', marginBottom: 10 }}>Aucune version</div>
+              <button
+                onClick={handleCreateAndGenerate}
+                disabled={creating}
+                style={{
+                  width: '100%', padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                  cursor: creating ? 'not-allowed' : 'pointer',
+                  background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
+                  border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
+                  lineHeight: 1.4, opacity: creating ? 0.6 : 1,
+                }}
+              >
+                {creating ? 'Création...' : '⚡ Créer + Générer\ndepuis FEC N-1'}
+              </button>
+            </div>
+          )}
+
           {coVersions.map(v => (
             <div key={v.version_name} style={{
-              display:'flex', alignItems:'center', gap:3,
-              padding:'4px 8px', borderRadius:20, cursor:'pointer', flexShrink:0,
-              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.08)'}`,
-            }} onClick={() => setSelVersion(v.version_name)}>
-              <span style={{ fontSize:12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, whiteSpace:'nowrap' }}>
+              display: 'flex', alignItems: 'center', gap: 4,
+              padding: '6px 8px', borderRadius: 7, marginBottom: 4,
+              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'transparent',
+              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'transparent'}`,
+              cursor: 'pointer',
+            }}
+              onClick={() => setSelVersion(v.version_name)}
+            >
+              <span style={{ flex: 1, fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {v.version_name}
               </span>
-              <button onClick={e => { e.stopPropagation(); handleDuplicateVersion(v.version_name) }}
-                style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:11, padding:'0 1px', lineHeight:1 }}
-                title="Dupliquer">📋</button>
-              <button onClick={e => { e.stopPropagation(); handleDeleteVersion(v.version_name) }}
-                style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:12, padding:'0 1px', lineHeight:1 }}
-                title="Supprimer">×</button>
+              <button
+                onClick={e => { e.stopPropagation(); handleDeleteVersion(v.version_name) }}
+                style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', fontSize: 12, padding: '0 2px', lineHeight: 1 }}
+                title="Supprimer"
+              >
+                ×
+              </button>
             </div>
           ))}
 
-          {/* Bouton ⚡ si 0 versions */}
-          {coVersions.length === 0 && (
-            <button onClick={handleCreateAndGenerate} disabled={creating}
-              style={{ padding:'5px 12px', borderRadius:20, fontSize:11, fontWeight:700, cursor: creating ? 'not-allowed' : 'pointer',
-                background:'linear-gradient(135deg,rgba(245,158,11,0.25),rgba(249,115,22,0.2))',
-                border:'1px solid rgba(245,158,11,0.4)', color:'#f59e0b', opacity: creating ? 0.6 : 1 }}>
-              {creating ? 'Création...' : '⚡ Créer + Générer depuis FEC N-1'}
+          {/* New version input */}
+          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+            <input
+              type="text" placeholder="Nom de la version..." value={newVersionName}
+              onChange={e => setNewVersionName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleCreateVersion()}
+              style={{ ...inputSt, width: '100%', boxSizing: 'border-box', marginBottom: 6, fontSize: 11 }}
+            />
+            <button
+              onClick={handleCreateVersion}
+              disabled={creating || !newVersionName.trim()}
+              style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#93c5fd',
+                opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
+            >
+              {creating ? 'Création...' : '+ Nouvelle version'}
             </button>
-          )}
+          </div>
 
-          {/* Séparateur */}
-          <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', flexShrink:0 }} />
-
-          {/* Input + bouton nouvelle version */}
-          <input type="text" placeholder="Nom de la version..." value={newVersionName}
-            onChange={e => setNewVersionName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreateVersion()}
-            style={{ ...inputSt, width:160, fontSize:11, padding:'4px 8px' }}
-          />
-          <button onClick={handleCreateVersion} disabled={creating || !newVersionName.trim()}
-            style={{ padding:'4px 10px', borderRadius:20, fontSize:11, fontWeight:600, cursor:'pointer', flexShrink:0,
-              background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd',
-              opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}>
-            {creating ? '...' : '+ Nouvelle version'}
-          </button>
-
-          {/* Comparer avec */}
+          {/* Compare against another version */}
           {coVersions.length >= 2 && (
-            <>
-              <div style={{ width:1, height:20, background:'rgba(255,255,255,0.08)', flexShrink:0 }} />
-              <span style={{ fontSize:10, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.6px', flexShrink:0 }}>Comparer avec</span>
-              <select value={compareVersion} onChange={e => setCompareVersion(e.target.value)}
-                style={{ ...inputSt, fontSize:11, padding:'4px 8px' }}>
+            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>
+                Comparer avec
+              </div>
+              <select
+                value={compareVersion}
+                onChange={e => setCompareVersion(e.target.value)}
+                style={{ ...inputSt, width: '100%', boxSizing: 'border-box', fontSize: 11 }}
+              >
                 <option value="">— Aucune —</option>
-                {coVersions.filter(v => v.version_name !== selVersion)
+                {coVersions
+                  .filter(v => v.version_name !== selVersion)
                   .map(v => <option key={v.version_name} value={v.version_name}>{v.version_name}</option>)}
               </select>
-            </>
+            </div>
           )}
         </div>
 
-        {/* Éditeur pleine largeur */}
-        <div style={{ minWidth: 0 }}>
+        {/* Right panel: budget editor */}
+        <div style={{ flex: 1, minWidth: 0 }}>
 
           {selVersion ? (
             <>
@@ -869,7 +923,7 @@ export function Budget() {
                     <button key={f} onClick={() => setFilter(f)}
                       style={{ padding:'6px 10px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
                         background: filter===f ? 'rgba(59,130,246,0.2)' : 'transparent',
-                        color: filter===f ? '#93c5fd' : '#94a3b8' }}>
+                        color: filter===f ? '#93c5fd' : '#475569' }}>
                       {f==='all' ? 'Tous' : f==='charge' ? '📤 Charges' : '📥 Produits'}
                     </button>
                   ))}
@@ -884,17 +938,10 @@ export function Budget() {
                   )}
                   {Object.keys(coBud).length > 0 && (
                     <button onClick={handleGenerate}
-                      style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize:12, cursor:'pointer' }}>
+                      style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#475569', fontSize:12, cursor:'pointer' }}>
                       🔄 Régénérer
                     </button>
                   )}
-                  <button onClick={() => setShowAddAccount(v => !v)}
-                    style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
-                      background: showAddAccount ? 'rgba(16,185,129,0.2)' : 'transparent',
-                      border: `1px solid ${showAddAccount ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                      color: showAddAccount ? '#6ee7b7' : '#94a3b8' }}>
-                    {showAddAccount ? '× Annuler' : '+ Ajouter un compte'}
-                  </button>
                   <button onClick={handleSave} disabled={saving}
                     style={{ padding:'6px 14px', borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', fontSize:12, cursor:'pointer', fontWeight:600 }}>
                     {saving ? 'Sauvegarde...' : '💾 Sauvegarder'}
@@ -904,73 +951,16 @@ export function Budget() {
                       style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
                         background: showWhatIf ? 'rgba(139,92,246,0.2)' : 'transparent',
                         border: `1px solid ${showWhatIf ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                        color: showWhatIf ? '#a78bfa' : '#94a3b8' }}>
+                        color: showWhatIf ? '#a78bfa' : '#475569' }}>
                       Scénarios What-if
                     </button>
                   )}
                 </div>
               </div>
 
-              {/* Ajout d'un compte manuel (hors FEC) */}
-              {showAddAccount && (
-                <div style={{
-                  marginBottom:16, padding:'14px 16px', borderRadius:12,
-                  background:'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(20,184,166,0.06))',
-                  border:'1px solid rgba(16,185,129,0.3)',
-                  display:'flex', gap:10, alignItems:'flex-end', flexWrap:'wrap',
-                }}>
-                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
-                      N° de compte
-                    </label>
-                    <input
-                      type="text" placeholder="ex : 6280001"
-                      value={newAccNum} onChange={e => setNewAccNum(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
-                      style={{ ...inputSt, width: 140 }}
-                    />
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:4, flex:1, minWidth:200 }}>
-                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
-                      Libellé
-                    </label>
-                    <input
-                      type="text" placeholder="ex : Cotisation CCI"
-                      value={newAccLabel} onChange={e => setNewAccLabel(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
-                      style={{ ...inputSt, width: '100%' }}
-                    />
-                  </div>
-                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
-                      Type
-                    </label>
-                    <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)' }}>
-                      <button type="button" onClick={() => setNewAccType('c')}
-                        style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
-                          background: newAccType === 'c' ? 'rgba(239,68,68,0.2)' : 'transparent',
-                          color: newAccType === 'c' ? '#fca5a5' : '#94a3b8' }}>
-                        📤 Charge
-                      </button>
-                      <button type="button" onClick={() => setNewAccType('p')}
-                        style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
-                          background: newAccType === 'p' ? 'rgba(16,185,129,0.2)' : 'transparent',
-                          color: newAccType === 'p' ? '#6ee7b7' : '#94a3b8' }}>
-                        📥 Produit
-                      </button>
-                    </div>
-                  </div>
-                  <button onClick={handleAddAccount}
-                    style={{ padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
-                      background:'rgba(16,185,129,0.25)', border:'1px solid rgba(16,185,129,0.4)', color:'#6ee7b7' }}>
-                    Ajouter
-                  </button>
-                </div>
-              )}
-
               {/* What-if simulation */}
               {showWhatIf && Object.keys(coBud).length > 0 && (
-                <WhatIfPanel coBud={coBud} startMonth={startMonth} />
+                <WhatIfPanel coBud={coBud} />
               )}
 
               {/* Comparaison de versions (#7 bis) */}
@@ -1042,7 +1032,7 @@ export function Budget() {
                 <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
                   <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
                   <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucun budget défini</div>
-                  <div style={{ fontSize:12, color:'#94a3b8', marginBottom:20 }}>
+                  <div style={{ fontSize:12, color:'#475569', marginBottom:20 }}>
                     Cliquez sur <strong style={{ color:'#f59e0b' }}>⚡ Générer depuis FEC N-1</strong> pour pré-remplir automatiquement<br/>
                     le budget à partir des données de l'exercice précédent.
                   </div>
@@ -1052,37 +1042,55 @@ export function Budget() {
                   </button>
                 </div>
               ) : (
-                <div style={{ overflowX:'auto', overflowY:'auto', maxHeight:'calc(100vh - 280px)', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ overflowX:'auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                     <thead>
                       <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
-                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#94a3b8', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
-                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#94a3b8', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
-                        {fiscalOrder.map(ai => (
-                          <th key={ai} style={{ padding:'8px 4px', textAlign:'center', color:'#94a3b8', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ai]}</th>
+                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
+                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
+                        {MONTHS_SHORT.map(m => (
+                          <th key={m} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{m}</th>
                         ))}
                         <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {accounts.map(([acc, v]) => {
+                      {(() => {
+                        const inputBase: React.CSSProperties = { width:66, padding:'3px 4px', textAlign:'right', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, fontSize:11, fontFamily:'monospace', outline:'none' }
+                        // Rendu d'une ligne de compte (réutilisé : ligne plate ou sous-ligne d'un groupe)
+                        const renderAccountRow = ([acc, v]: [string, any], indent = false) => {
                         const bv = v as any
+                        const children = (bv.children ?? []) as any[]
+                        const hasChildren = children.length > 0
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
-                        // Écritures réalisées (FEC + saisies) pour ce compte → modal au clic
-                        const ents = RAW ? mergeEntries(RAW, [budCo], 'pn', acc) : []
-                        const realN = ents.reduce((s, e) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
                         return (
-                          <tr key={acc} style={{ borderBottom:'1px solid rgba(255,255,255,0.025)' }}>
-                            <td
-                              onClick={ents.length > 0 ? () => setEcrModal({ title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0 }) : undefined}
-                              title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
-                              style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap', cursor: ents.length > 0 ? 'pointer' : 'default' }}>
-                              <span style={{ fontFamily:'monospace', color:'#94a3b8', marginRight:6 }}>{acc}</span>
+                          <Fragment key={acc}>
+                          <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
+                            <td style={{ padding: indent ? '3px 12px 3px 30px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                              {indent && <span style={{ color:'#475569', marginRight:6, fontSize:11 }}>└</span>}
+                              <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
                               <span>{bv.l}</span>
-                              {ents.length > 0 && (
-                                <span style={{ marginLeft:6, fontSize:9, color:'#93c5fd', background:'rgba(59,130,246,0.12)', border:'1px solid rgba(59,130,246,0.25)', padding:'1px 5px', borderRadius:10 }}>
-                                  {ents.length} éc.
+                              {!hasChildren && (
+                                <button onClick={() => openFillModal(acc)}
+                                  title="Recopier un montant sur plusieurs mois"
+                                  style={{ marginLeft: 8, background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
+                                  ↻ Recopier
+                                </button>
+                              )}
+                              <button onClick={() => addChild(acc)}
+                                title="Ajouter un sous-compte (ex : OpenAI, Claude…)"
+                                style={{ marginLeft: 6, background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
+                                ＋ sous-compte
+                              </button>
+                              <button onClick={() => setNoteModal({ acc, text: bv.note ?? '' })}
+                                title={bv.note ? bv.note : 'Ajouter une hypothèse / un commentaire'}
+                                style={{ marginLeft: 6, background: bv.note ? 'rgba(245,158,11,0.12)' : 'transparent', border:`1px solid ${bv.note ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: bv.note ? '#f59e0b' : '#64748b', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
+                                {bv.note ? '💬 hypothèse' : '💬'}
+                              </button>
+                              {bv.note && (
+                                <span style={{ marginLeft:8, fontSize:10, color:'#f59e0b', fontStyle:'italic', opacity:0.85 }} title={bv.note}>
+                                  {bv.note.length > 60 ? bv.note.slice(0, 60) + '…' : bv.note}
                                 </span>
                               )}
                             </td>
@@ -1093,50 +1101,104 @@ export function Budget() {
                                 {isCharge ? 'charge':'produit'}
                               </span>
                             </td>
-                            {fiscalOrder.map(ai => (
-                              <td key={ai} style={{ padding:'2px 2px' }}>
-                                <input
-                                  type="number" value={bv.b?.[ai] ?? 0}
-                                  onChange={e => handleCell(acc, ai, e.target.value)}
-                                  style={{ width:66, padding:'3px 4px', textAlign:'right',
-                                    background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)',
-                                    borderRadius:4, color: isCharge ? '#fca5a5':'#6ee7b7',
-                                    fontSize:11, fontFamily:'monospace', outline:'none' }}
-                                />
+                            {Array(12).fill(0).map((_, fi) => (
+                              <td key={fi} style={{ padding:'2px 2px' }}>
+                                {hasChildren ? (
+                                  <div style={{ ...inputBase, color:'#8b5cf6', background:'transparent', border:'1px solid transparent' }}>
+                                    {fmt(bv.b?.[fi] ?? 0)}
+                                  </div>
+                                ) : (
+                                  <input type="number" value={bv.b?.[fi] ?? 0}
+                                    onChange={e => handleCell(acc, fi, e.target.value)}
+                                    style={{ ...inputBase, color: isCharge ? '#fca5a5':'#6ee7b7' }} />
+                                )}
                               </td>
                             ))}
                             <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600 }}>
                               {fmt(total)}
                             </td>
                           </tr>
+                          {children.map((ch, ci) => (
+                            <tr key={ci} style={{ borderBottom: ci === children.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none', background:'rgba(139,92,246,0.03)' }}>
+                              <td style={{ padding: indent ? '2px 12px 2px 44px' : '2px 12px 2px 28px', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                                <span style={{ color:'#a78bfa', marginRight:6, fontSize:11 }}>└</span>
+                                <input type="text" value={ch.name} placeholder="Sous-compte (ex : OpenAI)"
+                                  onChange={e => renameChild(acc, ci, e.target.value)}
+                                  style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', width:150 }} />
+                                <button onClick={() => removeChild(acc, ci)} title="Supprimer ce sous-compte"
+                                  style={{ marginLeft:6, background:'transparent', border:'none', color:'#64748b', cursor:'pointer', fontSize:11 }}>✕</button>
+                              </td>
+                              <td />
+                              {Array(12).fill(0).map((_, fi) => (
+                                <td key={fi} style={{ padding:'2px 2px' }}>
+                                  <input type="number" value={ch.b?.[fi] ?? 0}
+                                    onChange={e => handleChildCell(acc, ci, fi, e.target.value)}
+                                    style={{ ...inputBase, color: isCharge ? '#fca5a5':'#6ee7b7' }} />
+                                </td>
+                              ))}
+                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8', fontSize:10 }}>
+                                {fmt((ch.b ?? []).reduce((s: number, x: number) => s + (x||0), 0))}
+                              </td>
+                            </tr>
+                          ))}
+                          </Fragment>
                         )
-                      })}
+                        }
+                        // Rendu : groupes par racine (parent dépliable) ou ligne plate
+                        const isSearching = search.trim() !== ''
+                        return groups.map(g => {
+                          if (g.flat) return renderAccountRow(g.entries[0])
+                          const open = isSearching || !!grpOpen[g.root]
+                          const label = pcgLabel(g.root) || g.entries.find(([a]) => a === g.root)?.[1]?.l || ''
+                          return (
+                            <Fragment key={g.root}>
+                              <tr onClick={() => setGrpOpen(p => ({ ...p, [g.root]: !open }))}
+                                style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)', cursor:'pointer' }}>
+                                <td style={{ padding:'5px 12px', position:'sticky', left:0, background:'#0a1020', zIndex:1, whiteSpace:'nowrap' }}>
+                                  <span style={{ display:'inline-block', width:12, color:'#64748b', fontSize:9 }}>{open ? '▾' : '▸'}</span>
+                                  <span style={{ fontFamily:'monospace', color:'#94a3b8', fontWeight:700, marginRight:6 }}>{g.root}</span>
+                                  <span style={{ color:'#cbd5e1', fontWeight:600 }}>{label}</span>
+                                  <span style={{ marginLeft:8, fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 6px', borderRadius:10 }}>{g.entries.length} comptes</span>
+                                </td>
+                                <td style={{ padding:'5px 8px', textAlign:'center' }}>
+                                  <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10, background: g.isCharge ? 'rgba(239,68,68,0.1)':'rgba(16,185,129,0.1)', color: g.isCharge ? '#ef4444':'#10b981' }}>
+                                    {g.isCharge ? 'charge':'produit'}
+                                  </span>
+                                </td>
+                                {g.b.map((v, fi) => (
+                                  <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color:'#8b5cf6' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                                ))}
+                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:700 }}>{fmt(g.total)}</td>
+                              </tr>
+                              {open && g.entries.map(e => renderAccountRow(e, true))}
+                            </Fragment>
+                          )
+                        })
+                      })()}
                     </tbody>
                     <tfoot>
-                      {(() => {
-                        // Cumul cumulatif dans l'ordre fiscal (pas calendaire)
-                        let cum = 0
-                        const fiscalCumul = fiscalOrder.map(ai => { cum += totals.result[ai]; return cum })
-                        return [
-                          { label:'📥 Total produits',  values: fiscalOrder.map(ai => totals.produits[ai]),  color:'#10b981', grandTotal: totals.produits.reduce((s,x)=>s+x,0) },
-                          { label:'📤 Total charges',   values: fiscalOrder.map(ai => totals.charges[ai]),   color:'#ef4444', grandTotal: totals.charges.reduce((s,x)=>s+x,0)  },
-                          { label:'💰 Résultat',        values: fiscalOrder.map(ai => totals.result[ai]),    color:'#3b82f6', grandTotal: totals.result.reduce((s,x)=>s+x,0)   },
-                          { label:'📊 Résultat cumulé', values: fiscalCumul,                                 color:'#8b5cf6', grandTotal: fiscalCumul[fiscalCumul.length-1] ?? 0 },
-                        ].map(({ label, values, color, grandTotal }) => (
-                          <tr key={label} style={{ background: label.includes('cumulé') ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
-                            <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
-                            <td />
-                            {values.map((v, d) => (
-                              <td key={d} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
-                                color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
-                            ))}
-                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
-                              color: grandTotal<0 ? '#ef4444':color }}>
-                              {fmt(grandTotal)}
-                            </td>
-                          </tr>
-                        ))
-                      })()}
+                      {[
+                        { label:'📥 Total produits',  row:totals.produits, color:'#10b981', isCumul:false },
+                        { label:'📤 Total charges',   row:totals.charges,  color:'#ef4444', isCumul:false },
+                        { label:'💰 Résultat',        row:totals.result,   color:'#3b82f6', isCumul:false },
+                        { label:'📊 Résultat cumulé', row:totals.cumul,    color:'#8b5cf6', isCumul:true  },
+                      ].map(({ label, row, color, isCumul }) => {
+                        const grandTotal = isCumul ? (row[row.length-1] ?? 0) : row.reduce((s,x)=>s+x,0)
+                        return (
+                        <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
+                          <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
+                          <td />
+                          {row.map((v, i) => (
+                            <td key={i} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
+                              color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
+                          ))}
+                          <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
+                            color: grandTotal<0 ? '#ef4444':color }}>
+                            {fmt(grandTotal)}
+                          </td>
+                        </tr>
+                        )
+                      })}
                     </tfoot>
                   </table>
                 </div>
@@ -1146,7 +1208,7 @@ export function Budget() {
             <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
               <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
               <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucune version sélectionnée</div>
-              <div style={{ fontSize:12, color:'#94a3b8' }}>
+              <div style={{ fontSize:12, color:'#475569' }}>
                 Créez une nouvelle version dans le panneau de gauche.
               </div>
             </div>
@@ -1154,7 +1216,174 @@ export function Budget() {
         </div>
       </div>
 
-      {ecrModal && <EcrituresModal {...ecrModal} onClose={() => setEcrModal(null)} />}
+      {fillModal && (() => {
+        const positions = computeFillPositions(fillModal.startM, fillModal.count, fillModal.freq)
+        const num = parseFloat(fillModal.amount.replace(',', '.')) || 0
+        const accLabel = (coBud[fillModal.acc] as any)?.l ?? ''
+        return (
+          <div onClick={() => setFillModal(null)}
+            style={{
+              position:'fixed', inset: 0, background:'rgba(0,0,0,0.6)',
+              display:'flex', alignItems:'center', justifyContent:'center', zIndex: 100,
+            }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{
+                background:'#0a0f1a', borderRadius: 14, padding: '22px 26px',
+                minWidth: 520, maxWidth: 600,
+                border:'1px solid rgba(255,255,255,0.1)',
+                boxShadow:'0 20px 60px rgba(0,0,0,0.5)',
+              }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color:'#f1f5f9', marginBottom: 4 }}>
+                Recopier un montant sur plusieurs mois
+              </div>
+              <div style={{ fontSize: 11, color:'#64748b', fontFamily:'monospace', marginBottom: 18 }}>
+                {fillModal.acc} — {accLabel}
+              </div>
+
+              <div style={{ display:'grid', gridTemplateColumns:'130px 1fr', gap: 14, alignItems:'center', marginBottom: 16 }}>
+                <label style={{ fontSize: 12, color:'#94a3b8' }}>Montant (€)</label>
+                <input type="number" autoFocus value={fillModal.amount}
+                  onChange={e => setFillModal(m => m && { ...m, amount: e.target.value })}
+                  style={{ ...inputSt, width: '100%', boxSizing: 'border-box' }} />
+
+                <label style={{ fontSize: 12, color:'#94a3b8' }}>Mois de début</label>
+                <select value={fillModal.startM}
+                  onChange={e => setFillModal(m => m && { ...m, startM: parseInt(e.target.value) })}
+                  style={{ ...inputSt, width: '100%', boxSizing: 'border-box' }}>
+                  {MONTHS_SHORT.map((mo, i) => <option key={i} value={i}>{mo}</option>)}
+                </select>
+
+                <label style={{ fontSize: 12, color:'#94a3b8' }}>Nombre de mois</label>
+                <div style={{ display:'flex', gap: 6, alignItems:'center', flexWrap:'wrap' }}>
+                  {[3, 6, 12].map(n => (
+                    <button key={n}
+                      onClick={() => setFillModal(m => m && { ...m, count: n })}
+                      style={{
+                        padding:'5px 14px', fontSize: 11, fontWeight: 600, borderRadius: 6,
+                        background: fillModal.count === n ? 'rgba(59,130,246,0.25)' : 'transparent',
+                        border:`1px solid ${fillModal.count === n ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        color: fillModal.count === n ? '#93c5fd' : '#94a3b8', cursor:'pointer',
+                      }}>{n}</button>
+                  ))}
+                  <input type="number" min={1} max={12}
+                    value={fillModal.count}
+                    onChange={e => setFillModal(m => m && {
+                      ...m, count: Math.max(1, Math.min(12, parseInt(e.target.value) || 1)),
+                    })}
+                    style={{ ...inputSt, width: 64, padding:'5px 8px', textAlign:'center' }} />
+                </div>
+
+                <label style={{ fontSize: 12, color:'#94a3b8' }}>Fréquence</label>
+                <div style={{ display:'flex', gap: 6, flexWrap:'wrap' }}>
+                  {[
+                    { v: 1, label: 'Chaque mois' },
+                    { v: 2, label: 'Tous les 2 mois' },
+                    { v: 3, label: 'Trimestriel' },
+                    { v: 6, label: 'Semestriel' },
+                  ].map(f => (
+                    <button key={f.v}
+                      onClick={() => setFillModal(m => m && { ...m, freq: f.v })}
+                      style={{
+                        padding:'5px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6,
+                        background: fillModal.freq === f.v ? 'rgba(59,130,246,0.25)' : 'transparent',
+                        border:`1px solid ${fillModal.freq === f.v ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        color: fillModal.freq === f.v ? '#93c5fd' : '#94a3b8', cursor:'pointer',
+                      }}>{f.label}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{
+                padding:'10px 12px', borderRadius: 8, marginBottom: 14,
+                background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.15)',
+              }}>
+                <div style={{ fontSize: 10, color:'#64748b', fontWeight: 600, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom: 8 }}>
+                  Aperçu — {positions.length} mois impacté{positions.length > 1 ? 's' : ''}
+                  {num > 0 && <span style={{ color:'#94a3b8', marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>
+                    · Total : <span style={{ color:'#93c5fd', fontFamily:'monospace' }}>{fmt(num * positions.length)} €</span>
+                  </span>}
+                </div>
+                <div style={{ display:'flex', flexWrap:'wrap', gap: 4 }}>
+                  {MONTHS_SHORT.map((mo, i) => {
+                    const active = positions.includes(i)
+                    return (
+                      <span key={i} style={{
+                        fontSize: 10, padding: '3px 8px', borderRadius: 6, fontFamily:'monospace',
+                        background: active ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.04)',
+                        color: active ? '#93c5fd' : '#475569',
+                        fontWeight: active ? 700 : 400,
+                      }}>
+                        {mo}{active && num > 0 ? ` · ${fmt(num)}` : ''}
+                      </span>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display:'flex', alignItems:'center', gap: 8, marginBottom: 16 }}>
+                <input type="checkbox" id="bud-resetOthers"
+                  checked={fillModal.resetOthers}
+                  onChange={e => setFillModal(m => m && { ...m, resetOthers: e.target.checked })} />
+                <label htmlFor="bud-resetOthers" style={{ fontSize: 11, color:'#94a3b8', cursor:'pointer' }}>
+                  Remettre à 0 les autres mois
+                </label>
+              </div>
+
+              <div style={{ display:'flex', gap: 8, justifyContent:'flex-end' }}>
+                <button onClick={() => setFillModal(null)}
+                  style={{
+                    padding:'6px 14px', borderRadius: 8, background:'transparent',
+                    border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8',
+                    fontSize: 12, cursor:'pointer',
+                  }}>
+                  Annuler
+                </button>
+                <button onClick={applyFill}
+                  disabled={positions.length === 0}
+                  style={{
+                    padding:'6px 14px', borderRadius: 8,
+                    background:'rgba(59,130,246,0.25)',
+                    border:'1px solid rgba(59,130,246,0.4)', color:'#93c5fd',
+                    fontSize: 12, fontWeight: 700, cursor: positions.length === 0 ? 'not-allowed' : 'pointer',
+                    opacity: positions.length === 0 ? 0.5 : 1,
+                  }}>
+                  ✓ Appliquer
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {noteModal && (
+        <div onClick={() => setNoteModal(null)}
+          style={{ position:'fixed', inset: 0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex: 100 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'#0a0f1a', borderRadius: 14, padding: '22px 26px', minWidth: 480, maxWidth: 560, border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color:'#f1f5f9', marginBottom: 4 }}>
+              Hypothèse / commentaire
+            </div>
+            <div style={{ fontSize: 11, color:'#64748b', fontFamily:'monospace', marginBottom: 16 }}>
+              {noteModal.acc} — {(coBud[noteModal.acc] as any)?.l ?? ''}
+            </div>
+            <textarea autoFocus value={noteModal.text}
+              onChange={e => setNoteModal(m => m && { ...m, text: e.target.value })}
+              placeholder="Ex : Loyer +3% indexation · CA +10% vs N-1 · prestation ponctuelle non reconduite…"
+              rows={5}
+              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#cbd5e1', fontSize:12, padding:'10px 12px', outline:'none', resize:'vertical', fontFamily:'inherit', lineHeight:1.6 }} />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
+              <button onClick={() => setNoteModal(null)}
+                style={{ padding:'6px 14px', borderRadius: 8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize: 12, cursor:'pointer' }}>
+                Annuler
+              </button>
+              <button onClick={saveNote}
+                style={{ padding:'6px 14px', borderRadius: 8, background:'rgba(245,158,11,0.2)', border:'1px solid rgba(245,158,11,0.4)', color:'#f59e0b', fontSize: 12, fontWeight: 700, cursor:'pointer' }}>
+                ✓ Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

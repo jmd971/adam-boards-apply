@@ -52,15 +52,29 @@ export function Objectifs() {
 
   // Édition inline du taux par société (string pour gérer "" pendant la saisie)
   const [edits, setEdits] = useState<Record<string, string>>({})
+  // Calcul Coûts horaires : 3 champs de saisie par société
+  type HForm = { nbSal: string; monthlyHours: string; salePrice: string }
+  const [hForm, setHForm] = useState<Record<string, HForm>>({})
 
   useEffect(() => {
     const init: Record<string, string> = {}
+    const initH: Record<string, HForm> = {}
     for (const co of selCo) {
       const o = objByCompany[co]
-      init[co] = o?.target_margin_rate != null ? String(o.target_margin_rate) : ''
+      init[co]  = o?.target_margin_rate != null ? String(o.target_margin_rate) : ''
+      initH[co] = {
+        nbSal:        o?.nb_salaries != null ? String(o.nb_salaries) : '',
+        monthlyHours: o?.monthly_hours != null ? String(o.monthly_hours) : '',
+        salePrice:    o?.hourly_sale_price != null ? String(o.hourly_sale_price) : '',
+      }
     }
     setEdits(init)
+    setHForm(initH)
   }, [selCo.join(','), objData])
+
+  const getH = (co: string): HForm => hForm[co] ?? { nbSal:'', monthlyHours:'', salePrice:'' }
+  const setHField = (co: string, k: keyof HForm, v: string) =>
+    setHForm(p => ({ ...p, [co]: { ...getH(co), [k]: v } }))
 
   const saveRate = async (co: string) => {
     const val = (edits[co] ?? '').trim()
@@ -68,6 +82,14 @@ export function Objectifs() {
     if (rate != null && !isFinite(rate)) return
     try { await upsert(co, { target_margin_rate: rate }) }
     catch (err) { console.error('[objectifs] save error:', err) }
+  }
+
+  const saveHourly = async (co: string) => {
+    const h = getH(co)
+    const num = (s: string) => { const x = parseFloat((s ?? '').replace(',', '.')); return s.trim() === '' || !isFinite(x) ? null : x }
+    try {
+      await upsert(co, { nb_salaries: num(h.nbSal), monthly_hours: num(h.monthlyHours), hourly_sale_price: num(h.salePrice) })
+    } catch (err) { console.error('[objectifs] save hourly error:', err) }
   }
 
   // ── Calculs par société ──────────────────────────────────────────────
@@ -83,6 +105,17 @@ export function Objectifs() {
 
       const objVentesAn  = taux > 0 ? Math.round(depenses / taux) : 0
       const objAchatsAn  = Math.max(0, objVentesAn - depenses)
+
+      // ── Calcul Coûts horaires ──
+      const h = getH(co)
+      const numH = (s: string) => { const x = parseFloat((s ?? '').replace(',', '.')); return isFinite(x) ? x : 0 }
+      const nbSal        = numH(h.nbSal)
+      const monthlyHours = numH(h.monthlyHours)
+      const salePrice    = numH(h.salePrice)
+      // Coût horaire global (mensuel) = (Total Dépenses Budget / 12) / heures travaillées mensuelles
+      const coutHoraireGlobal = monthlyHours > 0 ? Math.round((depenses / 12) / monthlyHours) : 0
+      // Objectif Ventes en nombre d'heures (mensuel) = (Total Dépenses Budget / 12) / prix de vente horaire
+      const objVentesHeures   = salePrice > 0 ? Math.round((depenses / 12) / salePrice) : 0
 
       const realVentes = sumAccs(RAW, [co], 'pn', msN, CA_PREFIXES)
       const realAchats = sumAccs(RAW, [co], 'pn', msN, ACHATS_PREFIXES, true)
@@ -105,10 +138,12 @@ export function Objectifs() {
         avancementV:   objVentesAn > 0 ? realVentes / objVentesAn : 0,
         avancementA:   objAchatsAn > 0 ? realAchats / objAchatsAn : 0,
         ecart:         realVentes - objVentesAn,
+        nbSal, monthlyHours, salePrice,
+        coutHoraireGlobal, objVentesHeures,
       }
     }
     return r
-  }, [RAW, selCo.join(','), msN.join(','), budData, edits, objByCompany])
+  }, [RAW, selCo.join(','), msN.join(','), budData, edits, hForm, objByCompany])
 
   if (!RAW) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:256, fontSize:13, color:'var(--text-2)' }}>
@@ -205,6 +240,45 @@ export function Objectifs() {
                 Taux réel N : <span style={{ color: realColor, fontWeight:700 }}>
                   {d.realVentes > 0 ? `${realRatePct}%` : '—'}
                 </span>
+              </div>
+
+              {/* ── Calcul Coûts horaires ── */}
+              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ fontSize:10, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+                  ⏱ Calcul Coûts horaires
+                </div>
+
+                {/* Total Dépenses Budget (base des calculs) */}
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', fontSize:11, color:'#94a3b8', marginBottom:8 }}>
+                  <span>Total Dépenses Budget</span>
+                  <span style={{ fontFamily:'monospace', color:'#cbd5e1', fontWeight:600 }}>{fmt(d.depenses)} €</span>
+                </div>
+
+                {/* 1. Nombre de salariés */}
+                {([['Nombre de salariés','nbSal','ex : 3'],['Heures travaillées / mois','monthlyHours','ex : 450'],['Prix de vente horaire prév. (€)','salePrice','ex : 60']] as [string, 'nbSal'|'monthlyHours'|'salePrice', string][]).map(([lbl,key,ph])=>(
+                  <div key={key} style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#94a3b8', marginBottom:6 }}>
+                    <span style={{ flex:1 }}>{lbl}</span>
+                    <input type="number" step="any" min="0"
+                      value={getH(co)[key]}
+                      onChange={e => setHField(co, key, e.target.value)}
+                      onBlur={() => saveHourly(co)}
+                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+                      placeholder={ph}
+                      style={{ width:90, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, color:'#cbd5e1', fontSize:12, padding:'4px 8px', outline:'none', textAlign:'right', fontFamily:'monospace' }} />
+                  </div>
+                ))}
+
+                {/* Résultats calculés */}
+                <div style={{ display:'grid', gap:6, marginTop:4 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.15)', borderRadius:6 }}>
+                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="(Total Dépenses Budget / 12) / Heures travaillées mensuelles — base mensuelle">Coût horaire global</span>
+                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:'#fca5a5' }}>{d.monthlyHours > 0 ? `${fmt(d.coutHoraireGlobal)} €/h` : '—'}</span>
+                  </div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:`${color}12`, border:`1px solid ${color}33`, borderRadius:6 }}>
+                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="(Total Dépenses Budget / 12) / Prix de vente horaire prévisionnel — base mensuelle, comparable aux heures travaillées/mois">Objectif Ventes (nb d'heures / mois)</span>
+                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color }}>{d.salePrice > 0 ? `${fmt(d.objVentesHeures)} h/mois` : '—'}</span>
+                  </div>
+                </div>
               </div>
             </div>
           )

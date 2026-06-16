@@ -1,8 +1,10 @@
-import React, { useMemo, useState } from 'react'
-import { useAppStore } from '@/store'
+import React, { useMemo, useState, useEffect } from 'react'
+import { useAppStore, useTenantId } from '@/store'
+import { sb } from '@/lib/supabase'
 import { fmt, fiscalIndex, mergeEntries } from '@/lib/calc'
 import { ENC_CATS, DEC_CATS, catOf, vatRateForAccount } from '@/lib/tresoCats'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
+import { useEffectiveBudData } from '@/hooks/useEffectiveBudData'
 import { KpiCard, EcrituresModal } from '@/components/ui'
 import { BankAccountsPanel } from './BankAccountsPanel'
 import { useBankAccounts } from './useBankAccounts'
@@ -44,14 +46,21 @@ export function Tresorerie() {
   const RAW           = useAppStore(s => s.RAW)
   const filters       = useAppStore(s => s.filters)
   const manualEntries = useAppStore(s => s.manualEntries)
-  const budData       = useAppStore(s => s.budData)
+  const budData       = useEffectiveBudData()  // respecte la version sélectionnée dans la TopBar
   const vatSettings   = useAppStore(s => s.vatSettings)
+  const forecastSettings = useAppStore(s => s.forecastSettings)
+  const setForecastSettings = useAppStore(s => s.setForecastSettings)
+  const tenantId      = useTenantId()
   const { selectedMs } = usePeriodFilter()
 
   const [view,     setView]     = useState<'realise'|'prev'>('realise')
   const [expanded, setExpanded] = useState<Record<string,boolean>>({})
   const [modal,    setModal]    = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
-  const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number;soldeInitial:number}>>({})
+  const [params,   setParams]   = useState<Record<string,{delaiClient:number;delaiFourn:number;remb:number;soldeInitial:number}>>(forecastSettings)
+  const [savingParams, setSavingParams] = useState(false)
+  const [paramsMsg, setParamsMsg] = useState<string|null>(null)
+  // Recharger les paramètres persistés quand ils arrivent du store (chargement async)
+  useEffect(() => { setParams(forecastSettings) }, [forecastSettings])
   const { data: bank } = useBankAccounts()
   // Solde initial du forecast : la somme des comptes bancaires saisis prime sur la
   // valeur manuelle "Solde initial" (rétro-compat) → fallback à 0 si aucun des deux.
@@ -59,6 +68,7 @@ export function Tresorerie() {
     (bank?.sumByCompany?.[co] ?? params[co]?.soldeInitial ?? 0)
   const [secOpen,     setSecOpen]     = useState<{enc:boolean;dec:boolean}>({enc:true,dec:true})
   const [paramsOpen,  setParamsOpen]  = useState(true)
+  const [prevSrc,     setPrevSrc]     = useState<{echeance:boolean;budget:boolean}>({ echeance:true, budget:true })
   const [prevRowOpen, setPrevRowOpen] = useState<Record<string,boolean>>({})
   const [dayRowOpen, setDayRowOpen]   = useState<Record<string,boolean>>({})
   const [showHelp,    setShowHelp]    = useState(false)
@@ -68,6 +78,34 @@ export function Tresorerie() {
   const months = selectedMs
 
   const getP = (co: string) => params[co] ?? { delaiClient:45, delaiFourn:30, remb:0, soldeInitial:0 }
+
+  // Sauvegarde des paramètres prévisionnels par société (company_settings.forecast_params).
+  // upsert sur (tenant_id, company_key) : company_settings a déjà une ligne par société
+  // (exercice fiscal / TVA) — on ne fait que poser le JSON forecast_params.
+  const saveParams = async () => {
+    if (!tenantId) return
+    setSavingParams(true)
+    try {
+      const rows = selCo.map(co => ({
+        tenant_id: tenantId,
+        company_key: co,
+        forecast_params: getP(co),
+      }))
+      const { error } = await sb.from('company_settings')
+        .upsert(rows, { onConflict: 'tenant_id,company_key' })
+      if (error) throw error
+      // Mettre à jour le store pour cohérence immédiate dans toute l'app
+      const next = { ...forecastSettings }
+      for (const co of selCo) next[co] = getP(co)
+      setForecastSettings(next)
+      setParamsMsg('✅ Paramètres enregistrés')
+    } catch (e: any) {
+      setParamsMsg('❌ ' + (e?.message || 'Erreur'))
+    } finally {
+      setSavingParams(false)
+      setTimeout(() => setParamsMsg(null), 3000)
+    }
+  }
 
   // ── Données réalisées (cash réel) ──────────────────────────────────────
   // Source = mouvements de trésorerie reconstruits du FEC (cashN, classe 5, TTC), groupés
@@ -217,7 +255,8 @@ export function Tresorerie() {
     let cum = selCo.reduce((s, co) => s + soldeInitialPerCo(co), 0)
     return forecastMs.map((m,mi) => {
       let enc=0, dec=0
-      for (const co of selCo) {
+      // Source « Prévisionnel budget » (case à cocher) — budget de la version active
+      if (prevSrc.budget) for (const co of selCo) {
         const bd=(budData as any)[co]??{}, p=getP(co)
         const vat = vatSettings[co]
         const dC=Math.max(0,Math.round(p.delaiClient/30)), dF=Math.max(0,Math.round(p.delaiFourn/30))
@@ -232,9 +271,8 @@ export function Tresorerie() {
         }
         dec+=p.remb
       }
-      // Saisies manuelles : échéanciers et paiements ponctuels tombant ce mois prévisionnel
-      // Uniquement les mois qui ne sont PAS déjà dans le réalisé (évite le double comptage).
-      if (!realisedMonthsSet.has(m)) {
+      // Source « Échéances à venir » (case à cocher) — saisies manuelles, mois hors réalisé.
+      if (prevSrc.echeance && !realisedMonthsSet.has(m)) {
         for (const me of manualEntries) {
           if (!selCo.includes(me.company_key)) continue
           // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
@@ -270,7 +308,7 @@ export function Tresorerie() {
       const fl=enc-dec; cum+=fl
       return { month: MS[parseInt(m.slice(5))-1], enc, dec, fl, cum }
     })
-  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(','), prevSrc])
 
   // ── Détail prévisionnel par ligne budgétaire (pour les lignes dépliables) ─
   const forecastDetail = useMemo(() => {
@@ -282,7 +320,7 @@ export function Tresorerie() {
     const realisedMonthsSet = new Set(months)
     for (let mi = 0; mi < forecastMs.length; mi++) {
       const m = forecastMs[mi]
-      for (const co of selCo) {
+      if (prevSrc.budget) for (const co of selCo) {
         const bd = (budData as any)[co] ?? {}, p = getP(co)
         const vat = vatSettings[co]
         const dC = Math.max(0, Math.round(p.delaiClient/30))
@@ -310,9 +348,8 @@ export function Tresorerie() {
           dec[k].vals[mi] += Math.round(p.remb)
         }
       }
-      // Saisies manuelles (échéanciers + paiements ponctuels) : même filtre que les totaux
-      // → uniquement les mois hors réalisé, pour éviter le double comptage.
-      if (!realisedMonthsSet.has(m)) {
+      // Saisies manuelles (échéances) — case « Échéances à venir », mois hors réalisé.
+      if (prevSrc.echeance && !realisedMonthsSet.has(m)) {
         for (const me of manualEntries) {
           if (!selCo.includes(me.company_key)) continue
           // Cash flow réel = TTC (ce qu'on paie/reçoit). Fallback HT si pas de TTC saisi.
@@ -362,7 +399,7 @@ export function Tresorerie() {
       }
     }
     return { enc, dec }
-  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(',')])
+  }, [selCo.join(','), budData, vatSettings, params, forecastMs, bank?.sumByCompany, manualEntries, months.join(','), prevSrc])
 
   // ── Vue journalière ────────────────────────────────────────────────────
   const dayForecast = useMemo(() => {
@@ -529,9 +566,16 @@ export function Tresorerie() {
                 ⚙️ Paramètres
               </div>
               {paramsOpen && (
-                <button onClick={e=>{e.stopPropagation();setShowHelp(h=>!h)}} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
-                  {showHelp?'▾':'▸'} Comment ça marche ?
-                </button>
+                <div style={{display:'flex',alignItems:'center',gap:10}} onClick={e=>e.stopPropagation()}>
+                  {paramsMsg && <span style={{fontSize:10,color:paramsMsg.startsWith('✅')?'var(--green)':'var(--red)'}}>{paramsMsg}</span>}
+                  <button onClick={()=>setShowHelp(h=>!h)} style={{fontSize:10,color:'var(--blue)',background:'none',border:'none',cursor:'pointer',padding:'2px 8px',borderRadius:4,display:'flex',alignItems:'center',gap:4}}>
+                    {showHelp?'▾':'▸'} Comment ça marche ?
+                  </button>
+                  <button onClick={saveParams} disabled={savingParams}
+                    style={{fontSize:10,fontWeight:700,color:'#93c5fd',background:'rgba(59,130,246,0.15)',border:'1px solid rgba(59,130,246,0.3)',cursor:savingParams?'default':'pointer',padding:'3px 12px',borderRadius:5}}>
+                    {savingParams?'Enregistrement…':'💾 Enregistrer'}
+                  </button>
+                </div>
               )}
             </div>
             {paramsOpen && (<>
@@ -567,7 +611,21 @@ export function Tresorerie() {
             <table style={{width:'100%',borderCollapse:'collapse',fontSize:11}}>
               <thead>
                 <tr style={{background:'var(--bg-1)'}}>
-                  <th style={{...thSt,textAlign:'left',minWidth:200,paddingLeft:12}}>Poste</th>
+                  <th style={{...thSt,textAlign:'left',minWidth:200,paddingLeft:12}}>
+                    <div>Poste</div>
+                    <div style={{display:'flex',gap:12,marginTop:5,fontWeight:400,textTransform:'none',letterSpacing:0}}>
+                      <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:10,color:'var(--text-2)'}}>
+                        <input type="checkbox" checked={prevSrc.echeance}
+                          onChange={e=>setPrevSrc(s=>({...s,echeance:e.target.checked}))} />
+                        Échéances à venir
+                      </label>
+                      <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:10,color:'var(--text-2)'}}>
+                        <input type="checkbox" checked={prevSrc.budget}
+                          onChange={e=>setPrevSrc(s=>({...s,budget:e.target.checked}))} />
+                        Prévisionnel budget
+                      </label>
+                    </div>
+                  </th>
                   {forecast.map(r=><th key={r.month} style={{...thSt,minWidth:65}}>{r.month}</th>)}
                   <th style={{...thSt,color:'var(--blue)',minWidth:85}}>Total</th>
                 </tr>

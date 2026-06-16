@@ -30,6 +30,7 @@ interface DataState {
   fiscalSettings: Record<string, number>
   /** TVA par société : assujettissement + taux par catégorie (défaut désactivé). */
   vatSettings: Record<string, { enabled: boolean; rates: Record<string, number> }>
+  forecastSettings: Record<string, { delaiClient: number; delaiFourn: number; remb: number; soldeInitial: number }>
   dataLoading: boolean
   setRAW: (raw: RAWData | null) => void
   setManualEntries: (entries: ManualEntry[]) => void
@@ -38,6 +39,7 @@ interface DataState {
   setBudVersions: (v: BudgetVersionItem[]) => void
   setFiscalSettings: (s: Record<string, number>) => void
   setVatSettings: (s: Record<string, { enabled: boolean; rates: Record<string, number> }>) => void
+  setForecastSettings: (s: Record<string, { delaiClient: number; delaiFourn: number; remb: number; soldeInitial: number }>) => void
   setDataLoading: (loading: boolean) => void
 }
 
@@ -69,7 +71,7 @@ export const useAppStore = create<AppStore>()(
       setTenant: (tenantId, tenantName) => set({ tenantId, tenantName }),
       switchTenant: (tenantId, tenantName, role) => set({
         tenantId, tenantName, role,
-        RAW: null, manualEntries: [], budData: {}, budStatus: {}, budVersions: [], fiscalSettings: {}, vatSettings: {},
+        RAW: null, manualEntries: [], budData: {}, budStatus: {}, budVersions: [], fiscalSettings: {}, vatSettings: {}, forecastSettings: {},
         dataLoading: tenantId !== null,
       }),
 
@@ -81,6 +83,7 @@ export const useAppStore = create<AppStore>()(
       budVersions: [],
       fiscalSettings: {},
       vatSettings: {},
+      forecastSettings: {},
       dataLoading: true,
       setRAW:          (RAW)           => set({ RAW }),
       setManualEntries:(manualEntries) => set({ manualEntries }),
@@ -89,6 +92,7 @@ export const useAppStore = create<AppStore>()(
       setBudVersions:  (budVersions)   => set({ budVersions }),
       setFiscalSettings: (fiscalSettings) => set({ fiscalSettings }),
       setVatSettings:  (vatSettings)   => set({ vatSettings }),
+      setForecastSettings: (forecastSettings) => set({ forecastSettings }),
       setDataLoading:  (dataLoading)   => set({ dataLoading }),
 
       // UI

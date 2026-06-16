@@ -434,6 +434,32 @@ export function Saisie() {
     })
   }, [subSearch, catConfig])
 
+  // Comptes réels par société pour l'import CSV : FEC N-1 (prioritaire) + N + historique
+  // des saisies. Permet de choisir le compte exact (ex : 6162000000) à l'import → la
+  // comparaison N/N-1 reste alignée (même compte d'un exercice à l'autre).
+  const realAccountsByCompany = useMemo(() => {
+    const out: Record<string, { code: string; label: string; source: string }[]> = {}
+    if (!RAW) return out
+    for (const co of RAW.keys) {
+      const map: Record<string, { label: string; source: string }> = {}
+      for (const [field, src] of [['p1','FEC N-1'],['pn','FEC N'],['p2','FEC N-2']] as const) {
+        const data = (RAW.companies[co] as any)?.[field] ?? {}
+        for (const [acc, acct] of Object.entries(data)) {
+          if (!/^[267]/.test(acc)) continue
+          if (!map[acc]) map[acc] = { label: String((acct as any)?.l || acc), source: src }
+        }
+      }
+      for (const e of manualEntries) {
+        if (e.company_key !== co || !e.account_num) continue
+        if (!map[e.account_num]) map[e.account_num] = { label: e.subcategory || e.account_num, source: 'Saisie' }
+      }
+      out[co] = Object.entries(map)
+        .map(([code, v]) => ({ code, label: v.label, source: v.source }))
+        .sort((a, b) => a.code.localeCompare(b.code))
+    }
+    return out
+  }, [RAW, manualEntries])
+
   // ── Rafraîchir le store après saisie ─────────────────────────────────────
   const refreshStore = async (newEntry: ManualEntry) => {
     const allEntries = [newEntry, ...manualEntries]
@@ -838,6 +864,7 @@ export function Saisie() {
             companyNames={Object.fromEntries((RAW?.keys ?? []).map(k => [k, RAW.companies[k]?.name || k]))}
             onImport={handleCsvImport}
             saving={saving}
+            realAccountsByCompany={realAccountsByCompany}
           />
           {msg && <div style={{ marginBottom:16, padding:'10px 14px', borderRadius:8, fontSize:12, background: msg.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: msg.startsWith('✅') ? '#10b981' : '#ef4444', border: `1px solid ${msg.startsWith('✅') ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>{msg}</div>}
         </>

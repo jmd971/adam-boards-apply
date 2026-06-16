@@ -17,6 +17,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'sig',             label:'SIG',                icon:'📊', group:'analyse' },
   { id:'bilan',           label:'Bilan',              icon:'🏦', group:'analyse' },
   { id:'ratios',          label:'Ratios',             icon:'📐', group:'analyse' },
+  { id:'tva',             label:'TVA',                icon:'🧾', group:'analyse' },
   { id:'ventes',         label:'Ventes & Clients',  icon:'🛒', group:'analyse' },
   { id:'complementaire',  label:'Complémentaire',     icon:'📈', group:'analyse' },
   { id:'creances',        label:'Créances clients',   icon:'📋', group:'analyse' },
@@ -42,6 +43,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
   const tenantName = useAppStore(s => s.tenantName)
   const RAW        = useAppStore(s => s.RAW)
   const filters    = useAppStore(s => s.filters)
+  const vatSettings = useAppStore(s => s.vatSettings)
   const setFilters   = useAppStore(s => s.setFilters)
   const tenantId     = useAppStore(s => s.tenantId)
   const switchTenant = useAppStore(s => s.switchTenant)
@@ -138,7 +140,11 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       {/* Navigation */}
       <nav style={{ flex:1, padding:'8px 0 12px', overflowY:'auto' }}>
         {GROUPS.map(g => {
-          const items = NAV.filter(n => n.group === g.key && canAccessTab(role, n.id))
+          // Le menu TVA n'apparaît que si au moins une société (sélectionnée,
+          // ou à défaut toutes) est assujettie à la TVA dans les paramètres.
+          const coForVat = selCo.length ? selCo : (RAW?.keys ?? [])
+          const anyVat = coForVat.some(co => vatSettings[co]?.enabled)
+          const items = NAV.filter(n => n.group === g.key && canAccessTab(role, n.id) && (n.id !== 'tva' || anyVat))
           return (
             <div key={g.key}>
               <div style={{ padding:'12px 16px 4px', fontSize:9, fontWeight:700, letterSpacing:'1.2px', color:'#334155', textTransform:'uppercase' }}>

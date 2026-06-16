@@ -8,6 +8,10 @@ export interface CompanyObjective {
   company_key: string
   target_margin_rate: number | null   // % (0-100)
   target_margin_amount: number | null // € absolu
+  billable_hours: number | null       // heures facturables / an (legacy, conservé)
+  nb_salaries: number | null          // nombre de salariés
+  monthly_hours: number | null        // heures travaillées mensuelles
+  hourly_sale_price: number | null    // prix de vente horaire prévisionnel
   notes: string | null
   created_at: string
   updated_at: string
@@ -44,7 +48,7 @@ export function useCompanyObjectiveMutations() {
   /** Upsert (insert ou update) sur la clé (tenant_id, company_key). */
   const upsert = async (
     company_key: string,
-    patch: { target_margin_rate?: number | null; target_margin_amount?: number | null; notes?: string | null }
+    patch: { target_margin_rate?: number | null; target_margin_amount?: number | null; billable_hours?: number | null; nb_salaries?: number | null; monthly_hours?: number | null; hourly_sale_price?: number | null; notes?: string | null }
   ) => {
     if (!tenantId) throw new Error('No tenant')
     const { error } = await sb

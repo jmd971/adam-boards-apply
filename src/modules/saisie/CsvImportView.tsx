@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react'
 import type { ManualEntry } from '@/types'
-import { CATEGORIES, SUB_ALIASES, normSub } from '@/lib/categories'
+import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
 // normSub utilisé uniquement dans SubCombo (recherche sous-catégorie)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -27,6 +27,8 @@ interface Props {
   companyNames: Record<string, string>
   onImport: (companyKey: string, rows: CsvRow[]) => Promise<void>
   saving: boolean
+  /** Comptes réels par société : FEC N-1/N + historique des saisies (code + libellé). */
+  realAccountsByCompany?: Record<string, { code: string; label: string; source: string }[]>
 }
 
 // ─── Parsing helpers ──────────────────────────────────────────────────────────
@@ -244,23 +246,37 @@ export function applyMapping(structure: CsvStructure, m: Mapping): CsvRow[] {
 }
 
 // ─── Sub-category combobox (partagé pour ligne individuelle et global) ────────
-function SubCombo({ category, value, onChange }: {
+function SubCombo({ category, value, onChange, realAccounts = [] }: {
   category: ManualEntry['category']
   value: string
   onChange: (v: string) => void
+  realAccounts?: { code: string; label: string; source: string }[]
 }) {
   const [search, setSearch] = useState('')
   const [open,   setOpen]   = useState(false)
   const catSubs = CATEGORIES.find(c => c.cat === category)?.subs ?? []
+  // Classe comptable selon la catégorie (pour filtrer les comptes réels)
+  const cls = category === 'Vente' ? '7' : category === 'Immobilisation' ? '2' : '6'
 
-  const filtered = useMemo(() => {
+  type Opt = { value: string; code: string; label: string; source: string }
+  const options = useMemo(() => {
     const q = normSub(search.trim())
-    if (!q) return catSubs
-    return catSubs.filter(sub =>
-      normSub(sub).includes(q) ||
-      (SUB_ALIASES[sub] ?? []).some(a => normSub(a).includes(q) || q.includes(normSub(a)))
-    )
-  }, [search, catSubs])
+    // 1. Comptes réels (FEC N-1/N + historique), formatés « LIBELLÉ (CODE) » pour
+    //    que extractAcc récupère le code exact à l'enregistrement.
+    const reels: Opt[] = realAccounts
+      .filter(a => a.code.startsWith(cls))
+      .map(a => ({ value: `${a.label} (${a.code})`, code: a.code, label: a.label, source: a.source }))
+    // 2. Sous-catégories prédéfinies (liste type)
+    const predef: Opt[] = catSubs.map(sub => ({ value: sub, code: extractAcc(sub, ''), label: sub, source: 'liste' }))
+    let all = [...reels, ...predef]
+    if (q) {
+      all = all.filter(o =>
+        normSub(o.label).includes(q) || o.code.includes(search.trim()) ||
+        (SUB_ALIASES[o.value] ?? []).some(a => normSub(a).includes(q) || q.includes(normSub(a)))
+      )
+    }
+    return all
+  }, [search, catSubs, realAccounts, cls])
 
   const inputSt: React.CSSProperties = {
     width: '100%', padding: '5px 22px 5px 7px', borderRadius: 6, fontSize: 11,
@@ -289,27 +305,45 @@ function SubCombo({ category, value, onChange }: {
       </div>
       {open && (
         <div style={{
-          position: 'absolute', top: 'calc(100% + 2px)', left: 0, minWidth: 220, zIndex: 300,
+          position: 'absolute', top: 'calc(100% + 2px)', left: 0, minWidth: 280, zIndex: 300,
           background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 7, maxHeight: 200, overflowY: 'auto',
+          borderRadius: 7, maxHeight: 240, overflowY: 'auto',
           boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
         }}>
-          {filtered.length === 0
-            ? <div style={{ padding: '8px 10px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>Aucun résultat</div>
-            : filtered.map(sub => (
-              <div key={sub}
-                onMouseDown={() => { onChange(sub); setSearch(''); setOpen(false) }}
-                style={{
-                  padding: '7px 10px', fontSize: 11, cursor: 'pointer',
-                  color: sub === value ? '#93c5fd' : '#cbd5e1',
-                  background: sub === value ? 'rgba(59,130,246,0.18)' : 'transparent',
-                  borderBottom: '1px solid rgba(255,255,255,0.04)',
-                }}
-                onMouseEnter={e => { if (sub !== value) e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
-                onMouseLeave={e => { e.currentTarget.style.background = sub === value ? 'rgba(59,130,246,0.18)' : 'transparent' }}
-              >{sub}</div>
-            ))
-          }
+          {options.map((o, i) => (
+            <div key={o.value + i}
+              onMouseDown={() => { onChange(o.value); setSearch(''); setOpen(false) }}
+              style={{
+                padding: '6px 10px', fontSize: 11, cursor: 'pointer',
+                color: o.value === value ? '#93c5fd' : '#cbd5e1',
+                background: o.value === value ? 'rgba(59,130,246,0.18)' : 'transparent',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+              }}
+              onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = o.value === value ? 'rgba(59,130,246,0.18)' : 'transparent' }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {o.code && <span style={{ fontFamily: 'monospace', color: '#64748b', marginRight: 6 }}>{o.code}</span>}
+                {o.label}
+              </span>
+              {o.source !== 'liste' && (
+                <span style={{ flexShrink: 0, fontSize: 8.5, color: o.source === 'liste' ? '#64748b' : '#34d399', background: 'rgba(52,211,153,0.12)', padding: '1px 5px', borderRadius: 8 }}>{o.source}</span>
+              )}
+            </div>
+          ))}
+          {/* Ajout manuel : utiliser le texte saisi tel quel s'il ne correspond à aucun compte */}
+          {search.trim() && !options.some(o => normSub(o.value) === normSub(search)) && (
+            <div
+              onMouseDown={() => { onChange(search.trim()); setSearch(''); setOpen(false) }}
+              style={{ padding: '7px 10px', fontSize: 11, cursor: 'pointer', color: '#a78bfa', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
+              ➕ Ajouter le compte : « {search.trim()} »
+            </div>
+          )}
+          {options.length === 0 && !search.trim() && (
+            <div style={{ padding: '8px 10px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>Tapez pour chercher un compte…</div>
+          )}
         </div>
       )}
     </div>
@@ -317,7 +351,7 @@ function SubCombo({ category, value, onChange }: {
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
-export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, onImport, saving }: Props) {
+export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, onImport, saving, realAccountsByCompany = {} }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows,       setRows]       = useState<CsvRow[]>([])
   const [step,       setStep]       = useState<'idle' | 'mapping' | 'preview'>('idle')
@@ -564,7 +598,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
           {CATEGORIES.map(c => <option key={c.cat} value={c.cat}>{c.cat}</option>)}
         </select>
         <div style={{ flex: 1, minWidth: 180 }}>
-          <SubCombo category={gCat} value={gSub} onChange={setGSub} />
+          <SubCombo category={gCat} value={gSub} onChange={setGSub} realAccounts={realAccountsByCompany[companyKey] ?? []} />
         </div>
         <button onClick={applyGlobal}
           style={{ padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.4)', color: '#93c5fd', whiteSpace: 'nowrap' }}>
@@ -650,6 +684,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                       category={r.category}
                       value={r.subcategory}
                       onChange={v => updateRow(r.id, { subcategory: v })}
+                      realAccounts={realAccountsByCompany[companyKey] ?? []}
                     />
                   </td>
                 </tr>
