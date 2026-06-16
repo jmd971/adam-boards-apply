@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
+import { pcgLabel } from '@/lib/pcg'
 import { useAppStore } from '@/store'
 import { fmt, pct, fiscalIndex } from '@/lib/calc'
 import { sb } from '@/lib/supabase'
@@ -767,6 +768,27 @@ export function Budget() {
       .sort(([a], [b]) => a.localeCompare(b))
   }, [coBud, filter, search])
 
+  // Regroupement par compte racine (3 chiffres PCG) — couche d'AFFICHAGE only.
+  // Un groupe = un parent (somme, lecture seule) + ses sous-comptes réels dépliables.
+  const groups = useMemo(() => {
+    const byRoot: Record<string, [string, any][]> = {}
+    for (const [acc, v] of accounts) {
+      const root = acc.slice(0, 3)
+      ;(byRoot[root] ??= []).push([acc, v])
+    }
+    return Object.entries(byRoot)
+      .map(([root, entries]) => {
+        const b = Array(12).fill(0)
+        for (const [, v] of entries) ((v as any).b ?? []).forEach((x: number, i: number) => { b[i] += x || 0 })
+        const isCharge = entries[0]?.[1]?.t === 'c'
+        // « plat » si un seul compte égal à la racine (ex : « 607 » seul) → pas de regroupement
+        const flat = entries.length === 1 && entries[0][0] === root
+        return { root, entries, b, isCharge, flat, total: b.reduce((s, x) => s + x, 0) }
+      })
+      .sort((a, b) => a.root.localeCompare(b.root))
+  }, [accounts])
+  const [grpOpen, setGrpOpen] = useState<Record<string, boolean>>({})
+
   if (!RAW) return (
     <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
   )
@@ -1033,17 +1055,20 @@ export function Budget() {
                       </tr>
                     </thead>
                     <tbody>
-                      {accounts.map(([acc, v]) => {
+                      {(() => {
+                        const inputBase: React.CSSProperties = { width:66, padding:'3px 4px', textAlign:'right', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, fontSize:11, fontFamily:'monospace', outline:'none' }
+                        // Rendu d'une ligne de compte (réutilisé : ligne plate ou sous-ligne d'un groupe)
+                        const renderAccountRow = ([acc, v]: [string, any], indent = false) => {
                         const bv = v as any
                         const children = (bv.children ?? []) as any[]
                         const hasChildren = children.length > 0
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
-                        const inputBase: React.CSSProperties = { width:66, padding:'3px 4px', textAlign:'right', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, fontSize:11, fontFamily:'monospace', outline:'none' }
                         return (
                           <Fragment key={acc}>
                           <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
-                            <td style={{ padding:'3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                            <td style={{ padding: indent ? '3px 12px 3px 30px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                              {indent && <span style={{ color:'#475569', marginRight:6, fontSize:11 }}>└</span>}
                               <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
                               <span>{bv.l}</span>
                               {!hasChildren && (
@@ -1095,7 +1120,7 @@ export function Budget() {
                           </tr>
                           {children.map((ch, ci) => (
                             <tr key={ci} style={{ borderBottom: ci === children.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none', background:'rgba(139,92,246,0.03)' }}>
-                              <td style={{ padding:'2px 12px 2px 28px', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
+                              <td style={{ padding: indent ? '2px 12px 2px 44px' : '2px 12px 2px 28px', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
                                 <span style={{ color:'#a78bfa', marginRight:6, fontSize:11 }}>└</span>
                                 <input type="text" value={ch.name} placeholder="Sous-compte (ex : OpenAI)"
                                   onChange={e => renameChild(acc, ci, e.target.value)}
@@ -1118,7 +1143,38 @@ export function Budget() {
                           ))}
                           </Fragment>
                         )
-                      })}
+                        }
+                        // Rendu : groupes par racine (parent dépliable) ou ligne plate
+                        const isSearching = search.trim() !== ''
+                        return groups.map(g => {
+                          if (g.flat) return renderAccountRow(g.entries[0])
+                          const open = isSearching || !!grpOpen[g.root]
+                          const label = pcgLabel(g.root) || g.entries.find(([a]) => a === g.root)?.[1]?.l || ''
+                          return (
+                            <Fragment key={g.root}>
+                              <tr onClick={() => setGrpOpen(p => ({ ...p, [g.root]: !open }))}
+                                style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)', cursor:'pointer' }}>
+                                <td style={{ padding:'5px 12px', position:'sticky', left:0, background:'#0a1020', zIndex:1, whiteSpace:'nowrap' }}>
+                                  <span style={{ display:'inline-block', width:12, color:'#64748b', fontSize:9 }}>{open ? '▾' : '▸'}</span>
+                                  <span style={{ fontFamily:'monospace', color:'#94a3b8', fontWeight:700, marginRight:6 }}>{g.root}</span>
+                                  <span style={{ color:'#cbd5e1', fontWeight:600 }}>{label}</span>
+                                  <span style={{ marginLeft:8, fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 6px', borderRadius:10 }}>{g.entries.length} comptes</span>
+                                </td>
+                                <td style={{ padding:'5px 8px', textAlign:'center' }}>
+                                  <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10, background: g.isCharge ? 'rgba(239,68,68,0.1)':'rgba(16,185,129,0.1)', color: g.isCharge ? '#ef4444':'#10b981' }}>
+                                    {g.isCharge ? 'charge':'produit'}
+                                  </span>
+                                </td>
+                                {g.b.map((v, fi) => (
+                                  <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color:'#8b5cf6' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                                ))}
+                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:700 }}>{fmt(g.total)}</td>
+                              </tr>
+                              {open && g.entries.map(e => renderAccountRow(e, true))}
+                            </Fragment>
+                          )
+                        })
+                      })()}
                     </tbody>
                     <tfoot>
                       {[
