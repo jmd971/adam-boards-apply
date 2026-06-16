@@ -114,8 +114,8 @@ export function Objectifs() {
       const salePrice    = numH(h.salePrice)
       // Coût horaire global (mensuel) = (Total Dépenses Budget / 12) / heures travaillées mensuelles
       const coutHoraireGlobal = monthlyHours > 0 ? Math.round((depenses / 12) / monthlyHours) : 0
-      // Objectif Ventes en nombre d'heures = Total Dépenses Budget / prix de vente horaire
-      const objVentesHeures   = salePrice > 0 ? Math.round(depenses / salePrice) : 0
+      // Objectif Ventes en nombre d'heures (mensuel) = (Total Dépenses Budget / 12) / prix de vente horaire
+      const objVentesHeures   = salePrice > 0 ? Math.round((depenses / 12) / salePrice) : 0
 
       const realVentes = sumAccs(RAW, [co], 'pn', msN, CA_PREFIXES)
       const realAchats = sumAccs(RAW, [co], 'pn', msN, ACHATS_PREFIXES, true)
@@ -275,8 +275,8 @@ export function Objectifs() {
                     <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:'#fca5a5' }}>{d.monthlyHours > 0 ? `${fmt(d.coutHoraireGlobal)} €/h` : '—'}</span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:`${color}12`, border:`1px solid ${color}33`, borderRadius:6 }}>
-                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="Total Dépenses Budget / Prix de vente horaire prévisionnel">Objectif Ventes (nb d'heures / an)</span>
-                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color }}>{d.salePrice > 0 ? `${fmt(d.objVentesHeures)} h` : '—'}</span>
+                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="(Total Dépenses Budget / 12) / Prix de vente horaire prévisionnel — base mensuelle, comparable aux heures travaillées/mois">Objectif Ventes (nb d'heures / mois)</span>
+                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color }}>{d.salePrice > 0 ? `${fmt(d.objVentesHeures)} h/mois` : '—'}</span>
                   </div>
                 </div>
               </div>
