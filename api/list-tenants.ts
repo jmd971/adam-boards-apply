@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { requireSuperadmin, DUMMY_TENANT } from './_auth'
+const DUMMY_TENANT = '00000000-0000-0000-0000-000000000001'
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*')
@@ -14,19 +14,36 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: 'SUPABASE_SERVICE_ROLE_KEY non configurée.' })
   }
 
-  const auth = await requireSuperadmin(req, supabaseUrl, serviceKey)
-  if (!auth.ok) return res.status(auth.status).json({ error: auth.error })
+  const authHeader = req.headers['authorization'] ?? ''
+  const jwt = authHeader.replace('Bearer ', '').trim()
+  if (!jwt) return res.status(401).json({ error: 'Authentification requise.' })
 
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${serviceKey}`, apikey: serviceKey }
 
-  // Récupérer tous les tenants (sauf Cabinet par défaut)
+  // Valider le JWT via Supabase Auth (signature + expiration vérifiées côté serveur).
+  const userResp = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { Authorization: `Bearer ${jwt}`, apikey: serviceKey },
+  })
+  if (!userResp.ok) return res.status(401).json({ error: 'JWT invalide ou expiré.' })
+  const user = await userResp.json() as any
+  const userId = user?.id
+  if (typeof userId !== 'string') return res.status(401).json({ error: 'Utilisateur introuvable.' })
+
+  // Confirmer le rôle superadmin en base.
+  const roleResp = await fetch(
+    `${supabaseUrl}/rest/v1/user_roles?user_id=eq.${encodeURIComponent(userId)}&select=role`,
+    { headers },
+  )
+  const roleData = await roleResp.json() as any[]
+  const isSuperadmin = Array.isArray(roleData) && roleData.some(r => r.role === 'superadmin')
+  if (!isSuperadmin) return res.status(403).json({ error: 'Accès réservé aux superadmins.' })
+
   const tenantsResp = await fetch(
     `${supabaseUrl}/rest/v1/tenants?id=neq.${DUMMY_TENANT}&select=id,name,slug,created_at&order=name.asc`,
     { headers },
   )
   const tenants = await tenantsResp.json() as any[]
 
-  // Pour chaque tenant, compter les membres
   const tenantsWithCount = await Promise.all(
     (tenants ?? []).map(async (t: any) => {
       const countResp = await fetch(
