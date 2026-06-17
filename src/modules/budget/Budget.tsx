@@ -810,49 +810,47 @@ export function Budget() {
 
       {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444', display:'block', marginBottom:8 }}>{msg}</span>}
 
-      {/* Main layout: version list left, editor right */}
-      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+      {/* Main layout: version bar on top, editor below */}
+      <div style={{ display:'flex', flexDirection:'column', gap:16, alignItems:'stretch' }}>
 
-        {/* Left panel: version list */}
+        {/* Top panel: version bar */}
         <div style={{
-          width: 220, flexShrink: 0,
           background: '#0a0f1a', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
-          padding: '12px 10px',
+          padding: '10px 14px',
+          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', whiteSpace: 'nowrap' }}>
             Versions
           </div>
 
           {coVersions.length === 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: '#334155', marginBottom: 10 }}>Aucune version</div>
-              <button
-                onClick={handleCreateAndGenerate}
-                disabled={creating}
-                style={{
-                  width: '100%', padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                  cursor: creating ? 'not-allowed' : 'pointer',
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
-                  border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
-                  lineHeight: 1.4, opacity: creating ? 0.6 : 1,
-                }}
-              >
-                {creating ? 'Création...' : '⚡ Créer + Générer\ndepuis FEC N-1'}
-              </button>
-            </div>
+            <button
+              onClick={handleCreateAndGenerate}
+              disabled={creating}
+              style={{
+                padding: '8px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                cursor: creating ? 'not-allowed' : 'pointer',
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
+                border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
+                whiteSpace: 'nowrap', opacity: creating ? 0.6 : 1,
+              }}
+            >
+              {creating ? 'Création...' : '⚡ Créer + Générer depuis FEC N-1'}
+            </button>
           )}
 
+          {/* Version chips */}
           {coVersions.map(v => (
             <div key={v.version_name} style={{
               display: 'flex', alignItems: 'center', gap: 4,
-              padding: '6px 8px', borderRadius: 7, marginBottom: 4,
-              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'transparent',
-              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'transparent'}`,
+              padding: '6px 10px', borderRadius: 7,
+              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.06)'}`,
               cursor: 'pointer',
             }}
               onClick={() => setSelVersion(v.version_name)}
             >
-              <span style={{ flex: 1, fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, whiteSpace: 'nowrap' }}>
                 {v.version_name}
               </span>
               <button
@@ -866,19 +864,19 @@ export function Budget() {
           ))}
 
           {/* New version input */}
-          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             <input
               type="text" placeholder="Nom de la version..." value={newVersionName}
               onChange={e => setNewVersionName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreateVersion()}
-              style={{ ...inputSt, width: '100%', boxSizing: 'border-box', marginBottom: 6, fontSize: 11 }}
+              style={{ ...inputSt, width: 150, fontSize: 11 }}
             />
             <button
               onClick={handleCreateVersion}
               disabled={creating || !newVersionName.trim()}
-              style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              style={{ padding: '6px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
                 background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#93c5fd',
-                opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
+                whiteSpace: 'nowrap', opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
             >
               {creating ? 'Création...' : '+ Nouvelle version'}
             </button>
@@ -886,14 +884,14 @@ export function Budget() {
 
           {/* Compare against another version */}
           {coVersions.length >= 2 && (
-            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', whiteSpace: 'nowrap' }}>
                 Comparer avec
               </div>
               <select
                 value={compareVersion}
                 onChange={e => setCompareVersion(e.target.value)}
-                style={{ ...inputSt, width: '100%', boxSizing: 'border-box', fontSize: 11 }}
+                style={{ ...inputSt, width: 160, fontSize: 11 }}
               >
                 <option value="">— Aucune —</option>
                 {coVersions
@@ -904,7 +902,7 @@ export function Budget() {
           )}
         </div>
 
-        {/* Right panel: budget editor */}
+        {/* Bottom panel: budget editor */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
           {selVersion ? (
