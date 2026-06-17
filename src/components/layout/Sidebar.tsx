@@ -21,6 +21,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'ventes',         label:'Ventes & Clients',  icon:'🛒', group:'analyse' },
   { id:'complementaire',  label:'Complémentaire',     icon:'📈', group:'analyse' },
   { id:'creances',        label:'Créances clients',   icon:'📋', group:'analyse' },
+  { id:'dettes',          label:'Dettes fournisseurs',icon:'📑', group:'analyse' },
   { id:'rapprochement',   label:'Rapprochement',      icon:'🏦', group:'ops'     },
   { id:'depot',            label:'Dépôts clients',     icon:'📥', group:'admin'   },
   { id:'import',          label:'Import',             icon:'📁', group:'admin'   },

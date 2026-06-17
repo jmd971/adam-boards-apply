@@ -22,6 +22,7 @@ import { Saisie }           from '@/modules/saisie/Saisie'
 import { Tresorerie }       from '@/modules/tresorerie/Tresorerie'
 import { Verification }     from '@/modules/verification/Verification'
 import { Creances }         from '@/modules/creances/Creances'
+import { Dettes }           from '@/modules/dettes/Dettes'
 import { Complementaire }   from '@/modules/complementaire/Complementaire'
 import { Rapprochement }    from '@/modules/rapprochement/Rapprochement'
 import { Depot }            from '@/modules/depot/Depot'
@@ -157,6 +158,7 @@ function AppInner() {
       tresorerie:     ['Trésorerie',      <Tresorerie />],
       verification:   ['Vérification',    <Verification />],
       creances:       ['Créances',        <Creances />],
+      dettes:         ['Dettes fournisseurs', <Dettes />],
       complementaire: ['Complémentaire',  <Complementaire />],
       ventes:          ['Ventes & Clients', <Ventes />],
       rapprochement:  ['Rapprochement',   <Rapprochement />],
