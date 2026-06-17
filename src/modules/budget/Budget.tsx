@@ -451,7 +451,6 @@ export function Budget() {
     resetOthers: boolean
   } | null>(null)
   const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
-  const [detailModal,  setDetailModal]  = useState<string | null>(null)   // compte dont on affiche le détail sous-comptes (lecture seule)
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -1098,13 +1097,6 @@ export function Budget() {
                                   ↻ Recopier
                                 </button>
                               )}
-                              {hasChildren && (
-                                <button onClick={() => setDetailModal(acc)}
-                                  title="Voir le détail des sous-comptes"
-                                  style={{ marginLeft: 8, background:'rgba(59,130,246,0.1)', border:'1px solid rgba(59,130,246,0.3)', color:'#60a5fa', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
-                                  🔍 détail
-                                </button>
-                              )}
                               <button onClick={() => addChild(acc)}
                                 title="Ajouter un sous-compte (ex : OpenAI, Claude…)"
                                 style={{ marginLeft: 6, background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
@@ -1246,84 +1238,6 @@ export function Budget() {
           )}
         </div>
       </div>
-
-      {/* Fenêtre détail sous-comptes (lecture seule) — même style que la modale écritures du CR/SIG */}
-      {detailModal && (() => {
-        const cur = coBud[detailModal] as any
-        const children = (cur?.children ?? []) as any[]
-        const monthTotals = sumChildren(children)
-        const grandTotal = monthTotals.reduce((s: number, x: number) => s + (x || 0), 0)
-        return (
-          <div onClick={() => setDetailModal(null)}
-            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, backdropFilter:'blur(4px)' }}>
-            <div onClick={e => e.stopPropagation()}
-              style={{ background:'#0d1424', borderRadius:14, width:'min(1100px,95vw)', maxHeight:'88vh', display:'flex', flexDirection:'column', border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 30px 60px rgba(0,0,0,0.6)' }}>
-              {/* En-tête */}
-              <div style={{ padding:'16px 20px', borderBottom:'1px solid rgba(255,255,255,0.08)', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
-                <div>
-                  <h3 style={{ margin:0, fontSize:15, color:'#60a5fa', fontWeight:700 }}>
-                    <span style={{ fontFamily:'monospace' }}>{detailModal}</span> — {cur?.l ?? ''}
-                  </h3>
-                  <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>
-                    Détail des sous-comptes (lecture) — {children.length} sous-compte{children.length > 1 ? 's' : ''} · Total{' '}
-                    <strong style={{ color:'#8b5cf6', fontFamily:'monospace' }}>{fmt(grandTotal)}</strong>
-                  </div>
-                </div>
-                <button onClick={() => setDetailModal(null)}
-                  style={{ background:'rgba(255,255,255,0.08)', border:'none', color:'#94a3b8', fontSize:16, cursor:'pointer', width:34, height:34, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
-              </div>
-              {/* Tableau sous-comptes × mois */}
-              <div style={{ flex:1, overflow:'auto', minHeight:0 }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                  <thead style={{ position:'sticky', top:0, background:'#0d1424', zIndex:2 }}>
-                    <tr>
-                      <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:170, borderBottom:'2px solid rgba(255,255,255,0.1)', position:'sticky', left:0, background:'#0d1424', zIndex:3 }}>Sous-compte</th>
-                      {MONTHS_SHORT.map(m => (
-                        <th key={m} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:58, borderBottom:'2px solid rgba(255,255,255,0.1)' }}>{m}</th>
-                      ))}
-                      <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:80, borderBottom:'2px solid rgba(255,255,255,0.1)' }}>Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {children.map((ch, ci) => {
-                      const t = (ch.b ?? []).reduce((s: number, x: number) => s + (x || 0), 0)
-                      return (
-                        <tr key={ci} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                          <td style={{ padding:'5px 12px', color:'#cbd5e1', position:'sticky', left:0, background:'#0d1424', whiteSpace:'nowrap', zIndex:1 }}>
-                            <span style={{ color:'#a78bfa', marginRight:6 }}>└</span>
-                            {ch.name || <span style={{ color:'#475569', fontStyle:'italic' }}>(sans nom)</span>}
-                          </td>
-                          {Array(12).fill(0).map((_, fi) => (
-                            <td key={fi} style={{ padding:'5px 4px', textAlign:'right', fontFamily:'monospace', color: (ch.b?.[fi] ?? 0) !== 0 ? '#94a3b8' : '#334155' }}>
-                              {(ch.b?.[fi] ?? 0) !== 0 ? fmt(ch.b[fi]) : '—'}
-                            </td>
-                          ))}
-                          <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600 }}>{fmt(t)}</td>
-                        </tr>
-                      )
-                    })}
-                    {children.length === 0 && (
-                      <tr><td colSpan={14} style={{ padding:24, textAlign:'center', color:'#475569' }}>Aucun sous-compte.</td></tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr style={{ borderTop:'2px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.02)' }}>
-                      <td style={{ padding:'7px 12px', fontWeight:700, color:'#cbd5e1', position:'sticky', left:0, background:'#0d1424', zIndex:1 }}>Total compte</td>
-                      {monthTotals.map((v: number, fi: number) => (
-                        <td key={fi} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color:'#8b5cf6' }}>{v !== 0 ? fmt(v) : '—'}</td>
-                      ))}
-                      <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:'#8b5cf6' }}>{fmt(grandTotal)}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <div style={{ padding:'10px 20px', borderTop:'1px solid rgba(255,255,255,0.08)', flexShrink:0, fontSize:11, color:'#475569' }}>
-                Lecture seule — modifiez les sous-comptes directement dans le tableau du budget.
-              </div>
-            </div>
-          </div>
-        )
-      })()}
 
       {fillModal && (() => {
         const positions = computeFillPositions(fillModal.startM, fillModal.count, fillModal.freq)

@@ -20,7 +20,7 @@ interface PlTableProps {
   /** « Hors OD » : masquer les comptes d'inventaire (cohérent avec computePlCalc). */
   excludeOD?: boolean
   budData?: Record<string, Record<string, { b: number[] }>>
-  onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number) => void
+  onOpenModal?: (title: string, entries: any[], detailed: boolean, cumN: number, cumN1: number, acc?: string) => void
   maxHeight?: string
   cumulRowKey?: string
   collapsible?: boolean
@@ -243,7 +243,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
 
           rows.push(
             <tr key={`${row.id}__${acc}`}
-              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S)}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S, acc)}
               style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
               <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
@@ -359,7 +359,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
 
           rows.push(
             <tr key={`${row.id}__${acc}`}
-              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, valN1)}
+              onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, valN1, acc)}
               style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
               <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>

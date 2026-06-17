@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { PlTable, EcrituresModal, KpiCard, ExportBar } from '@/components/ui'
+import { PlTable, EcrituresModal, KpiCard, ExportBar, budChildrenForAccount } from '@/components/ui'
 import { CR } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
@@ -31,7 +31,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export function CompteResultat() {
   const printRef = useRef<HTMLDivElement>(null)
   const budData = useEffectiveBudData()
-  const [modal, setModal] = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
+  const [modal, setModal] = useState<{ title: string; entries: any[]; cumN: number; cumN1: number; budChildren?: { name: string; b: number[] }[] } | null>(null)
 
   const { RAW, filters, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
@@ -159,7 +159,7 @@ export function CompteResultat() {
           showN1Full={filters.showN1Full} showBudget={filters.showBudget} caTotal={caTotal} caTotalN1={caTotalN1} caTotalBud={caTotalBud}
           excludeOD={filters.excludeOD}
           budData={budData as any}
-          onOpenModal={(title, entries, _detailed, cumN, cumN1) => setModal({ title, entries, cumN, cumN1 })}
+          onOpenModal={(title, entries, _detailed, cumN, cumN1, acc) => setModal({ title, entries, cumN, cumN1, budChildren: budChildrenForAccount(budData as any, filters.selCo, acc) })}
           maxHeight="calc(100vh - 200px)"
           cumulRowKey="rnet_cr"
         />

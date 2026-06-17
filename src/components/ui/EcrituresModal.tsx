@@ -17,15 +17,41 @@ interface EcrituresModalProps {
   entries: any[]
   cumN: number
   cumN1: number
+  /** Sous-comptes budgétés du compte affiché (agrégés sur les sociétés sélectionnées). */
+  budChildren?: { name: string; b: number[] }[]
   onClose: () => void
 }
 
 type SortDir = 1 | -1
+const MONTHS_SHORT = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jul', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
 const fmt2 = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 // Affichage JJ/MM/AAAA pour une date interne AAAA-MM-JJ (le tri se fait sur la valeur interne triable).
 const fmtD = (d: any) => /^\d{4}-\d{2}-\d{2}/.test(String(d)) ? String(d).slice(0, 10).split('-').reverse().join('/') : String(d ?? '')
 
-export function EcrituresModal({ title, entries, cumN, cumN1, onClose }: EcrituresModalProps) {
+/**
+ * Sous-comptes budgétés d'un compte, agrégés sur les sociétés sélectionnées et fusionnés
+ * par nom (b[] = somme mensuelle). Sert à afficher la ventilation budget dans la fenêtre
+ * écritures du CR / Équilibre / SIG. Renvoie [] si le compte n'a pas de sous-comptes.
+ */
+export function budChildrenForAccount(
+  budData: Record<string, any> | undefined,
+  selCo: string[],
+  acc?: string,
+): { name: string; b: number[] }[] {
+  if (!acc || !budData) return []
+  const merged: Record<string, number[]> = {}
+  for (const co of selCo) {
+    const kids = (budData[co] ?? {})[acc]?.children as any[] | undefined
+    for (const ch of (kids ?? [])) {
+      const name = (ch?.name || '').trim() || '(sans nom)'
+      const arr = (merged[name] ??= Array(12).fill(0))
+      ;(ch?.b ?? []).forEach((v: number, i: number) => { arr[i] += v || 0 })
+    }
+  }
+  return Object.entries(merged).map(([name, b]) => ({ name, b }))
+}
+
+export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, onClose }: EcrituresModalProps) {
   const [search,  setSearch]  = useState('')
   const [sortCol, setSortCol] = useState(0)
   const [sortDir, setSortDir] = useState<SortDir>(1)
@@ -206,6 +232,60 @@ export function EcrituresModal({ title, entries, cumN, cumN1, onClose }: Ecritur
           {filtered.length === 0 && (
             <div style={{ padding:32, textAlign:'center', color:'var(--text-3)', fontSize:12 }}>Aucune écriture trouvée</div>
           )}
+
+          {/* Détail budget par sous-comptes — même fenêtre, sous les écritures réelles */}
+          {budChildren && budChildren.length > 0 && (() => {
+            const monthTotals = Array(12).fill(0)
+            for (const ch of budChildren) (ch.b ?? []).forEach((v, i) => { monthTotals[i] += v || 0 })
+            const grandTotal = monthTotals.reduce((s, x) => s + (x || 0), 0)
+            return (
+              <div style={{ borderTop:'8px solid rgba(245,158,11,0.12)', padding:'14px 20px 4px' }}>
+                <div style={{ fontSize:12, fontWeight:700, color:'var(--amber)', marginBottom:10 }}>
+                  📋 Détail budget — sous-comptes ({budChildren.length}) · annuel ·{' '}
+                  <span style={{ fontFamily:'monospace' }}>{fmt(grandTotal)}</span>
+                </div>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding:'6px 8px', textAlign:'left', color:'var(--text-2)', fontWeight:600, minWidth:150, borderBottom:'2px solid var(--border-1)' }}>Sous-compte</th>
+                      {MONTHS_SHORT.map(m => (
+                        <th key={m} style={{ padding:'6px 4px', textAlign:'right', color:'var(--text-2)', fontWeight:600, minWidth:52, borderBottom:'2px solid var(--border-1)' }}>{m}</th>
+                      ))}
+                      <th style={{ padding:'6px 8px', textAlign:'right', color:'var(--amber)', fontWeight:700, minWidth:76, borderBottom:'2px solid var(--border-1)' }}>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {budChildren.map((ch, ci) => {
+                      const t = (ch.b ?? []).reduce((s, x) => s + (x || 0), 0)
+                      return (
+                        <tr key={ci} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                          <td style={{ padding:'4px 8px', color:'var(--text-1)', whiteSpace:'nowrap' }}>
+                            <span style={{ color:'var(--amber)', marginRight:6, opacity:0.7 }}>└</span>
+                            {ch.name || <span style={{ color:'var(--text-3)', fontStyle:'italic' }}>(sans nom)</span>}
+                          </td>
+                          {Array(12).fill(0).map((_, fi) => (
+                            <td key={fi} style={{ padding:'4px 4px', textAlign:'right', fontFamily:'monospace', color: (ch.b?.[fi] ?? 0) !== 0 ? 'var(--text-1)' : 'var(--text-3)' }}>
+                              {(ch.b?.[fi] ?? 0) !== 0 ? fmt(ch.b[fi]) : '—'}
+                            </td>
+                          ))}
+                          <td style={{ padding:'4px 8px', textAlign:'right', fontFamily:'monospace', color:'var(--amber)', fontWeight:600 }}>{fmt(t)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop:'2px solid var(--border-1)', background:'rgba(245,158,11,0.04)' }}>
+                      <td style={{ padding:'6px 8px', fontWeight:700, color:'var(--text-1)' }}>Total budget compte</td>
+                      {monthTotals.map((v, fi) => (
+                        <td key={fi} style={{ padding:'6px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color:'var(--amber)' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                      ))}
+                      <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:'var(--amber)' }}>{fmt(grandTotal)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )
+          })()}
         </div>
 
         {/* Footer totaux */}
