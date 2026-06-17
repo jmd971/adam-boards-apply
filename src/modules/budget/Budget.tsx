@@ -499,15 +499,14 @@ export function Budget() {
   }, [coBud, compareBud])
 
   // Générer le budget depuis FEC N-1
-  const handleGenerate = () => {
-    if (!RAW) return
-    const co = budCo
+  // Construit les lignes de budget à partir du réel N-1 (p1) puis N (pn).
+  // N'écrase pas les comptes déjà présents dans `base` (préserve les saisies manuelles).
+  const buildBudFromRaw = (co: string, base: Record<string, any> = {}): Record<string, any> => {
+    if (!RAW) return base
     const p1 = RAW.companies[co]?.p1 ?? {}
     const pn = RAW.companies[co]?.pn ?? {}
-    const newBud: Record<string, any> = { ...coBud }
-
-    const sources = [p1, pn]
-    for (const src of sources) {
+    const newBud: Record<string, any> = { ...base }
+    for (const src of [p1, pn]) {
       for (const [acc, data] of Object.entries(src)) {
         if (!acc.startsWith('6') && !acc.startsWith('7')) continue
         if (newBud[acc]) continue
@@ -525,13 +524,21 @@ export function Budget() {
         }
       }
     }
+    return newBud
+  }
 
+  const handleGenerate = () => {
+    if (!RAW) return
+    const co = budCo
+    const newBud = buildBudFromRaw(co, coBud)
     // Update store: versions + legacy budData
     const updated = budVersions.map(v =>
       v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newBud } : v
     )
     setBudVersions(updated)
     setBudData({ ...budData, [co]: newBud } as any)
+    // Déplier tous les groupes pour que les comptes générés (FEC N-1) soient visibles immédiatement.
+    setGrpOpen({})
     setMsg('✅ Budget généré depuis N-1 — pensez à sauvegarder')
     setTimeout(() => setMsg(null), 4000)
   }
@@ -719,8 +726,10 @@ export function Budget() {
       return
     }
     setCreating(true)
+    // Générer immédiatement les lignes depuis le FEC N-1 (sinon la version reste vide).
+    const genData = buildBudFromRaw(budCo)
     const { data: insertedRows, error } = await sb.from('budget').upsert(
-      { tenant_id: tenantId, company_key: budCo, version_name: vn, data: {}, status: 'draft' },
+      { tenant_id: tenantId, company_key: budCo, version_name: vn, data: genData, status: 'draft' },
       { onConflict: 'tenant_id,company_key,version_name' }
     ).select()
     setCreating(false)
@@ -733,12 +742,14 @@ export function Budget() {
       id: (insertedRows as any)?.[0]?.id,
       company_key: budCo,
       version_name: vn,
-      data: {},
+      data: genData,
       status: 'draft' as const,
     }
     setBudVersions([...budVersions, newVersion])
+    setBudData({ ...budData, [budCo]: genData } as any)
     setSelVersion(vn)
-    setMsg('✅ Version créée — génération en cours...')
+    setGrpOpen({})
+    setMsg('✅ Version créée et générée depuis N-1 — pensez à sauvegarder')
     setTimeout(() => setMsg(null), 4000)
   }
 
@@ -1171,7 +1182,9 @@ export function Budget() {
                         const isSearching = search.trim() !== ''
                         return groups.map(g => {
                           if (g.flat) return renderAccountRow(g.entries[0])
-                          const open = isSearching || !!grpOpen[g.root]
+                          // Déplié par défaut (undefined → ouvert) pour que les comptes du FEC N-1
+                          // soient visibles ; repli explicite mémorisé via grpOpen[root] === false.
+                          const open = isSearching || grpOpen[g.root] !== false
                           const label = pcgLabel(g.root) || g.entries.find(([a]) => a === g.root)?.[1]?.l || ''
                           return (
                             <Fragment key={g.root}>
