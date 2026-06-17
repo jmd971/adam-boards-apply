@@ -149,7 +149,7 @@ export function Sig() {
           cumulRowKey="rnet"
         />
       </div>
-      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
+      {modal && <EcrituresModal {...modal} budSelMonths={selectedMs} onClose={() => setModal(null)} />}
     </div>
   )
 }

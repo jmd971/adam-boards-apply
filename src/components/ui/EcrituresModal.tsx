@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { fmt } from '@/lib/calc'
+import { fmt, fiscalIndex } from '@/lib/calc'
 import { sb } from '@/lib/supabase'
 
 // Ouvre une facture (bucket 'invoice' privé) via une URL signée. Rétro-compat : si la valeur
@@ -19,6 +19,9 @@ interface EcrituresModalProps {
   cumN1: number
   /** Sous-comptes budgétés du compte affiché (agrégés sur les sociétés sélectionnées). */
   budChildren?: { name: string; b: number[] }[]
+  /** Mois sélectionnés (YYYY-MM) du filtre période — pour ne sommer le budget que sur ces mois,
+   *  exactement comme la colonne Budget de CR/Équilibre/SIG (sumBudInPeriod). */
+  budSelMonths?: string[]
   onClose: () => void
 }
 
@@ -51,7 +54,7 @@ export function budChildrenForAccount(
   return Object.entries(merged).map(([name, b]) => ({ name, b }))
 }
 
-export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, onClose }: EcrituresModalProps) {
+export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSelMonths, onClose }: EcrituresModalProps) {
   const [search,  setSearch]  = useState('')
   const [sortCol, setSortCol] = useState(0)
   const [sortDir, setSortDir] = useState<SortDir>(1)
@@ -233,51 +236,58 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, onClo
             <div style={{ padding:32, textAlign:'center', color:'var(--text-3)', fontSize:12 }}>Aucune écriture trouvée</div>
           )}
 
-          {/* Détail budget par sous-comptes — même fenêtre, sous les écritures réelles */}
+          {/* Détail budget par sous-comptes — même fenêtre, sous les écritures réelles.
+              On ne somme QUE les mois sélectionnés (index calendaire), exactement comme la
+              colonne Budget de CR/Équilibre/SIG → les totaux concordent avec le tableau. */}
           {budChildren && budChildren.length > 0 && (() => {
-            const monthTotals = Array(12).fill(0)
-            for (const ch of budChildren) (ch.b ?? []).forEach((v, i) => { monthTotals[i] += v || 0 })
+            // Mois affichés = mois sélectionnés (ordonnés). À défaut, les 12 mois.
+            const cols = (budSelMonths && budSelMonths.length)
+              ? budSelMonths.map(m => ({ idx: fiscalIndex(m), label: MONTHS_SHORT[fiscalIndex(m)] ?? m }))
+              : MONTHS_SHORT.map((label, idx) => ({ idx, label }))
+            const sumCols = (b: number[]) => cols.reduce((s, c) => s + (b?.[c.idx] ?? 0), 0)
+            const monthTotals = cols.map(c => budChildren.reduce((s, ch) => s + (ch.b?.[c.idx] ?? 0), 0))
             const grandTotal = monthTotals.reduce((s, x) => s + (x || 0), 0)
+            const isFullYear = cols.length === 12
             return (
               <div style={{ borderTop:'8px solid rgba(245,158,11,0.12)', padding:'14px 20px 4px' }}>
                 <div style={{ fontSize:12, fontWeight:700, color:'var(--amber)', marginBottom:10 }}>
-                  📋 Détail budget — sous-comptes ({budChildren.length}) · annuel ·{' '}
+                  📋 Détail budget — sous-comptes ({budChildren.length}) · {isFullYear ? 'annuel' : `${cols.length} mois sélectionnés`} ·{' '}
                   <span style={{ fontFamily:'monospace' }}>{fmt(grandTotal)}</span>
                 </div>
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                   <thead>
                     <tr>
                       <th style={{ padding:'6px 8px', textAlign:'left', color:'var(--text-2)', fontWeight:600, minWidth:150, borderBottom:'2px solid var(--border-1)' }}>Sous-compte</th>
-                      {MONTHS_SHORT.map(m => (
-                        <th key={m} style={{ padding:'6px 4px', textAlign:'right', color:'var(--text-2)', fontWeight:600, minWidth:52, borderBottom:'2px solid var(--border-1)' }}>{m}</th>
+                      {cols.map((c, i) => (
+                        <th key={i} style={{ padding:'6px 4px', textAlign:'right', color:'var(--text-2)', fontWeight:600, minWidth:52, borderBottom:'2px solid var(--border-1)' }}>{c.label}</th>
                       ))}
                       <th style={{ padding:'6px 8px', textAlign:'right', color:'var(--amber)', fontWeight:700, minWidth:76, borderBottom:'2px solid var(--border-1)' }}>Total</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {budChildren.map((ch, ci) => {
-                      const t = (ch.b ?? []).reduce((s, x) => s + (x || 0), 0)
-                      return (
-                        <tr key={ci} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                          <td style={{ padding:'4px 8px', color:'var(--text-1)', whiteSpace:'nowrap' }}>
-                            <span style={{ color:'var(--amber)', marginRight:6, opacity:0.7 }}>└</span>
-                            {ch.name || <span style={{ color:'var(--text-3)', fontStyle:'italic' }}>(sans nom)</span>}
-                          </td>
-                          {Array(12).fill(0).map((_, fi) => (
-                            <td key={fi} style={{ padding:'4px 4px', textAlign:'right', fontFamily:'monospace', color: (ch.b?.[fi] ?? 0) !== 0 ? 'var(--text-1)' : 'var(--text-3)' }}>
-                              {(ch.b?.[fi] ?? 0) !== 0 ? fmt(ch.b[fi]) : '—'}
+                    {budChildren.map((ch, ci) => (
+                      <tr key={ci} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding:'4px 8px', color:'var(--text-1)', whiteSpace:'nowrap' }}>
+                          <span style={{ color:'var(--amber)', marginRight:6, opacity:0.7 }}>└</span>
+                          {ch.name || <span style={{ color:'var(--text-3)', fontStyle:'italic' }}>(sans nom)</span>}
+                        </td>
+                        {cols.map((c, i) => {
+                          const v = ch.b?.[c.idx] ?? 0
+                          return (
+                            <td key={i} style={{ padding:'4px 4px', textAlign:'right', fontFamily:'monospace', color: v !== 0 ? 'var(--text-1)' : 'var(--text-3)' }}>
+                              {v !== 0 ? fmt(v) : '—'}
                             </td>
-                          ))}
-                          <td style={{ padding:'4px 8px', textAlign:'right', fontFamily:'monospace', color:'var(--amber)', fontWeight:600 }}>{fmt(t)}</td>
-                        </tr>
-                      )
-                    })}
+                          )
+                        })}
+                        <td style={{ padding:'4px 8px', textAlign:'right', fontFamily:'monospace', color:'var(--amber)', fontWeight:600 }}>{fmt(sumCols(ch.b ?? []))}</td>
+                      </tr>
+                    ))}
                   </tbody>
                   <tfoot>
                     <tr style={{ borderTop:'2px solid var(--border-1)', background:'rgba(245,158,11,0.04)' }}>
                       <td style={{ padding:'6px 8px', fontWeight:700, color:'var(--text-1)' }}>Total budget compte</td>
-                      {monthTotals.map((v, fi) => (
-                        <td key={fi} style={{ padding:'6px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color:'var(--amber)' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                      {monthTotals.map((v, i) => (
+                        <td key={i} style={{ padding:'6px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color:'var(--amber)' }}>{v !== 0 ? fmt(v) : '—'}</td>
                       ))}
                       <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:'var(--amber)' }}>{fmt(grandTotal)}</td>
                     </tr>

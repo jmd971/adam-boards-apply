@@ -164,7 +164,7 @@ export function CompteResultat() {
           cumulRowKey="rnet_cr"
         />
       </div>
-      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
+      {modal && <EcrituresModal {...modal} budSelMonths={selectedMs} onClose={() => setModal(null)} />}
     </div>
   )
 }

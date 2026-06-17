@@ -117,7 +117,7 @@ export function Equilibre() {
           onOpenModal={(title, entries, _, cumN, cumN1, acc) => setModal({title, entries, cumN, cumN1, budChildren: budChildrenForAccount(budData as any, selCo, acc)})} />
       </div>
 
-      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
+      {modal && <EcrituresModal {...modal} budSelMonths={selectedMs} onClose={() => setModal(null)} />}
     </div>
   )
 }
