@@ -264,7 +264,21 @@ export function useRapportData(): RapportData | null {
       delais: number[]; impayes: number; fromFec: boolean; fromSaisie: boolean
     }
 
-    /** Graines issues du FEC : clients (cdN/cdN1) + comptes auxiliaires bilan (411xxx/401xxx, longueur>3). */
+    // Extraction du nom de tiers depuis le libellé d'une écriture du compte collectif.
+    const extractClientName = (label: string): string | null => {
+      const m = /CLIENT\s+(.+?)\s*$/i.exec(label)   // "FACT MC001 - CLIENT DELPHI" → DELPHI
+      return m ? m[1].trim() : null
+    }
+    const extractFournName = (label: string): string | null => {
+      // Lignes collectives à ignorer (paiements groupés, à-nouveaux, encaissements)
+      if (/^\s*(PAIEMENTS?\s+FOURNISSEURS|REPORT\s+A\s+NOUVEAU|ENCAISSEMENT)/i.test(label)) return null
+      const s = label.trim()
+        .replace(/\s+\d{2}\/\d{4}\s*$/, '')   // retire un suffixe de période "01/2026"
+        .replace(/^ACHAT\s+/i, '')             // retire le préfixe "ACHAT "
+      return s.length >= 2 ? s : null
+    }
+
+    /** Graines FEC : cdN clients + comptes auxiliaires bilan + parsing des écritures des comptes collectifs 411/401. */
     function fecSeeds(kind: 'client' | 'fournisseur'): TiersAccu[] {
       const seeds = new Map<string, TiersAccu>()
       const add = (rawName: string, totalN: number, totalN1: number, nb: number) => {
@@ -274,9 +288,15 @@ export function useRapportData(): RapportData | null {
         s.totalN += totalN; s.totalN1 += totalN1; s.nb += nb
         seeds.set(key, s)
       }
+      const addField = (rawName: string, amount: number, field: 'totalN' | 'totalN1', nb: number) =>
+        field === 'totalN' ? add(rawName, amount, 0, nb) : add(rawName, 0, amount, nb)
+
+      const prefix = kind === 'client' ? '411' : '401'
+      const extract = kind === 'client' ? extractClientName : extractFournName
+
       for (const co of companies) {
-        if (kind === 'client') {
-          // client_data (cdN/cdN1) : nom, CA (débits 411), nb factures
+        const hasCd = kind === 'client' && Object.keys(co.cdN ?? {}).length > 0
+        if (kind === 'client' && hasCd) {
           for (const info of Object.values(co.cdN ?? {})) add(info.n || '', info.ca || 0, 0, info.entries || 0)
           for (const info of Object.values(co.cdN1 ?? {})) {
             const key = normName(info.n || '')
@@ -285,20 +305,27 @@ export function useRapportData(): RapportData | null {
             else add(info.n || '', 0, info.ca || 0, 0)
           }
         }
-        // Comptes auxiliaires du bilan (longueur > 3 = sous-compte tiers nommé)
-        const prefix = kind === 'client' ? '411' : '401'
-        const collect = (src: Record<string, BilanAccount>, field: 'totalN' | 'totalN1') => {
+        // Parsing des écritures des comptes 411/401 (collectif ou auxiliaire).
+        // Le nom du tiers est dans le libellé de la facture (débit pour client, crédit pour fournisseur).
+        const parse = (src: Record<string, BilanAccount>, field: 'totalN' | 'totalN1') => {
           for (const [acc, ba] of Object.entries(src)) {
-            if (acc.startsWith(prefix) && acc.length > 3 && ba.l) {
-              const key = normName(ba.l)
-              const ex = seeds.get(key)
-              if (ex) ex[field] += Math.abs(ba.s)
-              else if (field === 'totalN') add(ba.l, Math.abs(ba.s), 0, ba.e?.length ?? 0)
-              else add(ba.l, 0, Math.abs(ba.s), 0)
+            if (!acc.startsWith(prefix)) continue
+            if (kind === 'client' && hasCd) continue   // déjà couvert par cdN → éviter le doublon
+            if (ba.e && ba.e.length) {
+              for (const e of ba.e) {
+                const label = (e[1] as string) || ''
+                const amount = kind === 'client' ? (e[2] as number) : (e[3] as number)  // débit / crédit
+                if (!(amount > 0)) continue
+                const name = extract(label)
+                if (name) addField(name, amount, field, 1)
+              }
+            } else if (acc.length > 3 && ba.l) {
+              // Compte auxiliaire sans écritures détaillées → solde
+              addField(ba.l, Math.abs(ba.s), field, 0)
             }
           }
         }
-        collect(co.bn, 'totalN'); collect(co.b1, 'totalN1')
+        parse(co.bn, 'totalN'); parse(co.b1, 'totalN1')
       }
       return [...seeds.values()]
     }
@@ -325,24 +352,32 @@ export function useRapportData(): RapportData | null {
       }
 
       const total = [...map.values()].reduce((s, r) => s + r.totalN, 0)
+      // Base de calcul du délai = tiers AYANT un délai connu (les délais ne viennent
+      // que des saisies ; les tiers FEC sans paiement nominatif n'y participent pas).
+      const delaiBase = [...map.values()]
+        .filter(r => r.delais.length).reduce((s, r) => s + r.totalN, 0)
+
       const tiers: TiersDelai[] = [...map.values()]
         .map(r => {
           const delaiMoyen = r.delais.length ? r.delais.reduce((a, b) => a + b, 0) / r.delais.length : null
           const sharePct = total !== 0 ? (r.totalN / total) * 100 : 0
+          // Contribution pondérée au délai global, calculée parmi les tiers à délai connu.
+          const contributionDelai = (delaiMoyen != null && delaiBase > 0)
+            ? (r.totalN / delaiBase) * delaiMoyen : null
           return {
             name: r.name,
             totalN: r.totalN,
             nbFactures: r.nb,
             delaiMoyen,
             sharePct,
-            contributionDelai: delaiMoyen != null ? (sharePct / 100) * delaiMoyen : null,
+            contributionDelai,
             nbImpayes: r.impayes,
             source: (r.fromFec && r.fromSaisie ? 'FEC+saisie' : r.fromFec ? 'FEC' : 'saisie') as TiersDelai['source'],
           }
         })
         .filter(t => Math.abs(t.totalN) > 0.5)
         .sort((a, b) => b.totalN - a.totalN)
-      // Délai global = moyenne pondérée = somme des contributions
+      // Délai global = moyenne pondérée = somme des contributions (sur la base à délai connu)
       const contribs = tiers.filter(t => t.contributionDelai != null)
       const globalDelai = contribs.length
         ? contribs.reduce((s, t) => s + (t.contributionDelai ?? 0), 0)
