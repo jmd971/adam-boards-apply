@@ -1027,3 +1027,46 @@ client/fournisseur, non imputés) → cases à cocher + « Net à régler ». En
 de la somme de ses acomptes imputés (`buildImputedMap` + `netFactor` dans Tresorerie.tsx) —
 l'acompte ayant déjà été compté à sa propre date de paiement. Supprimer la facture libère
 ses acomptes (SET NULL en base + patch du store local). Badge « Acompte ✓ imputé ».
+
+### 38. Détail d'un compte — section « Budget » dans la fenêtre écritures (CR / Équilibre / SIG + Budget)
+
+`EcrituresModal` (`src/components/ui/EcrituresModal.tsx`) affiche, SOUS les écritures
+réalisées, une section « 📋 Détail budget ».
+- Données via le prop `budChildren: { name; b[12] }[]` — helper EXPORTÉ
+  `budChildrenForAccount(budData, selCo, acc)` du même fichier.
+- **Invariant** : le helper renvoie les SOUS-COMPTES nommés s'il y en a, SINON il retombe
+  sur la ligne budget du compte (« Budget du compte »). Il ne renvoie `[]` QUE si le compte
+  n'a aucun budget. ⇒ ne JAMAIS le restreindre aux seuls sous-comptes (régression : budget
+  absent du détail pour les comptes sans sous-compte, vu dans Équilibre).
+- Prop `budSelMonths={selectedMs}` : la section ne somme/affiche QUE les mois sélectionnés
+  (mêmes index calendaires que `sumBudInPeriod`) → le total concorde avec la colonne Budget
+  du tableau. Sans ce prop (menu Budget) → vue annuelle 12 mois.
+- **Câblage à conserver dans LES 3 modules** `cr/CompteResultat.tsx`, `equilibre/Equilibre.tsx`,
+  `sig/Sig.tsx` : `onOpenModal={(t,e,_,n,n1,acc)=>setModal({...,budChildren: budChildrenForAccount(budData,<selCo>,acc)})}`
+  + `<EcrituresModal {...modal} budSelMonths={selectedMs} .../>`. `PlTable.onOpenModal` DOIT
+  transmettre `acc` en 6e argument (2 sites d'appel : bilan + P&L).
+
+### 39. Budget — regroupement par racine DÉPLIÉ par défaut + comptes visibles après génération
+
+`Budget.tsx` regroupe les comptes par racine 3 chiffres (couche d'affichage uniquement).
+- **Invariant** : un groupe est OUVERT par défaut —
+  `const open = isSearching || grpOpen[g.root] !== false` (undefined ⇒ ouvert ; repli explicite
+  ⇒ `false`). NE PAS revenir à `!!grpOpen[g.root]` (régression : les comptes générés depuis le
+  FEC N-1, codes longs type 6037/6242, restaient cachés sous des groupes repliés).
+- `handleGenerate` ET `handleCreateAndGenerate` font `setGrpOpen({})` (tout déplier) pour
+  révéler les comptes fraîchement générés.
+- `handleCreateAndGenerate` DOIT générer les lignes (`buildBudFromRaw(budCo)`), pas créer une
+  version vide. `buildBudFromRaw(co, base)` = source unique de génération (réutilisée par les deux).
+
+### 40. Budget — clic sur un compte = écritures réalisées + budget (voir aussi #34)
+
+Dans `Budget.tsx`, le clic sur le code+libellé d'un compte ouvre `EcrituresModal` (`ecrModal`) :
+- `entries = mergeEntries(RAW, [budCo], 'pn', acc)` (écritures réalisées N) ;
+- `budChildren` = sous-comptes du compte, SINON `[{ name:'Budget du compte', b: bv.b }]`.
+Le clic est porté par un `<span>` autour du code+libellé (curseur + badge « N éc. »), PAS par
+toute la cellule → les boutons Recopier / sous-compte / hypothèse ne déclenchent pas la modale.
+Ce détail a déjà régressé (perdu lors du refactor sous-comptes/regroupement) — à préserver.
+
+> ⚠️ Règle générale : `EcrituresModal` et `PlTable` sont des composants PARTAGÉS. Toute
+> modification doit être vérifiée sur TOUS leurs consommateurs (CR, Équilibre, SIG, Budget),
+> pas seulement celui en cours.
