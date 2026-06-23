@@ -216,12 +216,13 @@ function TiersTable({ titre, tiers }: { titre: string; tiers: TiersDelai[] }) {
       <div style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
           <thead><tr style={{ background:'rgba(255,255,255,0.04)' }}>
-            <th style={th}>Tiers</th><th style={thR}>Total N</th><th style={thR}>Nb fact.</th><th style={thR}>Délai moyen</th><th style={thR}>Poids</th><th style={thR}>Contrib. délai</th><th style={thR}>Impayés</th>
+            <th style={th}>Tiers</th><th style={th}>Source</th><th style={thR}>Total N</th><th style={thR}>Nb fact.</th><th style={thR}>Délai moyen</th><th style={thR}>Poids</th><th style={thR}>Contrib. délai</th><th style={thR}>Impayés</th>
           </tr></thead>
           <tbody>
             {tiers.map((t, i) => (
               <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
                 <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{t.name}</td>
+                <td style={td}><SourceBadge source={t.source} /></td>
                 <td style={tdR}>{eur(t.totalN)}</td>
                 <td style={tdR}>{t.nbFactures}</td>
                 <td style={{ ...tdR, color: (t.delaiMoyen ?? 0) > 60 ? '#f59e0b' : 'var(--text-1)', fontWeight:700 }}>{jour(t.delaiMoyen)}</td>
@@ -285,6 +286,15 @@ function ListBox({ titre, couleur, items, puce }: { titre: string; couleur: stri
       </div>
     </div>
   )
+}
+
+function SourceBadge({ source }: { source: 'FEC' | 'saisie' | 'FEC+saisie' }) {
+  const map = {
+    'FEC':        { bg:'rgba(59,130,246,0.15)',  color:'#60a5fa' },
+    'saisie':     { bg:'rgba(148,163,184,0.15)', color:'#94a3b8' },
+    'FEC+saisie': { bg:'rgba(16,185,129,0.15)',  color:'#34d399' },
+  }[source]
+  return <span style={{ background:map.bg, color:map.color, fontSize:9.5, fontWeight:700, padding:'2px 7px', borderRadius:6, whiteSpace:'nowrap' }}>{source}</span>
 }
 
 const th: React.CSSProperties  = { textAlign:'left', padding:'9px 12px', fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.4px' }
