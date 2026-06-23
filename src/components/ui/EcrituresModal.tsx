@@ -32,9 +32,12 @@ const fmt2 = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2
 const fmtD = (d: any) => /^\d{4}-\d{2}-\d{2}/.test(String(d)) ? String(d).slice(0, 10).split('-').reverse().join('/') : String(d ?? '')
 
 /**
- * Sous-comptes budgétés d'un compte, agrégés sur les sociétés sélectionnées et fusionnés
- * par nom (b[] = somme mensuelle). Sert à afficher la ventilation budget dans la fenêtre
- * écritures du CR / Équilibre / SIG. Renvoie [] si le compte n'a pas de sous-comptes.
+ * Budget d'un compte à afficher dans la fenêtre écritures (CR / Équilibre / SIG), agrégé
+ * sur les sociétés sélectionnées (b[] = somme mensuelle) :
+ *  - si le compte a des sous-comptes nommés → leur ventilation (fusionnée par nom) ;
+ *  - sinon, repli sur la ligne budget du compte lui-même (« Budget du compte ») ;
+ *  - [] seulement si le compte n'a AUCUN budget.
+ * Cohérent avec le détail affiché dans le menu Budget.
  */
 export function budChildrenForAccount(
   budData: Record<string, any> | undefined,
@@ -51,7 +54,16 @@ export function budChildrenForAccount(
       ;(ch?.b ?? []).forEach((v: number, i: number) => { arr[i] += v || 0 })
     }
   }
-  return Object.entries(merged).map(([name, b]) => ({ name, b }))
+  const out = Object.entries(merged).map(([name, b]) => ({ name, b }))
+  if (out.length > 0) return out
+  // Pas de sous-comptes : retomber sur la ligne budget du compte (somme sur les sociétés).
+  const own = Array(12).fill(0)
+  let hasBud = false
+  for (const co of selCo) {
+    const b = (budData[co] ?? {})[acc]?.b as number[] | undefined
+    if (Array.isArray(b)) { b.forEach((v, i) => { own[i] += v || 0 }); if (b.some(v => v)) hasBud = true }
+  }
+  return hasBud ? [{ name: 'Budget du compte', b: own }] : []
 }
 
 export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSelMonths, onClose }: EcrituresModalProps) {
