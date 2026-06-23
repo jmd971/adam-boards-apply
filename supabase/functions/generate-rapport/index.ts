@@ -33,10 +33,6 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Paramètres manquants' }), { status: 400, headers: corsHeaders })
     }
 
-    // Vérifier que l'utilisateur a accès à ce tenant
-    // Récupère tous les rôles de l'utilisateur. Un superadmin n'est pas rattaché
-    // au tenant consulté (il en choisit un via le dashboard) → on l'autorise
-    // globalement. Les autres rôles doivent matcher le tenant demandé.
     const { data: roles } = await sb
       .from('user_roles')
       .select('role, tenant_id')
@@ -53,36 +49,40 @@ Deno.serve(async (req: Request) => {
 
     const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
 
-    const systemPrompt = `Tu es un expert-comptable qui rédige des rapports d'activité pour des dirigeants d'entreprise.
-Ton rôle : analyser des données financières structurées et les traduire en observations claires, en français, sans jargon comptable.
+    const systemPrompt = `Tu es un expert-comptable qui rédige un rapport d'activité ACTIONNABLE pour un dirigeant d'entreprise.
+Tu compares l'exercice N à N-1 et au budget. Ton objectif : que le dirigeant sache exactement QUELLE ACTION mener, et AVEC QUEL CLIENT, FOURNISSEUR ou SUR QUEL POSTE.
+
 Règles absolues :
-- Jamais de termes comme "DSO", "z-score", "outlier", "écart-type", "indice de récurrence"
-- Parle comme si tu expliquais à un ami dirigeant : direct, concret, avec des chiffres arrondis
-- Chaque phrase doit mener à une observation utile ou une recommandation courte
-- Sois positif sur les points forts, précis sur les risques, sans alarmisme excessif
-- Format de réponse : JSON strict avec les clés demandées, aucun texte en dehors du JSON`
+- NOMME toujours les clients, fournisseurs et postes concernés (utilise les noms fournis dans les données). Jamais d'analyse anonyme.
+- Pas de jargon : pas de "DSO", "z-score", "écart-type". Parle clair, avec des chiffres arrondis en euros et en jours.
+- Pour les DÉLAIS : explique comment CHAQUE client/fournisseur tire la moyenne globale. Ex : "Le client X paie à 80 jours et pèse 40% de vos ventes : c'est lui qui dégrade votre délai moyen, à relancer en priorité."
+- Pour les CHARGES et PRODUITS : commente la fréquence, le montant moyen, le poids dans le total, et l'évolution vs N-1 et budget. Signale les postes qui dérapent.
+- Pour les IMMOBILISATIONS : commente leur poids et l'impact sur les amortissements (dotations).
+- Chaque action doit être concrète et nominative.
+- Réponds en JSON strict, aucun texte hors du JSON.`
 
-    const userPrompt = `Voici les données d'activité d'une entreprise sur les 12 derniers mois. Analyse-les et rédige le rapport.
+    const userPrompt = `Données de l'exercice (cumul N vs N-1 vs budget). Tous les montants sont en euros, les délais en jours.
 
-DONNÉES :
 ${JSON.stringify(rapportData, null, 2)}
 
-Réponds UNIQUEMENT avec ce JSON (toutes les clés sont obligatoires) :
+Réponds UNIQUEMENT avec ce JSON (toutes les clés obligatoires) :
 {
-  "synthese": "2-3 phrases résumant l'état général de l'entreprise, ses points forts et ses principaux risques",
-  "modele_eco": "1-2 phrases décrivant comment l'entreprise fonctionne (récurrent/ponctuel, services/produits, base client)",
-  "saisonnalite": "1-2 phrases sur les mois de pic et de creux détectés, ou null si pas de saisonnalité marquée",
-  "operations": "2-3 phrases sur le volume et la nature des opérations, les tendances, les ruptures détectées",
-  "tiers": "2-3 phrases sur les clients et fournisseurs clés, la concentration, les nouveaux entrants",
-  "paiements": "2-3 phrases sur les délais d'encaissement et de règlement, les retards, les modes inhabituels",
-  "points_forts": ["point fort 1", "point fort 2"],
-  "alertes": ["alerte 1 en langage clair", "alerte 2 en langage clair"],
-  "recommandations": ["recommandation courte 1", "recommandation courte 2"]
+  "synthese": "3-4 phrases : résultat N vs N-1, tendance générale, 1-2 risques majeurs nommés",
+  "produits": "Analyse des produits : postes clés nommés, évolution vs N-1 et budget, fréquence/montant moyen des plus significatifs",
+  "charges": "Analyse des charges : postes qui pèsent le plus, ceux qui dérapent vs N-1/budget (nommés), fréquence et montant moyen",
+  "immobilisations": "Analyse des immobilisations et de leur impact sur les amortissements, ou null si aucune",
+  "clients_analyse": "Analyse des délais clients : comment chaque gros client (nommé) impacte le délai moyen global",
+  "fournisseurs_analyse": "Analyse des délais fournisseurs : comment chaque fournisseur (nommé) impacte le délai moyen global",
+  "actions_clients": [{"client": "nom", "constat": "ex: paie à 75j, 30% du CA", "action": "ex: négocier un acompte / relancer"}],
+  "actions_fournisseurs": [{"fournisseur": "nom", "constat": "...", "action": "..."}],
+  "actions_postes": [{"poste": "nom du compte/charge", "constat": "ex: +45% vs budget", "action": "..."}],
+  "points_forts": ["..."],
+  "alertes": ["..."]
 }`
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1500,
+      max_tokens: 3000,
       messages: [{ role: 'user', content: userPrompt }],
       system: systemPrompt,
     })
@@ -98,7 +98,6 @@ Réponds UNIQUEMENT avec ce JSON (toutes les clés sont obligatoires) :
       throw new Error('Impossible de parser la réponse Claude')
     }
 
-    // Sauvegarder en base avec le client service_role pour bypasser RLS en écriture
     const sbAdmin = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -107,8 +106,8 @@ Réponds UNIQUEMENT avec ce JSON (toutes les clés sont obligatoires) :
     const { data: saved, error: saveError } = await sbAdmin.from('rapports').insert({
       tenant_id: tenantId,
       company_key: companyKey,
-      period_start: (rapportData as any).periodStart,
-      period_end: (rapportData as any).periodEnd,
+      period_start: `${(rapportData as any).exerciceN}-01-01`,
+      period_end: `${(rapportData as any).exerciceN}-12-31`,
       data_json: rapportData,
       rapport_json: rapportJson,
     }).select('id').single()
