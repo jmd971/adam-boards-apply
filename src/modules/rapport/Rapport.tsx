@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { sb } from '@/lib/supabase'
 import { useAppStore, useTenantId } from '@/store'
 import { Spinner } from '@/components/ui'
-import { useRapportData, type RapportData } from '@/hooks/useRapportData'
+import { useRapportData } from '@/hooks/useRapportData'
 
 const RAPPORT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-rapport`
 
