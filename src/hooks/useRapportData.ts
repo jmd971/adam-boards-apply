@@ -150,17 +150,20 @@ export function useRapportData(): RapportData | null {
         if (e.payment_date) row.payDays.push(daysBetween(e.entry_date, e.payment_date))
       }
       return [...map.entries()]
-        .map(([name, s]) => ({
+        .map(([name, s]) => {
+          const sorted = [...s.dates].sort()
+          return {
           name,
           category,
           totalHt: s.totalHt,
           count: s.count,
           sharePercent: totalCat > 0 ? (s.totalHt / totalCat) * 100 : 0,
-          firstSeen: s.dates.sort()[0],
-          lastSeen: s.dates.sort().at(-1)!,
-          isNew: s.dates.sort()[0] >= threeMonthsAgo,
+          firstSeen: sorted[0],
+          lastSeen: sorted[sorted.length - 1],
+          isNew: sorted[0] >= threeMonthsAgo,
           avgDelaiPaiement: s.payDays.length ? s.payDays.reduce((a, b) => a + b, 0) / s.payDays.length : null,
-        }))
+          }
+        })
         .sort((a, b) => b.totalHt - a.totalHt)
     }
 
