@@ -96,7 +96,7 @@ function aggregateAccounts(
 
   for (const co of companies) {
     // N
-    for (const [acc, fa] of Object.entries(co.pn)) {
+    for (const [acc, fa] of Object.entries(co.pn ?? {})) {
       if (!predicate(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
       e.totalN += soldeFec(fa, charge)
@@ -105,7 +105,7 @@ function aggregateAccounts(
       map.set(acc, e)
     }
     // N-1
-    for (const [acc, fa] of Object.entries(co.p1)) {
+    for (const [acc, fa] of Object.entries(co.p1 ?? {})) {
       if (!predicate(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
       e.totalN1 += soldeFec(fa, charge)
@@ -176,7 +176,7 @@ function aggregateBilan(
       map.set(acc, e)
     }
   }
-  for (const co of companies) { add(co.bn, 'totalN'); add(co.b1, 'totalN1') }
+  for (const co of companies) { add(co.bn ?? {}, 'totalN'); add(co.b1 ?? {}, 'totalN1') }
 
   const totalN = [...map.values()].reduce((s, e) => s + e.totalN, 0)
   return [...map.entries()]
@@ -240,7 +240,7 @@ export function useRapportData(): RapportData | null {
     // Carte de résolution des noms via le bilan FEC (comptes auxiliaires 411xxx / 401xxx)
     const fecNames = new Map<string, string>()
     for (const co of companies) {
-      for (const src of [co.bn, co.b1]) {
+      for (const src of [co.bn ?? {}, co.b1 ?? {}]) {
         for (const [acc, ba] of Object.entries(src)) {
           if ((acc.startsWith('411') || acc.startsWith('401')) && ba.l && !fecNames.has(acc)) {
             fecNames.set(acc, ba.l)
@@ -325,7 +325,7 @@ export function useRapportData(): RapportData | null {
             }
           }
         }
-        parse(co.bn, 'totalN'); parse(co.b1, 'totalN1')
+        parse(co.bn ?? {}, 'totalN'); parse(co.b1 ?? {}, 'totalN1')
       }
       return [...seeds.values()]
     }
@@ -355,11 +355,12 @@ export function useRapportData(): RapportData | null {
       // Base de calcul du délai = tiers AYANT un délai connu (les délais ne viennent
       // que des saisies ; les tiers FEC sans paiement nominatif n'y participent pas).
       const delaiBase = [...map.values()]
-        .filter(r => r.delais.length).reduce((s, r) => s + r.totalN, 0)
+        .filter(r => (r.delais ?? []).length).reduce((s, r) => s + r.totalN, 0)
 
       const tiers: TiersDelai[] = [...map.values()]
         .map(r => {
-          const delaiMoyen = r.delais.length ? r.delais.reduce((a, b) => a + b, 0) / r.delais.length : null
+          const dl = r.delais ?? []
+          const delaiMoyen = dl.length ? dl.reduce((a, b) => a + b, 0) / dl.length : null
           const sharePct = total !== 0 ? (r.totalN / total) * 100 : 0
           // Contribution pondérée au délai global, calculée parmi les tiers à délai connu.
           const contributionDelai = (delaiMoyen != null && delaiBase > 0)
