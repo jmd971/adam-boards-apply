@@ -28,6 +28,7 @@ export interface TiersDelai {
   sharePct: number                 // poids dans le total clients/fournisseurs
   contributionDelai: number | null // sharePct/100 × delaiMoyen → contribution au délai global pondéré
   nbImpayes: number                // factures sans date de paiement
+  source: 'FEC' | 'saisie' | 'FEC+saisie'  // origine des données du tiers
 }
 
 export interface RapportData {
@@ -232,8 +233,11 @@ export function useRapportData(): RapportData | null {
     const resultatN  = prod.totalN  - charges.totalN
     const resultatN1 = prod.totalN1 - charges.totalN1
 
-    // ── Tiers nominatifs + délais (depuis manual_entries, exercice N) ──────
-    // Carte de résolution des noms via le bilan FEC (411 clients / 401 fournisseurs)
+    // ── Tiers nominatifs : FEC (cdN clients + comptes auxiliaires bilan) + saisies ──
+    // Normalisation des noms pour fusionner FEC et saisies sur le même tiers.
+    const normName = (s: string) => s.trim().toUpperCase().replace(/\s+/g, ' ')
+
+    // Carte de résolution des noms via le bilan FEC (comptes auxiliaires 411xxx / 401xxx)
     const fecNames = new Map<string, string>()
     for (const co of companies) {
       for (const src of [co.bn, co.b1]) {
@@ -255,33 +259,88 @@ export function useRapportData(): RapportData | null {
       fiscalYearOf(e.entry_date.slice(0, 7), fiscalSettings[e.company_key] ?? startMonth) === exerciceN
     )
 
-    function buildTiers(cats: ManualEntry['category'][]): { tiers: TiersDelai[]; globalDelai: number | null } {
-      const sub = meN.filter(e => cats.includes(e.category))
-      const map = new Map<string, { totalN: number; nb: number; delais: number[]; impayes: number }>()
-      for (const e of sub) {
-        const name = resolveName(e)
-        const r = map.get(name) ?? { totalN: 0, nb: 0, delais: [], impayes: 0 }
+    interface TiersAccu {
+      name: string; totalN: number; totalN1: number; nb: number
+      delais: number[]; impayes: number; fromFec: boolean; fromSaisie: boolean
+    }
+
+    /** Graines issues du FEC : clients (cdN/cdN1) + comptes auxiliaires bilan (411xxx/401xxx, longueur>3). */
+    function fecSeeds(kind: 'client' | 'fournisseur'): TiersAccu[] {
+      const seeds = new Map<string, TiersAccu>()
+      const add = (rawName: string, totalN: number, totalN1: number, nb: number) => {
+        const key = normName(rawName)
+        if (!key || Math.abs(totalN) + Math.abs(totalN1) < 0.5) return
+        const s = seeds.get(key) ?? { name: rawName.trim(), totalN: 0, totalN1: 0, nb: 0, delais: [], impayes: 0, fromFec: true, fromSaisie: false }
+        s.totalN += totalN; s.totalN1 += totalN1; s.nb += nb
+        seeds.set(key, s)
+      }
+      for (const co of companies) {
+        if (kind === 'client') {
+          // client_data (cdN/cdN1) : nom, CA (débits 411), nb factures
+          for (const info of Object.values(co.cdN ?? {})) add(info.n || '', info.ca || 0, 0, info.entries || 0)
+          for (const info of Object.values(co.cdN1 ?? {})) {
+            const key = normName(info.n || '')
+            const ex = seeds.get(key)
+            if (ex) ex.totalN1 += info.ca || 0
+            else add(info.n || '', 0, info.ca || 0, 0)
+          }
+        }
+        // Comptes auxiliaires du bilan (longueur > 3 = sous-compte tiers nommé)
+        const prefix = kind === 'client' ? '411' : '401'
+        const collect = (src: Record<string, BilanAccount>, field: 'totalN' | 'totalN1') => {
+          for (const [acc, ba] of Object.entries(src)) {
+            if (acc.startsWith(prefix) && acc.length > 3 && ba.l) {
+              const key = normName(ba.l)
+              const ex = seeds.get(key)
+              if (ex) ex[field] += Math.abs(ba.s)
+              else if (field === 'totalN') add(ba.l, Math.abs(ba.s), 0, ba.e?.length ?? 0)
+              else add(ba.l, 0, Math.abs(ba.s), 0)
+            }
+          }
+        }
+        collect(co.bn, 'totalN'); collect(co.b1, 'totalN1')
+      }
+      return [...seeds.values()]
+    }
+
+    function buildTiers(
+      cats: ManualEntry['category'][],
+      kind: 'client' | 'fournisseur',
+    ): { tiers: TiersDelai[]; globalDelai: number | null } {
+      // 1) Graines FEC
+      const map = new Map<string, TiersAccu>()
+      for (const seed of fecSeeds(kind)) map.set(normName(seed.name), seed)
+
+      // 2) Fusion des saisies (apportent les délais de paiement)
+      for (const e of meN.filter(e => cats.includes(e.category))) {
+        const rawName = resolveName(e)
+        const key = normName(rawName)
+        const r = map.get(key) ?? { name: rawName, totalN: 0, totalN1: 0, nb: 0, delais: [], impayes: 0, fromFec: false, fromSaisie: false }
         r.totalN += parseFloat(e.amount_ht ?? e.amount_ttc ?? '0') || 0
         r.nb += 1
+        r.fromSaisie = true
         if (e.payment_date) r.delais.push(daysBetween(e.entry_date, e.payment_date))
         else if (e.payment_mode !== 'comptant') r.impayes += 1
-        map.set(name, r)
+        map.set(key, r)
       }
+
       const total = [...map.values()].reduce((s, r) => s + r.totalN, 0)
-      const tiers: TiersDelai[] = [...map.entries()]
-        .map(([name, r]) => {
+      const tiers: TiersDelai[] = [...map.values()]
+        .map(r => {
           const delaiMoyen = r.delais.length ? r.delais.reduce((a, b) => a + b, 0) / r.delais.length : null
           const sharePct = total !== 0 ? (r.totalN / total) * 100 : 0
           return {
-            name,
+            name: r.name,
             totalN: r.totalN,
             nbFactures: r.nb,
             delaiMoyen,
             sharePct,
             contributionDelai: delaiMoyen != null ? (sharePct / 100) * delaiMoyen : null,
             nbImpayes: r.impayes,
+            source: (r.fromFec && r.fromSaisie ? 'FEC+saisie' : r.fromFec ? 'FEC' : 'saisie') as TiersDelai['source'],
           }
         })
+        .filter(t => Math.abs(t.totalN) > 0.5)
         .sort((a, b) => b.totalN - a.totalN)
       // Délai global = moyenne pondérée = somme des contributions
       const contribs = tiers.filter(t => t.contributionDelai != null)
@@ -291,8 +350,8 @@ export function useRapportData(): RapportData | null {
       return { tiers, globalDelai }
     }
 
-    const clientsRes = buildTiers(['Vente'])
-    const fournRes   = buildTiers(['Achat', 'Depense'])
+    const clientsRes = buildTiers(['Vente'], 'client')
+    const fournRes   = buildTiers(['Achat', 'Depense'], 'fournisseur')
 
     return {
       exerciceN,
