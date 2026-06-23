@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
 import { pcgLabel } from '@/lib/pcg'
 import { useAppStore } from '@/store'
-import { fmt, pct, fiscalIndex } from '@/lib/calc'
+import { fmt, pct, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { EcrituresModal } from '@/components/ui'
 import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
@@ -451,6 +452,8 @@ export function Budget() {
     resetOthers: boolean
   } | null>(null)
   const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
+  // Détail des écritures réalisées (FEC + saisies) d'un compte du budget — ouvert au clic sur la ligne.
+  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -1094,13 +1097,24 @@ export function Budget() {
                         const hasChildren = children.length > 0
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
+                        // Écritures réalisées (FEC + saisies) de l'exercice N pour ce compte → modal au clic.
+                        const ents = RAW ? mergeEntries(RAW, [budCo], 'pn', acc) : []
+                        const realN = ents.reduce((s: number, e: any) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
                         return (
                           <Fragment key={acc}>
                           <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
                             <td style={{ padding: indent ? '3px 12px 3px 30px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
                               {indent && <span style={{ color:'#475569', marginRight:6, fontSize:11 }}>└</span>}
-                              <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
-                              <span>{bv.l}</span>
+                              <span
+                                onClick={ents.length > 0 ? () => setEcrModal({ title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0 }) : undefined}
+                                title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
+                                style={{ cursor: ents.length > 0 ? 'pointer' : 'default' }}>
+                                <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
+                                <span>{bv.l}</span>
+                                {ents.length > 0 && (
+                                  <span style={{ marginLeft:6, fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>
+                                )}
+                              </span>
                               {!hasChildren && (
                                 <button onClick={() => openFillModal(acc)}
                                   title="Recopier un montant sur plusieurs mois"
@@ -1393,6 +1407,8 @@ export function Budget() {
           </div>
         )
       })()}
+
+      {ecrModal && <EcrituresModal {...ecrModal} onClose={() => setEcrModal(null)} />}
 
       {noteModal && (
         <div onClick={() => setNoteModal(null)}
