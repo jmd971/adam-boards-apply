@@ -16,7 +16,125 @@ const G = ({ color, children }: { color?: string; children: React.ReactNode }) =
 
 // ─── Sections Aide ─────────────────────────────────────────────────────────
 const AIDE_TABS = [
-  '⚖️ Équilibre', '📋 Compte Résultat', '📊 SIG', '🏦 Bilan', '📐 Ratios', '💰 Budget', '📖 Glossaire', '❓ Utilisation'
+  '⚖️ Équilibre', '📋 Compte Résultat', '📊 SIG', '🏦 Bilan', '📐 Ratios', '💰 Budget', '📖 Glossaire', '❓ Utilisation', '🧭 Les menus'
+]
+
+// Catalogue fonctionnel : chaque menu de l'application et ses fonctions clés.
+const MENUS: { group: string; items: { icon: string; name: string; tab: TabId; desc: string; feats: string[] }[] }[] = [
+  { group: 'Opérationnel', items: [
+    { icon:'🏠', name:'Dashboard', tab:'dashboard', desc:'Vue d\'ensemble : indicateurs clés, graphiques et alertes de pilotage.', feats:[
+      'KPIs CA, Marge brute, EBE, Résultat — avec tendance vs N-1',
+      'Graphiques : CA N vs N-1, répartition des charges, évolution mensuelle',
+      'Seuils d\'alerte personnalisables (marge, EBE, rentabilité, BFR, levier)',
+      'Trésorerie prévisionnelle 12 mois et jauges d\'objectifs',
+      'Export PDF',
+    ] },
+    { icon:'📝', name:'Saisie', tab:'saisie', desc:'Saisir ou importer des factures (ventes, achats, dépenses) hors FEC.', feats:[
+      'Saisie manuelle : date, type (facture / acompte / règlement N-1), catégorie, HT/TTC, tiers',
+      'Import CSV : mapping des colonnes + affectation des catégories (globale ou ligne par ligne)',
+      'Choix du compte aligné sur la saisie manuelle : FEC N-1 → historique → ajout manuel',
+      'Règlement : comptant, virement, chèque, ou échéancier (dates + montants par échéance)',
+      'Acomptes imputables sur la facture finale ; paiements partiels à des dates différentes',
+      'Édition / suppression d\'une saisie (les tableaux se recalculent)',
+    ] },
+    { icon:'💧', name:'Trésorerie', tab:'tresorerie', desc:'Suivi du cash réalisé et prévisionnel sur 12 mois.', feats:[
+      'Vue réalisé : encaissements / décaissements par mois et par compte (dépliable)',
+      'Clic sur un compte → détail des écritures',
+      'Prévisionnel à partir du solde bancaire, sources « échéances à venir » et/ou « budget » (cases à cocher)',
+      'Le budget pris en compte suit la version active sélectionnée',
+      'Paramètres sauvegardés par société : délai client / fournisseur, remboursements, solde initial',
+      'Vue journalière optionnelle',
+    ] },
+    { icon:'⚖️', name:'Équilibre', tab:'equilibre', desc:'Ventes − Achats = Marge, puis − Dépenses = Résultat, par catégorie. (Concept détaillé dans l\'onglet ⚖️ Équilibre.)', feats:[
+      'Colonnes activables : Mois, N-1, Budget, Hors OD',
+      'Clic sur une ligne → écritures réalisées + détail du budget (sous-comptes)',
+    ] },
+    { icon:'💰', name:'Budget', tab:'budget', desc:'Construction et pilotage du budget. (Voir aussi l\'onglet 💰 Budget.)', feats:[
+      'Versions multiples + comparaison de 2 versions (écart par catégorie)',
+      'Génération depuis le FEC N-1 ; édition par compte × 12 mois',
+      'Sous-comptes nommés, regroupement par racine dépliable',
+      '« Recopier » un montant sur plusieurs mois ; hypothèses / commentaires par compte',
+      'Scénarios What-if ; clic sur un compte → écritures réalisées + budget',
+    ] },
+    { icon:'🎯', name:'Objectifs', tab:'objectifs', desc:'Fixer la cible de marge et calculer les objectifs de ventes et le coût horaire.', feats:[
+      'Taux de marge prévisionnel éditable par société',
+      'Objectif CA = Total Dépenses Budget / Taux de marge (annuel et mensuel)',
+      'Coût horaire global = Total Dépenses Budget / (Nb salariés × Heures/mois × 12)',
+      'Objectif de ventes exprimé en nombre d\'heures',
+      'Jauges d\'avancement et tableau récapitulatif',
+    ] },
+    { icon:'🏦', name:'Rapprochement', tab:'rapprochement', desc:'Rapprocher le relevé bancaire avec les écritures FEC du compte banque.', feats:[
+      'Import CSV du relevé (détection du séparateur et des colonnes)',
+      'Choix du compte 512x ; tolérances date / montant',
+      'Statuts : rapprochée, présente en banque seulement, présente au FEC seulement',
+      'Filtres, recherche et taux de rapprochement',
+    ] },
+  ] },
+  { group: 'Analyse', items: [
+    { icon:'📋', name:'Compte de résultat', tab:'cr', desc:'Le « film » de l\'activité. (Concept dans l\'onglet 📋 Compte Résultat.)', feats:[
+      'Résultat d\'exploitation / financier / exceptionnel, jusqu\'au résultat net',
+      'Colonnes Mois / N-1 / Budget / Hors OD ; clic sur une ligne → écritures + budget',
+    ] },
+    { icon:'📊', name:'SIG', tab:'sig', desc:'Soldes Intermédiaires de Gestion. (Concept dans l\'onglet 📊 SIG.)', feats:[
+      'Marge commerciale, VA, EBE, Résultat d\'exploitation',
+      'Colonnes Mois / N-1 / Budget ; clic sur une ligne → écritures + budget',
+    ] },
+    { icon:'🏦', name:'Bilan', tab:'bilan', desc:'La « photo » de l\'entreprise : actif et passif. (Concept dans l\'onglet 🏦 Bilan.)', feats:[
+      'Actif (immobilisations, stocks, créances, trésorerie) et passif',
+      'Clic sur une ligne → détail des comptes',
+    ] },
+    { icon:'📐', name:'Ratios', tab:'ratios', desc:'Indicateurs de performance et seuils de référence. (Concept dans l\'onglet 📐 Ratios.)', feats:[
+      'Taux de marge, VA, EBE, rentabilité nette, levier financier',
+      'Repères « bon / fragile » par ratio',
+    ] },
+    { icon:'🧾', name:'TVA', tab:'tva', desc:'Estimation de la TVA collectée, déductible et nette à reverser.', feats:[
+      'Affiché si la société est assujettie (réglé dans Paramètres)',
+      'Collectée = produits × taux ; Déductible = charges × taux ; Nette = différence',
+      'Détail par compte (dépliable) et cumul mensuel',
+      '⚠️ Estimation : le FEC ne contient pas les comptes de TVA (445x)',
+    ] },
+    { icon:'🛒', name:'Ventes & Clients', tab:'ventes', desc:'Analyse commerciale et segmentation de la clientèle.', feats:[
+      'Source FEC ou import d\'un fichier de ventes',
+      'Segmentation clients (RFM), analyse par article, campagnes',
+      'Scénarios prévisionnels',
+    ] },
+    { icon:'📈', name:'Complémentaire', tab:'complementaire', desc:'Synthèse commerciale, historique des ventes et clients inactifs.', feats:[
+      'Synthèse : CA, charges, résultat, saisonnalité, top clients, répartition des charges',
+      'Historique détaillé des transactions (recherche / filtre)',
+      'Détection des clients inactifs depuis X jours',
+    ] },
+    { icon:'📋', name:'Créances clients', tab:'creances', desc:'Balance âgée des clients : factures à encaisser par ancienneté.', feats:[
+      'Source : FEC 411x + saisies de vente non encaissées',
+      'Tranches d\'ancienneté (> 90j critique → non échu), DSO (délai moyen d\'encaissement)',
+      'Vues « par délai » et « par client », détail des factures au clic',
+      'Relances, recherche / filtre / tri',
+    ] },
+    { icon:'📑', name:'Dettes fournisseurs', tab:'dettes', desc:'Balance âgée des fournisseurs : factures à payer par ancienneté.', feats:[
+      'Source : FEC 40x (hors 409) + saisies d\'achat / dépense non payées',
+      'Tranches d\'ancienneté, DPO (délai moyen de paiement)',
+      'Vues « par délai » et « par fournisseur », détail des factures au clic',
+    ] },
+  ] },
+  { group: 'Admin', items: [
+    { icon:'📥', name:'Dépôts clients', tab:'depot', desc:'Permettre à un client de déposer son FEC via un lien public, sans compte.', feats:[
+      'Création d\'un lien partageable par société et période',
+      'Activation / désactivation des liens',
+      'File des dépôts en attente, prévisualisation, puis intégration ou rejet',
+    ] },
+    { icon:'📁', name:'Import', tab:'import', desc:'Importer les fichiers FEC (N, N-1, N-2). Voir aussi la section ❓ Utilisation.', feats:[
+      'Glisser-déposer ; société et période détectées automatiquement',
+      'Formats : Grand Livre EBP (.txt/.csv), séparateur tabulation ou point-virgule',
+    ] },
+    { icon:'🔍', name:'Vérification', tab:'verification', desc:'Contrôler l\'intégrité des données importées.', feats:[
+      'Nombre d\'écritures, équilibre débit / crédit',
+      'Repérer une société ou une période vide',
+    ] },
+    { icon:'⚙️', name:'Paramètres', tab:'parametres', desc:'Configuration par société.', feats:[
+      'Mois de début d\'exercice fiscal (reclassement automatique N / N-1)',
+      'Assujettissement à la TVA + taux par catégorie (utilisés en prévisionnel et dans le menu TVA)',
+      'Édition réservée aux administrateurs',
+    ] },
+  ] },
 ]
 
 const QUICK: { step: string; label: string; tab: TabId; icon: string }[] = [
@@ -208,6 +326,15 @@ export function Aide() {
           <p style={body}>Dans les onglets CR et SIG, activez les colonnes Budget. Un écart négatif sur les produits ou positif sur les charges demande une action immédiate.</p>
           <div style={warn}>⚠️ Un budget n'est pas une contrainte rigide, c'est un repère. Révisez-le en cours d'année si votre activité évolue significativement.</div>
         </div>
+        <div style={card}>
+          <H color="#8b5cf6">Fonctions avancées</H>
+          <p style={body}><G color="#8b5cf6">Versions multiples</G> : créez plusieurs scénarios de budget par société et comparez-en deux (écart par catégorie).</p>
+          <p style={body}><G color="#8b5cf6">Sous-comptes</G> : détaillez un compte en sous-lignes nommées (ex : Logiciels → OpenAI, Claude). Les comptes sont regroupés par racine et dépliables.</p>
+          <p style={body}><G color="#8b5cf6">Recopier</G> : reportez un montant sur plusieurs mois (fréquence mensuelle, trimestrielle…).</p>
+          <p style={body}><G color="#8b5cf6">Hypothèses</G> : ajoutez un commentaire (💬) par compte pour justifier vos prévisions.</p>
+          <p style={body}><G color="#8b5cf6">What-if</G> : simulez l'impact d'une variation (% CA, achats, charges…) sur l'EBE et le résultat.</p>
+          <p style={body}><G color="#8b5cf6">Détail au clic</G> : cliquez sur un compte pour voir ses écritures réalisées et son budget dans la même fenêtre.</p>
+        </div>
       </div>}
 
       {/* ── 6. GLOSSAIRE ── */}
@@ -278,6 +405,33 @@ export function Aide() {
         <div style={{ marginTop:20, padding:14, borderRadius:10, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', fontSize:12, color:'#94a3b8' }}>
           <span style={{ color:'#10b981', fontWeight:700 }}>Adam Boards</span> · Développé par <span style={{ color:'#94a3b8' }}>Jean-Marc Dolmaire</span>
         </div>
+      </div>}
+
+      {/* ── 8. LES MENUS ── */}
+      {sec === 8 && <div>
+        <div style={card}>
+          <H>🧭 Tous les menus de l'application</H>
+          <p style={body}>Le rôle de chaque menu et ses principales fonctions. Cliquez sur « Ouvrir » pour y accéder directement.</p>
+        </div>
+        {MENUS.map(grp => (
+          <div key={grp.group}>
+            <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.6px', margin:'18px 0 8px' }}>{grp.group}</div>
+            {grp.items.map(m => (
+              <div key={m.name} style={card}>
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:4 }}>
+                  <H>{m.icon} {m.name}</H>
+                  <button onClick={() => setTab(m.tab)} style={{ padding:'3px 10px', borderRadius:6, background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.25)', color:'#60a5fa', fontSize:11, cursor:'pointer', fontWeight:600, flexShrink:0 }}>
+                    Ouvrir →
+                  </button>
+                </div>
+                <p style={body}>{m.desc}</p>
+                <ul style={{ margin:0, paddingLeft:18 }}>
+                  {m.feats.map((f, i) => <li key={i} style={{ fontSize:12.5, color:'#94a3b8', lineHeight:1.7, marginBottom:2 }}>{f}</li>)}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>}
     </div>
   )
