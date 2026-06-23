@@ -34,14 +34,20 @@ Deno.serve(async (req: Request) => {
     }
 
     // Vérifier que l'utilisateur a accès à ce tenant
-    const { data: role } = await sb
+    // Récupère tous les rôles de l'utilisateur. Un superadmin n'est pas rattaché
+    // au tenant consulté (il en choisit un via le dashboard) → on l'autorise
+    // globalement. Les autres rôles doivent matcher le tenant demandé.
+    const { data: roles } = await sb
       .from('user_roles')
-      .select('role')
+      .select('role, tenant_id')
       .eq('user_id', user.id)
-      .eq('tenant_id', tenantId)
-      .single()
 
-    if (!role || !['admin', 'comptable', 'superadmin'].includes(role.role)) {
+    const isSuperadmin = (roles ?? []).some(r => r.role === 'superadmin')
+    const hasTenantRole = (roles ?? []).some(
+      r => r.tenant_id === tenantId && ['admin', 'comptable'].includes(r.role)
+    )
+
+    if (!isSuperadmin && !hasTenantRole) {
       return new Response(JSON.stringify({ error: 'Accès refusé' }), { status: 403, headers: corsHeaders })
     }
 
