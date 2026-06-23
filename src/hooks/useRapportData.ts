@@ -1,264 +1,321 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import type { ManualEntry } from '@/types'
+import { fiscalYearOf, currentFiscalYear } from '@/lib/calc'
+import type { ManualEntry, CompanyRaw, FecAccount, BilanAccount } from '@/types'
 
-export interface TiersStats {
+// ── Types de sortie ─────────────────────────────────────────────────────────
+
+/** Une ligne d'analyse par compte (ou famille de comptes). */
+export interface CompteLigne {
+  account: string          // n° de compte ou préfixe famille
+  label: string
+  totalN: number
+  totalN1: number
+  budget: number
+  frequency: number        // nombre d'écritures sur N
+  avgAmount: number        // totalN / frequency
+  sharePct: number         // % du total de la catégorie (produits / charges / immo)
+  varN1Pct: number | null  // évolution vs N-1
+  varBudgetPct: number | null
+}
+
+/** Analyse nominative d'un tiers (client ou fournisseur) avec son délai. */
+export interface TiersDelai {
   name: string
-  category: 'Vente' | 'Achat' | 'Depense' | 'Immobilisation'
-  totalHt: number
-  count: number
-  sharePercent: number
-  firstSeen: string
-  lastSeen: string
-  isNew: boolean
-  avgDelaiPaiement: number | null
-}
-
-export interface MontantOutlier {
-  entry: ManualEntry
-  zScore: number
-  meanHt: number
-  stdHt: number
-}
-
-export interface TendanceMensuelle {
-  month: string
-  ventes: number
-  achats: number
-  depenses: number
-  total: number
-}
-
-export interface PaiementStats {
-  mode: string
-  count: number
-  totalHt: number
-  sharePercent: number
-}
-
-export interface RetardPaiement {
-  entry: ManualEntry
-  delaiJours: number
+  totalN: number
+  nbFactures: number
+  delaiMoyen: number | null        // jours moyens entre facture et paiement
+  sharePct: number                 // poids dans le total clients/fournisseurs
+  contributionDelai: number | null // sharePct/100 × delaiMoyen → contribution au délai global pondéré
+  nbImpayes: number                // factures sans date de paiement
 }
 
 export interface RapportData {
-  periodStart: string
-  periodEnd: string
+  exerciceN: number
+  exerciceN1: number
   companyKeys: string[]
-  tendancesMensuelles: TendanceMensuelle[]
-  rupturesTendance: { month: string; category: string; delta: number; deltaPct: number }[]
-  topClients: TiersStats[]
-  topFournisseurs: TiersStats[]
-  nouveauxTiers: TiersStats[]
-  concentrationClientPct: number
-  outliers: MontantOutlier[]
-  paiementStats: PaiementStats[]
-  retards: RetardPaiement[]
-  delaiMoyenClient: number | null
-  delaiMoyenFourn: number | null
-  modelEco: 'services_recurrents' | 'produits_ponctuels' | 'mixte' | 'indetermine'
-  saisonnaliteMois: number[]
-  dependanceTiers: boolean
+
+  // Produits (comptes 7x)
+  produitsFamilles: CompteLigne[]
+  produitsDetail: CompteLigne[]
+  totalProduitsN: number
+  totalProduitsN1: number
+  totalProduitsBudget: number
+
+  // Charges (comptes 6x)
+  chargesFamilles: CompteLigne[]
+  chargesDetail: CompteLigne[]
+  totalChargesN: number
+  totalChargesN1: number
+  totalChargesBudget: number
+
+  // Immobilisations (bilan classe 2) + amortissements
+  immobilisations: CompteLigne[]   // comptes 20/21/23…
+  amortissements: CompteLigne[]    // 28x (cumul bilan) + 681 (dotation P&L)
+
+  // Résultat
+  resultatN: number
+  resultatN1: number
+
+  // Tiers nominatifs + délais
+  clients: TiersDelai[]
+  fournisseurs: TiersDelai[]
+  delaiMoyenClientGlobal: number | null   // moyenne pondérée par le poids de chaque client
+  delaiMoyenFournGlobal: number | null
 }
 
-function toHt(e: ManualEntry): number {
-  return parseFloat(e.amount_ht ?? e.amount_ttc ?? '0') || 0
-}
+// ── Helpers ──────────────────────────────────────────────────────────────────
 
-function toYYYYMM(date: string): string {
-  return date.slice(0, 7)
+const isCharge = (acc: string) => acc.startsWith('6')
+const isProduit = (acc: string) => acc.startsWith('7')
+
+/** Solde net d'un compte FEC sur tout l'exercice (charge: débit-crédit, produit: crédit-débit). */
+function soldeFec(fa: FecAccount, charge: boolean): number {
+  let d = 0, c = 0
+  for (const [deb, cred] of Object.values(fa.mo)) { d += deb; c += cred }
+  return charge ? d - c : c - d
 }
 
 function daysBetween(a: string, b: string): number {
   return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86_400_000)
 }
 
-function stdDev(values: number[]): number {
-  if (values.length < 2) return 0
-  const mean = values.reduce((a, b) => a + b, 0) / values.length
-  const variance = values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length
-  return Math.sqrt(variance)
+function pctVar(n: number, ref: number): number | null {
+  return ref !== 0 ? ((n - ref) / Math.abs(ref)) * 100 : null
 }
 
+/** Agrège les comptes d'une classe (préfixe) en lignes détaillées + familles. */
+function aggregateAccounts(
+  companies: CompanyRaw[],
+  predicate: (acc: string) => boolean,
+  charge: boolean,
+): { detail: CompteLigne[]; familles: CompteLigne[]; totalN: number; totalN1: number; totalBudget: number } {
+  // acc -> { totalN, totalN1, budget, freq, label }
+  const map = new Map<string, { totalN: number; totalN1: number; budget: number; freq: number; label: string }>()
+
+  for (const co of companies) {
+    // N
+    for (const [acc, fa] of Object.entries(co.pn)) {
+      if (!predicate(acc)) continue
+      const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
+      e.totalN += soldeFec(fa, charge)
+      e.freq   += fa.e?.length ?? 0
+      if (!e.label) e.label = fa.l
+      map.set(acc, e)
+    }
+    // N-1
+    for (const [acc, fa] of Object.entries(co.p1)) {
+      if (!predicate(acc)) continue
+      const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
+      e.totalN1 += soldeFec(fa, charge)
+      if (!e.label) e.label = fa.l
+      map.set(acc, e)
+    }
+    // Budget (somme des 12 mois)
+    for (const [acc, ba] of Object.entries(co.bud ?? {})) {
+      if (!predicate(acc)) continue
+      const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: ba.l }
+      e.budget += (ba.b ?? []).reduce((s, v) => s + v, 0)
+      if (!e.label) e.label = ba.l
+      map.set(acc, e)
+    }
+  }
+
+  const totalN = [...map.values()].reduce((s, e) => s + e.totalN, 0)
+  const totalN1 = [...map.values()].reduce((s, e) => s + e.totalN1, 0)
+  const totalBudget = [...map.values()].reduce((s, e) => s + e.budget, 0)
+
+  const toLigne = (acc: string, e: typeof map extends Map<string, infer V> ? V : never): CompteLigne => ({
+    account: acc,
+    label: e.label || acc,
+    totalN: e.totalN,
+    totalN1: e.totalN1,
+    budget: e.budget,
+    frequency: e.freq,
+    avgAmount: e.freq > 0 ? e.totalN / e.freq : 0,
+    sharePct: totalN !== 0 ? (e.totalN / totalN) * 100 : 0,
+    varN1Pct: pctVar(e.totalN, e.totalN1),
+    varBudgetPct: pctVar(e.totalN, e.budget),
+  })
+
+  const detail = [...map.entries()]
+    .map(([acc, e]) => toLigne(acc, e))
+    .filter(l => Math.abs(l.totalN) > 0.5 || Math.abs(l.totalN1) > 0.5)
+    .sort((a, b) => Math.abs(b.totalN) - Math.abs(a.totalN))
+
+  // Familles = regroupement par préfixe 2 chiffres
+  const famMap = new Map<string, { totalN: number; totalN1: number; budget: number; freq: number; label: string }>()
+  for (const [acc, e] of map.entries()) {
+    const fam = acc.slice(0, 2)
+    const f = famMap.get(fam) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: '' }
+    f.totalN += e.totalN; f.totalN1 += e.totalN1; f.budget += e.budget; f.freq += e.freq
+    famMap.set(fam, f)
+  }
+  const familles = [...famMap.entries()]
+    .map(([fam, e]) => toLigne(fam, e))
+    .filter(l => Math.abs(l.totalN) > 0.5 || Math.abs(l.totalN1) > 0.5)
+    .sort((a, b) => Math.abs(b.totalN) - Math.abs(a.totalN))
+
+  return { detail, familles, totalN, totalN1, totalBudget }
+}
+
+/** Immobilisations & amortissements depuis le bilan (classe 2). */
+function aggregateBilan(
+  companies: CompanyRaw[],
+  predicate: (acc: string) => boolean,
+): CompteLigne[] {
+  const map = new Map<string, { totalN: number; totalN1: number; freq: number; label: string }>()
+  const add = (src: Record<string, BilanAccount>, field: 'totalN' | 'totalN1') => {
+    for (const [acc, ba] of Object.entries(src)) {
+      if (!predicate(acc)) continue
+      const e = map.get(acc) ?? { totalN: 0, totalN1: 0, freq: 0, label: ba.l }
+      e[field] += ba.s
+      if (field === 'totalN') e.freq += ba.e?.length ?? 0
+      if (!e.label) e.label = ba.l
+      map.set(acc, e)
+    }
+  }
+  for (const co of companies) { add(co.bn, 'totalN'); add(co.b1, 'totalN1') }
+
+  const totalN = [...map.values()].reduce((s, e) => s + e.totalN, 0)
+  return [...map.entries()]
+    .map(([acc, e]) => ({
+      account: acc,
+      label: e.label || acc,
+      totalN: e.totalN,
+      totalN1: e.totalN1,
+      budget: 0,
+      frequency: e.freq,
+      avgAmount: e.freq > 0 ? e.totalN / e.freq : 0,
+      sharePct: totalN !== 0 ? (e.totalN / totalN) * 100 : 0,
+      varN1Pct: pctVar(e.totalN, e.totalN1),
+      varBudgetPct: null,
+    }))
+    .filter(l => Math.abs(l.totalN) > 0.5 || Math.abs(l.totalN1) > 0.5)
+    .sort((a, b) => Math.abs(b.totalN) - Math.abs(a.totalN))
+}
+
+// ── Hook ─────────────────────────────────────────────────────────────────────
+
 export function useRapportData(): RapportData | null {
-  const manualEntries = useAppStore(s => s.manualEntries)
-  const filters = useAppStore(s => s.filters)
+  const RAW            = useAppStore(s => s.RAW)
+  const manualEntries  = useAppStore(s => s.manualEntries)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
+  const filters        = useAppStore(s => s.filters)
 
   return useMemo(() => {
-    if (!manualEntries.length) return null
+    if (!RAW || RAW.keys.length === 0) return null
 
-    const now = new Date()
-    const endDate = now.toISOString().slice(0, 10)
-    const startDate = new Date(now.getFullYear() - 1, now.getMonth() + 1, 1)
-      .toISOString().slice(0, 10)
-    const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1)
-      .toISOString().slice(0, 10)
+    const selCo = (filters.selCo && filters.selCo.length > 0) ? filters.selCo : RAW.keys
+    const companyKeys = selCo.filter(k => RAW.companies[k])
+    if (!companyKeys.length) return null
+    const companies = companyKeys.map(k => RAW.companies[k])
 
-    const selCo = filters.selCo ?? []
-    const entries = manualEntries.filter(e =>
-      e.entry_date >= startDate &&
-      e.entry_date <= endDate &&
-      (selCo.length === 0 || selCo.includes(e.company_key))
-    )
+    // Exercice de référence = exercice courant de la 1ère société sélectionnée
+    const startMonth = fiscalSettings[companyKeys[0]] ?? 1
+    const exerciceN  = currentFiscalYear(startMonth)
+    const exerciceN1 = exerciceN - 1
 
-    if (!entries.length) return null
+    // ── P&L : produits / charges ──────────────────────────────────────────
+    const prod    = aggregateAccounts(companies, isProduit, false)
+    const charges = aggregateAccounts(companies, isCharge, true)
 
-    const companyKeys = [...new Set(entries.map(e => e.company_key))]
+    // ── Bilan : immobilisations (20/21/23, hors 28) & amortissements ──────
+    const immobilisations = aggregateBilan(companies, acc =>
+      acc.startsWith('2') && !acc.startsWith('28'))
+    // Amortissements : cumul bilan 28x + dotations P&L 68x
+    const amortBilan = aggregateBilan(companies, acc => acc.startsWith('28'))
+    const amortPL    = aggregateAccounts(companies, acc => acc.startsWith('68'), true).detail
+    const amortissements = [...amortBilan, ...amortPL]
+      .sort((a, b) => Math.abs(b.totalN) - Math.abs(a.totalN))
 
-    // Tendances mensuelles
-    const monthMap = new Map<string, TendanceMensuelle>()
-    for (const e of entries) {
-      const m = toYYYYMM(e.entry_date)
-      if (!monthMap.has(m)) monthMap.set(m, { month: m, ventes: 0, achats: 0, depenses: 0, total: 0 })
-      const row = monthMap.get(m)!
-      const ht = toHt(e)
-      if (e.category === 'Vente') row.ventes += ht
-      else if (e.category === 'Achat') row.achats += ht
-      else if (e.category === 'Depense') row.depenses += ht
-      row.total += ht
-    }
-    const tendancesMensuelles = [...monthMap.values()].sort((a, b) => a.month.localeCompare(b.month))
+    const resultatN  = prod.totalN  - charges.totalN
+    const resultatN1 = prod.totalN1 - charges.totalN1
 
-    // Ruptures de tendance (delta > 30% vs moyenne 6 mois précédents)
-    const rupturesTendance: RapportData['rupturesTendance'] = []
-    const cats = ['ventes', 'achats', 'depenses'] as const
-    for (const cat of cats) {
-      for (let i = 6; i < tendancesMensuelles.length; i++) {
-        const window6 = tendancesMensuelles.slice(i - 6, i).map(r => r[cat])
-        const mean = window6.reduce((a, b) => a + b, 0) / window6.length
-        const current = tendancesMensuelles[i][cat]
-        if (mean > 0) {
-          const deltaPct = ((current - mean) / mean) * 100
-          if (Math.abs(deltaPct) > 30) {
-            rupturesTendance.push({ month: tendancesMensuelles[i].month, category: cat, delta: current - mean, deltaPct })
+    // ── Tiers nominatifs + délais (depuis manual_entries, exercice N) ──────
+    // Carte de résolution des noms via le bilan FEC (411 clients / 401 fournisseurs)
+    const fecNames = new Map<string, string>()
+    for (const co of companies) {
+      for (const src of [co.bn, co.b1]) {
+        for (const [acc, ba] of Object.entries(src)) {
+          if ((acc.startsWith('411') || acc.startsWith('401')) && ba.l && !fecNames.has(acc)) {
+            fecNames.set(acc, ba.l)
           }
         }
       }
     }
+    const resolveName = (e: ManualEntry): string =>
+      e.counterpart?.trim() ||
+      (e.account_num ? fecNames.get(e.account_num) : undefined) ||
+      e.label?.trim() ||
+      'Tiers non identifié'
 
-    // Stats par tiers
-    function buildTiersStats(subset: ManualEntry[], category: ManualEntry['category']): TiersStats[] {
-      const map = new Map<string, { totalHt: number; count: number; dates: string[]; payDays: number[] }>()
-      const totalCat = subset.filter(e => e.category === category).reduce((s, e) => s + toHt(e), 0)
-      for (const e of subset.filter(e => e.category === category)) {
-        const key = e.counterpart ?? e.label ?? 'Inconnu'
-        if (!map.has(key)) map.set(key, { totalHt: 0, count: 0, dates: [], payDays: [] })
-        const row = map.get(key)!
-        row.totalHt += toHt(e)
-        row.count += 1
-        row.dates.push(e.entry_date)
-        if (e.payment_date) row.payDays.push(daysBetween(e.entry_date, e.payment_date))
+    const meN = manualEntries.filter(e =>
+      companyKeys.includes(e.company_key) &&
+      fiscalYearOf(e.entry_date.slice(0, 7), fiscalSettings[e.company_key] ?? startMonth) === exerciceN
+    )
+
+    function buildTiers(cats: ManualEntry['category'][]): { tiers: TiersDelai[]; globalDelai: number | null } {
+      const sub = meN.filter(e => cats.includes(e.category))
+      const map = new Map<string, { totalN: number; nb: number; delais: number[]; impayes: number }>()
+      for (const e of sub) {
+        const name = resolveName(e)
+        const r = map.get(name) ?? { totalN: 0, nb: 0, delais: [], impayes: 0 }
+        r.totalN += parseFloat(e.amount_ht ?? e.amount_ttc ?? '0') || 0
+        r.nb += 1
+        if (e.payment_date) r.delais.push(daysBetween(e.entry_date, e.payment_date))
+        else if (e.payment_mode !== 'comptant') r.impayes += 1
+        map.set(name, r)
       }
-      return [...map.entries()]
-        .map(([name, s]) => {
-          const sorted = [...s.dates].sort()
+      const total = [...map.values()].reduce((s, r) => s + r.totalN, 0)
+      const tiers: TiersDelai[] = [...map.entries()]
+        .map(([name, r]) => {
+          const delaiMoyen = r.delais.length ? r.delais.reduce((a, b) => a + b, 0) / r.delais.length : null
+          const sharePct = total !== 0 ? (r.totalN / total) * 100 : 0
           return {
-          name,
-          category,
-          totalHt: s.totalHt,
-          count: s.count,
-          sharePercent: totalCat > 0 ? (s.totalHt / totalCat) * 100 : 0,
-          firstSeen: sorted[0],
-          lastSeen: sorted[sorted.length - 1],
-          isNew: sorted[0] >= threeMonthsAgo,
-          avgDelaiPaiement: s.payDays.length ? s.payDays.reduce((a, b) => a + b, 0) / s.payDays.length : null,
+            name,
+            totalN: r.totalN,
+            nbFactures: r.nb,
+            delaiMoyen,
+            sharePct,
+            contributionDelai: delaiMoyen != null ? (sharePct / 100) * delaiMoyen : null,
+            nbImpayes: r.impayes,
           }
         })
-        .sort((a, b) => b.totalHt - a.totalHt)
+        .sort((a, b) => b.totalN - a.totalN)
+      // Délai global = moyenne pondérée = somme des contributions
+      const contribs = tiers.filter(t => t.contributionDelai != null)
+      const globalDelai = contribs.length
+        ? contribs.reduce((s, t) => s + (t.contributionDelai ?? 0), 0)
+        : null
+      return { tiers, globalDelai }
     }
 
-    const topClients = buildTiersStats(entries, 'Vente').slice(0, 10)
-    const topFournisseurs = [
-      ...buildTiersStats(entries, 'Achat'),
-      ...buildTiersStats(entries, 'Depense'),
-    ].sort((a, b) => b.totalHt - a.totalHt).slice(0, 10)
-    const nouveauxTiers = [...topClients, ...topFournisseurs].filter(t => t.isNew)
-    const concentrationClientPct = topClients[0]?.sharePercent ?? 0
-
-    // Outliers montants (z-score par catégorie, seuil 2σ)
-    const outliers: MontantOutlier[] = []
-    for (const cat of ['Vente', 'Achat', 'Depense', 'Immobilisation'] as const) {
-      const sub = entries.filter(e => e.category === cat)
-      const values = sub.map(toHt)
-      const mean = values.reduce((a, b) => a + b, 0) / (values.length || 1)
-      const std = stdDev(values)
-      if (std === 0) continue
-      for (const e of sub) {
-        const z = (toHt(e) - mean) / std
-        if (Math.abs(z) > 2) outliers.push({ entry: e, zScore: z, meanHt: mean, stdHt: std })
-      }
-    }
-    outliers.sort((a, b) => Math.abs(b.zScore) - Math.abs(a.zScore))
-
-    // Paiements
-    const modeMap = new Map<string, { count: number; totalHt: number }>()
-    const retards: RetardPaiement[] = []
-    const clientDelais: number[] = []
-    const fournDelais: number[] = []
-
-    for (const e of entries) {
-      const mode = e.payment_mode ?? 'inconnu'
-      if (!modeMap.has(mode)) modeMap.set(mode, { count: 0, totalHt: 0 })
-      const m = modeMap.get(mode)!
-      m.count += 1
-      m.totalHt += toHt(e)
-      if (e.payment_date) {
-        const delai = daysBetween(e.entry_date, e.payment_date)
-        if (e.category === 'Vente') clientDelais.push(delai)
-        else fournDelais.push(delai)
-      } else if (e.payment_mode !== 'comptant') {
-        const delai = daysBetween(e.entry_date, endDate)
-        if (delai > 45) retards.push({ entry: e, delaiJours: delai })
-      }
-    }
-
-    const totalEntries = entries.length || 1
-    const paiementStats: PaiementStats[] = [...modeMap.entries()]
-      .map(([mode, s]) => ({ mode, count: s.count, totalHt: s.totalHt, sharePercent: (s.count / totalEntries) * 100 }))
-      .sort((a, b) => b.count - a.count)
-
-    const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null
-    const delaiMoyenClient = avg(clientDelais)
-    const delaiMoyenFourn = avg(fournDelais)
-
-    // Modèle économique
-    const venteEntries = entries.filter(e => e.category === 'Vente')
-    const clientsUniques = new Set(venteEntries.map(e => e.counterpart ?? e.label)).size
-    const recurrenceScore = clientsUniques > 0 ? venteEntries.length / clientsUniques : 0
-    const modelEco: RapportData['modelEco'] =
-      recurrenceScore > 4 ? 'services_recurrents' :
-      recurrenceScore > 1.5 ? 'mixte' :
-      venteEntries.length > 0 ? 'produits_ponctuels' : 'indetermine'
-
-    // Saisonnalité
-    const ventesByMonth = Array(12).fill(0)
-    for (const e of venteEntries) {
-      ventesByMonth[new Date(e.entry_date).getMonth()] += toHt(e)
-    }
-    const meanMensuel = ventesByMonth.reduce((a, b) => a + b, 0) / 12
-    const saisonnaliteMois = ventesByMonth
-      .map((v, i) => ({ v, i }))
-      .filter(x => meanMensuel > 0 && x.v > meanMensuel * 1.3)
-      .map(x => x.i)
+    const clientsRes = buildTiers(['Vente'])
+    const fournRes   = buildTiers(['Achat', 'Depense'])
 
     return {
-      periodStart: startDate,
-      periodEnd: endDate,
+      exerciceN,
+      exerciceN1,
       companyKeys,
-      tendancesMensuelles,
-      rupturesTendance,
-      topClients,
-      topFournisseurs,
-      nouveauxTiers,
-      concentrationClientPct,
-      outliers,
-      paiementStats,
-      retards,
-      delaiMoyenClient,
-      delaiMoyenFourn,
-      modelEco,
-      saisonnaliteMois,
-      dependanceTiers: concentrationClientPct > 50,
+      produitsFamilles: prod.familles,
+      produitsDetail: prod.detail.slice(0, 25),
+      totalProduitsN: prod.totalN,
+      totalProduitsN1: prod.totalN1,
+      totalProduitsBudget: prod.totalBudget,
+      chargesFamilles: charges.familles,
+      chargesDetail: charges.detail.slice(0, 25),
+      totalChargesN: charges.totalN,
+      totalChargesN1: charges.totalN1,
+      totalChargesBudget: charges.totalBudget,
+      immobilisations: immobilisations.slice(0, 15),
+      amortissements: amortissements.slice(0, 15),
+      resultatN,
+      resultatN1,
+      clients: clientsRes.tiers.slice(0, 20),
+      fournisseurs: fournRes.tiers.slice(0, 20),
+      delaiMoyenClientGlobal: clientsRes.globalDelai,
+      delaiMoyenFournGlobal: fournRes.globalDelai,
     }
-  }, [manualEntries, filters.selCo])
+  }, [RAW, manualEntries, fiscalSettings, filters.selCo])
 }
