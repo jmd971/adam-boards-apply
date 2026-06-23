@@ -2,33 +2,37 @@ import { useState, useMemo } from 'react'
 import { sb } from '@/lib/supabase'
 import { useAppStore, useTenantId } from '@/store'
 import { Spinner } from '@/components/ui'
-import { useRapportData } from '@/hooks/useRapportData'
+import { useRapportData, type CompteLigne, type TiersDelai } from '@/hooks/useRapportData'
 
 const RAPPORT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-rapport`
 
-const MOIS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
-
+interface ActionTiers { client?: string; fournisseur?: string; poste?: string; constat: string; action: string }
 interface RapportIA {
   synthese: string
-  modele_eco: string
-  saisonnalite: string | null
-  operations: string
-  tiers: string
-  paiements: string
+  produits: string
+  charges: string
+  immobilisations: string | null
+  clients_analyse: string
+  fournisseurs_analyse: string
+  actions_clients: ActionTiers[]
+  actions_fournisseurs: ActionTiers[]
+  actions_postes: ActionTiers[]
   points_forts: string[]
   alertes: string[]
-  recommandations: string[]
 }
 
 const eur = (n: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €'
+const jour = (n: number | null) => n != null ? `${Math.round(n)} j` : '—'
+const pct = (n: number | null) => n != null ? `${n >= 0 ? '+' : ''}${Math.round(n)} %` : '—'
+const varColor = (n: number | null, inverse = false) => n == null ? 'var(--text-3)' : (inverse ? n > 0 : n < 0) ? '#10b981' : (inverse ? n < 0 : n > 0) ? '#ef4444' : 'var(--text-2)'
 
 export function Rapport() {
   const data       = useRapportData()
   const tenantId   = useTenantId()
   const filters    = useAppStore(s => s.filters)
-  const [loading, setLoading]   = useState(false)
-  const [rapport, setRapport]   = useState<RapportIA | null>(null)
-  const [error, setError]       = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [rapport, setRapport] = useState<RapportIA | null>(null)
+  const [error, setError]     = useState<string | null>(null)
 
   const companyKey = useMemo(
     () => (filters.selCo && filters.selCo.length > 0 ? filters.selCo[0] : data?.companyKeys[0] ?? 'all'),
@@ -45,13 +49,11 @@ export function Rapport() {
         session = refreshed.session ?? session
       }
       if (!session?.access_token) { setError('Session expirée — reconnectez-vous.'); return }
-
       const resp = await fetch(RAPPORT_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
         body: JSON.stringify({ rapportData: data, tenantId, companyKey }),
       }).catch(() => null)
-
       if (!resp) { setError('Service indisponible (erreur réseau).'); return }
       const json = await resp.json()
       if (!resp.ok) { setError(json.error ?? 'Erreur lors de la génération.'); return }
@@ -65,18 +67,19 @@ export function Rapport() {
     <div style={{ padding:40, textAlign:'center', color:'var(--text-3)' }}>
       <div style={{ fontSize:40, marginBottom:12 }}>📊</div>
       <div style={{ fontSize:14, fontWeight:700, color:'var(--text-1)' }}>Aucune donnée à analyser</div>
-      <div style={{ fontSize:12, marginTop:6 }}>Saisissez ou importez des factures pour générer un rapport d'activité.</div>
+      <div style={{ fontSize:12, marginTop:6 }}>Importez un FEC pour générer le rapport d'activité.</div>
     </div>
   )
 
+  const resVar = data.resultatN1 !== 0 ? ((data.resultatN - data.resultatN1) / Math.abs(data.resultatN1)) * 100 : null
+
   return (
-    <div style={{ padding:'24px 28px', maxWidth:980, margin:'0 auto' }}>
-      {/* En-tête + actions (masqué à l'impression) */}
+    <div style={{ padding:'24px 28px', maxWidth:1040, margin:'0 auto' }}>
       <div className="rapport-actions" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24, gap:16, flexWrap:'wrap' }}>
         <div>
           <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:'var(--text-0)' }}>Rapport d'activité</h2>
           <div style={{ fontSize:12, color:'var(--text-3)', marginTop:4 }}>
-            12 derniers mois &middot; du {data.periodStart} au {data.periodEnd}
+            Exercice {data.exerciceN} vs {data.exerciceN1} vs Budget
           </div>
         </div>
         <div style={{ display:'flex', gap:10 }}>
@@ -99,69 +102,58 @@ export function Rapport() {
         </div>
       )}
 
-      {/* KPIs visuels (toujours affichés, basés sur les calculs) */}
+      {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:14, marginBottom:24 }}>
-        <Kpi label="Chiffre d'affaires (12 mois)" value={eur(data.tendancesMensuelles.reduce((s,m)=>s+m.ventes,0))} />
-        <Kpi label="Délai moyen encaissement" value={data.delaiMoyenClient != null ? `${Math.round(data.delaiMoyenClient)} j` : '—'} />
-        <Kpi label="Délai moyen règlement" value={data.delaiMoyenFourn != null ? `${Math.round(data.delaiMoyenFourn)} j` : '—'} />
-        <Kpi label="Paiements en retard" value={String(data.retards.length)} accent={data.retards.length > 0 ? '#f59e0b' : undefined} />
+        <Kpi label={`Résultat ${data.exerciceN}`} value={eur(data.resultatN)} sub={`${data.exerciceN1} : ${eur(data.resultatN1)} (${pct(resVar)})`} accent={data.resultatN >= 0 ? '#10b981' : '#ef4444'} />
+        <Kpi label="Produits" value={eur(data.totalProduitsN)} sub={`N-1 ${eur(data.totalProduitsN1)} · Bud ${eur(data.totalProduitsBudget)}`} />
+        <Kpi label="Charges" value={eur(data.totalChargesN)} sub={`N-1 ${eur(data.totalChargesN1)} · Bud ${eur(data.totalChargesBudget)}`} />
+        <Kpi label="Délai moyen clients" value={jour(data.delaiMoyenClientGlobal)} accent={(data.delaiMoyenClientGlobal ?? 0) > 60 ? '#f59e0b' : undefined} />
+        <Kpi label="Délai moyen fournisseurs" value={jour(data.delaiMoyenFournGlobal)} />
       </div>
 
       {!rapport && !loading && (
-        <div style={{ background:'rgba(59,130,246,0.06)', border:'1px dashed rgba(59,130,246,0.3)', borderRadius:12, padding:'28px 24px', textAlign:'center', color:'var(--text-2)' }}>
-          <div style={{ fontSize:13, lineHeight:1.7 }}>
-            Cliquez sur <strong>« Générer le rapport »</strong> pour obtenir une analyse rédigée<br/>
-            de votre activité : fonctionnement, tendances, anomalies et recommandations.
-          </div>
+        <div style={{ background:'rgba(59,130,246,0.06)', border:'1px dashed rgba(59,130,246,0.3)', borderRadius:12, padding:'24px', textAlign:'center', color:'var(--text-2)', fontSize:13, lineHeight:1.7, marginBottom:24 }}>
+          Cliquez sur <strong>« Générer le rapport »</strong> pour l'analyse rédigée et les actions par client, fournisseur et poste.
         </div>
       )}
 
       {/* Rapport IA */}
       {rapport && (
         <div className="rapport-print">
-          <PrintHeader periode={`${data.periodStart} → ${data.periodEnd}`} />
-
           <Section titre="Synthèse" accent="#3b82f6" texte={rapport.synthese} grand />
-          <Section titre="Comment fonctionne votre entreprise" accent="#8b5cf6" texte={rapport.modele_eco} />
-          {rapport.saisonnalite && (
-            <Section titre="Saisonnalité" accent="#06b6d4" texte={rapport.saisonnalite}
-              extra={data.saisonnaliteMois.length ? `Mois de pic : ${data.saisonnaliteMois.map(i=>MOIS[i]).join(', ')}.` : undefined} />
-          )}
-          <Section titre="Vos opérations" accent="#10b981" texte={rapport.operations} />
-          <Section titre="Vos clients & fournisseurs" accent="#f59e0b" texte={rapport.tiers}
-            extra={data.dependanceTiers ? `⚠️ Concentration : votre 1er client représente ${Math.round(data.concentrationClientPct)} % de vos ventes.` : undefined} />
-          <Section titre="Vos paiements" accent="#ec4899" texte={rapport.paiements} />
+          <Section titre="Produits" accent="#10b981" texte={rapport.produits} />
+          <Section titre="Charges" accent="#ef4444" texte={rapport.charges} />
+          {rapport.immobilisations && <Section titre="Immobilisations & amortissements" accent="#8b5cf6" texte={rapport.immobilisations} />}
+          <Section titre="Délais clients" accent="#f59e0b" texte={rapport.clients_analyse} />
+          <Section titre="Délais fournisseurs" accent="#ec4899" texte={rapport.fournisseurs_analyse} />
 
-          {/* Points forts / Alertes */}
+          <ActionTable titre="Actions clients" couleur="#f59e0b" col="Client" rows={rapport.actions_clients.map(a => ({ nom: a.client ?? '', constat: a.constat, action: a.action }))} />
+          <ActionTable titre="Actions fournisseurs" couleur="#ec4899" col="Fournisseur" rows={rapport.actions_fournisseurs.map(a => ({ nom: a.fournisseur ?? '', constat: a.constat, action: a.action }))} />
+          <ActionTable titre="Actions sur les postes" couleur="#3b82f6" col="Poste" rows={rapport.actions_postes.map(a => ({ nom: a.poste ?? '', constat: a.constat, action: a.action }))} />
+
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, margin:'20px 0' }} className="rapport-grid">
             <ListBox titre="Points forts" couleur="#10b981" items={rapport.points_forts} puce="✓" />
             <ListBox titre="Points de vigilance" couleur="#ef4444" items={rapport.alertes} puce="!" />
           </div>
 
-          {/* Recommandations */}
-          <div style={{ background:'rgba(245,158,11,0.06)', border:'1px solid rgba(245,158,11,0.2)', borderRadius:12, padding:'18px 22px', marginTop:4 }}>
-            <div style={{ fontSize:11, fontWeight:800, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>Recommandations</div>
-            <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-              {rapport.recommandations.map((r,i) => (
-                <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
-                  <span style={{ width:20, height:20, borderRadius:'50%', background:'rgba(245,158,11,0.2)', color:'#fcd34d', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{i+1}</span>
-                  <span style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.6 }}>{r}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ marginTop:28, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.08)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>
-            Rapport généré automatiquement par AdamBoards — analyse à valider avec votre expert-comptable.
+          <div style={{ marginTop:24, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.08)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>
+            Rapport généré automatiquement par AdamBoards — à valider avec votre expert-comptable.
           </div>
         </div>
       )}
+
+      {/* Tableaux de données détaillées (toujours visibles) */}
+      <TiersTable titre="Clients — délais et poids" tiers={data.clients} />
+      <TiersTable titre="Fournisseurs — délais et poids" tiers={data.fournisseurs} />
+      <ComptesTable titre="Charges par poste" lignes={data.chargesDetail} inverse />
+      <ComptesTable titre="Produits par poste" lignes={data.produitsDetail} />
+      {data.immobilisations.length > 0 && <ComptesTable titre="Immobilisations" lignes={data.immobilisations} noBudget />}
 
       <style>{`
         @media print {
           body * { visibility: hidden; }
           .rapport-print, .rapport-print * { visibility: visible; }
-          .rapport-print { position: absolute; left: 0; top: 0; width: 100%; color: #000 !important; }
+          .rapport-print { position: absolute; left: 0; top: 0; width: 100%; }
           .rapport-print *, .rapport-print { color: #1a1a1a !important; }
           .rapport-actions, .sidebar-wrapper { display: none !important; }
         }
@@ -170,21 +162,110 @@ export function Rapport() {
   )
 }
 
-function Kpi({ label, value, accent }: { label: string; value: string; accent?: string }) {
+function Kpi({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
     <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'14px 16px' }}>
       <div style={{ fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:6 }}>{label}</div>
-      <div style={{ fontSize:20, fontWeight:800, color: accent ?? 'var(--text-0)' }}>{value}</div>
+      <div style={{ fontSize:19, fontWeight:800, color: accent ?? 'var(--text-0)' }}>{value}</div>
+      {sub && <div style={{ fontSize:10.5, color:'var(--text-3)', marginTop:4 }}>{sub}</div>}
     </div>
   )
 }
 
-function Section({ titre, accent, texte, extra, grand }: { titre: string; accent: string; texte: string; extra?: string; grand?: boolean }) {
+function Section({ titre, accent, texte, grand }: { titre: string; accent: string; texte: string; grand?: boolean }) {
   return (
     <div style={{ marginBottom:18 }}>
       <div style={{ fontSize:11, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>{titre}</div>
       <p style={{ margin:0, fontSize: grand ? 15 : 13, color:'var(--text-1)', lineHeight:1.7 }}>{texte}</p>
-      {extra && <p style={{ margin:'8px 0 0', fontSize:12, color:'var(--text-2)', fontStyle:'italic' }}>{extra}</p>}
+    </div>
+  )
+}
+
+function ActionTable({ titre, couleur, col, rows }: { titre: string; couleur: string; col: string; rows: { nom: string; constat: string; action: string }[] }) {
+  if (!rows.length) return null
+  return (
+    <div style={{ marginBottom:20 }}>
+      <div style={{ fontSize:11, fontWeight:800, color:couleur, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>{titre}</div>
+      <div style={{ border:`1px solid ${couleur}33`, borderRadius:10, overflow:'hidden' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+          <thead>
+            <tr style={{ background:`${couleur}11` }}>
+              <th style={th}>{col}</th><th style={th}>Constat</th><th style={th}>Action recommandée</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{r.nom}</td>
+                <td style={td}>{r.constat}</td>
+                <td style={{ ...td, color:couleur, fontWeight:600 }}>{r.action}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function TiersTable({ titre, tiers }: { titre: string; tiers: TiersDelai[] }) {
+  if (!tiers.length) return null
+  return (
+    <div style={{ marginTop:24 }}>
+      <div style={{ fontSize:12, fontWeight:800, color:'var(--text-1)', marginBottom:10 }}>{titre}</div>
+      <div style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+          <thead><tr style={{ background:'rgba(255,255,255,0.04)' }}>
+            <th style={th}>Tiers</th><th style={thR}>Total N</th><th style={thR}>Nb fact.</th><th style={thR}>Délai moyen</th><th style={thR}>Poids</th><th style={thR}>Contrib. délai</th><th style={thR}>Impayés</th>
+          </tr></thead>
+          <tbody>
+            {tiers.map((t, i) => (
+              <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{t.name}</td>
+                <td style={tdR}>{eur(t.totalN)}</td>
+                <td style={tdR}>{t.nbFactures}</td>
+                <td style={{ ...tdR, color: (t.delaiMoyen ?? 0) > 60 ? '#f59e0b' : 'var(--text-1)', fontWeight:700 }}>{jour(t.delaiMoyen)}</td>
+                <td style={tdR}>{Math.round(t.sharePct)} %</td>
+                <td style={{ ...tdR, color:(t.contributionDelai ?? 0) > 25 ? '#ef4444' : 'var(--text-2)' }}>{t.contributionDelai != null ? `${Math.round(t.contributionDelai)} j` : '—'}</td>
+                <td style={{ ...tdR, color: t.nbImpayes > 0 ? '#f59e0b' : 'var(--text-3)' }}>{t.nbImpayes || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ComptesTable({ titre, lignes, inverse, noBudget }: { titre: string; lignes: CompteLigne[]; inverse?: boolean; noBudget?: boolean }) {
+  if (!lignes.length) return null
+  return (
+    <div style={{ marginTop:24 }}>
+      <div style={{ fontSize:12, fontWeight:800, color:'var(--text-1)', marginBottom:10 }}>{titre}</div>
+      <div style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+          <thead><tr style={{ background:'rgba(255,255,255,0.04)' }}>
+            <th style={th}>Poste</th><th style={thR}>Total N</th><th style={thR}>N-1</th><th style={thR}>Var.</th>
+            {!noBudget && <th style={thR}>Budget</th>}{!noBudget && <th style={thR}>vs Bud.</th>}
+            <th style={thR}>Fréq.</th><th style={thR}>Moy./écr.</th><th style={thR}>Poids</th>
+          </tr></thead>
+          <tbody>
+            {lignes.map((l, i) => (
+              <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+                <td style={td}><span style={{ color:'var(--text-3)', fontFamily:'monospace', fontSize:10.5 }}>{l.account}</span> {l.label}</td>
+                <td style={{ ...tdR, fontWeight:700, color:'var(--text-0)' }}>{eur(l.totalN)}</td>
+                <td style={tdR}>{eur(l.totalN1)}</td>
+                <td style={{ ...tdR, color:varColor(l.varN1Pct, inverse) }}>{pct(l.varN1Pct)}</td>
+                {!noBudget && <td style={tdR}>{eur(l.budget)}</td>}
+                {!noBudget && <td style={{ ...tdR, color:varColor(l.varBudgetPct, inverse) }}>{pct(l.varBudgetPct)}</td>}
+                <td style={tdR}>{l.frequency}</td>
+                <td style={tdR}>{eur(l.avgAmount)}</td>
+                <td style={tdR}>{Math.round(l.sharePct)} %</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
@@ -195,7 +276,7 @@ function ListBox({ titre, couleur, items, puce }: { titre: string; couleur: stri
       <div style={{ fontSize:11, fontWeight:800, color:couleur, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>{titre}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
         {items.length === 0 && <span style={{ fontSize:12, color:'var(--text-3)' }}>—</span>}
-        {items.map((it,i) => (
+        {items.map((it, i) => (
           <div key={i} style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
             <span style={{ width:16, height:16, borderRadius:'50%', background:`${couleur}33`, color:couleur, fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>{puce}</span>
             <span style={{ fontSize:12.5, color:'var(--text-1)', lineHeight:1.55 }}>{it}</span>
@@ -206,12 +287,7 @@ function ListBox({ titre, couleur, items, puce }: { titre: string; couleur: stri
   )
 }
 
-function PrintHeader({ periode }: { periode: string }) {
-  return (
-    <div className="print-only" style={{ display:'none' }}>
-      <h1 style={{ fontSize:22, margin:'0 0 4px' }}>Rapport d'activité</h1>
-      <div style={{ fontSize:12, color:'#555' }}>Période : {periode}</div>
-      <hr style={{ margin:'12px 0 20px', border:'none', borderTop:'1px solid #ddd' }} />
-    </div>
-  )
-}
+const th: React.CSSProperties  = { textAlign:'left', padding:'9px 12px', fontSize:10, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.4px' }
+const thR: React.CSSProperties = { ...th, textAlign:'right' }
+const td: React.CSSProperties  = { padding:'9px 12px', color:'var(--text-1)' }
+const tdR: React.CSSProperties = { ...td, textAlign:'right' }
