@@ -453,7 +453,8 @@ export function Budget() {
   } | null>(null)
   const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
   // Détail des écritures réalisées (FEC + saisies) d'un compte du budget — ouvert au clic sur la ligne.
-  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number } | null>(null)
+  // budChildren : ventilation budget (sous-comptes, ou la ligne du compte) affichée sous les écritures.
+  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number; budChildren?: { name: string; b: number[] }[] } | null>(null)
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -1106,7 +1107,12 @@ export function Budget() {
                             <td style={{ padding: indent ? '3px 12px 3px 30px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
                               {indent && <span style={{ color:'#475569', marginRight:6, fontSize:11 }}>└</span>}
                               <span
-                                onClick={ents.length > 0 ? () => setEcrModal({ title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0 }) : undefined}
+                                onClick={ents.length > 0 ? () => setEcrModal({
+                                  title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0,
+                                  budChildren: children.length > 0
+                                    ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
+                                    : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
+                                }) : undefined}
                                 title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
                                 style={{ cursor: ents.length > 0 ? 'pointer' : 'default' }}>
                                 <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
