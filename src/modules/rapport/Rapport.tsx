@@ -80,6 +80,11 @@ export function Rapport() {
           <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:'var(--text-0)' }}>Rapport d'activité</h2>
           <div style={{ fontSize:12, color:'var(--text-3)', marginTop:4 }}>
             Exercice {data.exerciceN} vs {data.exerciceN1} vs Budget
+            {!data.periodeComplete && (
+              <span style={{ marginLeft:8, padding:'2px 8px', borderRadius:6, background:'rgba(245,158,11,0.15)', color:'#fcd34d', fontSize:10.5, fontWeight:700 }}>
+                à même période ({data.nbMois} mois)
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display:'flex', gap:10 }}>
@@ -246,7 +251,7 @@ function ComptesTable({ titre, lignes, inverse, noBudget }: { titre: string; lig
       <div style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
           <thead><tr style={{ background:'rgba(255,255,255,0.04)' }}>
-            <th style={th}>Poste</th><th style={thR}>Total N</th><th style={thR}>N-1</th><th style={thR}>Var.</th>
+            <th style={th}>Poste</th><th style={thR}>Total N</th><th style={thR}>N-1 (m.p.)</th><th style={thR}>Var.</th>
             {!noBudget && <th style={thR}>Budget</th>}{!noBudget && <th style={thR}>vs Bud.</th>}
             <th style={thR}>Fréq.</th><th style={thR}>Moy./écr.</th><th style={thR}>Poids</th>
           </tr></thead>
