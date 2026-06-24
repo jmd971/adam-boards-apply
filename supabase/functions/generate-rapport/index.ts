@@ -55,6 +55,7 @@ function compact(d: any) {
   }))
   return {
     exerciceN: d.exerciceN, exerciceN1: d.exerciceN1,
+    nbMois: d.nbMois, periodeComplete: d.periodeComplete,
     resultatN: Math.round(d.resultatN), resultatN1: Math.round(d.resultatN1),
     totalProduits: { N: Math.round(d.totalProduitsN), N1: Math.round(d.totalProduitsN1), budget: Math.round(d.totalProduitsBudget) },
     totalCharges: { N: Math.round(d.totalChargesN), N1: Math.round(d.totalChargesN1), budget: Math.round(d.totalChargesBudget) },
@@ -106,6 +107,7 @@ Règles :
 - DÉLAIS : explique comment chaque tiers nommé tire la moyenne globale (le champ contributionDelaiJours indique son impact pondéré).
 - CHARGES/PRODUITS : commente fréquence, montant moyen, poids, évolution vs N-1 et budget. Signale les dérapages.
 - IMMOBILISATIONS : impact sur les amortissements.
+- PÉRIODE : si periodeComplete=false, l'exercice N ne couvre que nbMois mois ; N-1 et budget sont déjà restreints à CETTE MÊME PÉRIODE. Précise-le (ex : \"sur les 4 premiers mois\") et ne projette pas sur l'année.
 - Chaque action concrète et nominative. Appelle l'outil rapport_activite avec ton analyse.`
 
     const userPrompt = `Données de l'exercice (montants en euros, délais en jours) :\n\n${JSON.stringify(compact(rapportData), null, 2)}`
