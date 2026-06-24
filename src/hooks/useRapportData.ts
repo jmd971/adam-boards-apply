@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { fiscalYearOf, currentFiscalYear } from '@/lib/calc'
+import { fiscalYearOf, currentFiscalYear, fiscalMonthIndex } from '@/lib/calc'
 import type { ManualEntry, CompanyRaw, FecAccount, BilanAccount } from '@/types'
 
 // ── Types de sortie ─────────────────────────────────────────────────────────
@@ -35,6 +35,9 @@ export interface RapportData {
   exerciceN: number
   exerciceN1: number
   companyKeys: string[]
+  /** Période de comparaison : N-1 et budget restreints aux mois disponibles de N. */
+  nbMois: number          // nombre de mois de N pris en compte (ex : 4)
+  periodeComplete: boolean // true si l'exercice N couvre 12 mois
 
   // Produits (comptes 7x)
   produitsFamilles: CompteLigne[]
@@ -70,10 +73,15 @@ export interface RapportData {
 const isCharge = (acc: string) => acc.startsWith('6')
 const isProduit = (acc: string) => acc.startsWith('7')
 
-/** Solde net d'un compte FEC sur tout l'exercice (charge: débit-crédit, produit: crédit-débit). */
-function soldeFec(fa: FecAccount, charge: boolean): number {
+/** Solde net d'un compte FEC (charge: débit-crédit, produit: crédit-débit).
+ *  monthsMM (optionnel) : ne somme que les mois dont le numéro (MM) est dans le set
+ *  → comparaison « à même période » (N-1 restreint aux mois disponibles de N). */
+function soldeFec(fa: FecAccount, charge: boolean, monthsMM?: Set<string>): number {
   let d = 0, c = 0
-  for (const [deb, cred] of Object.values(fa.mo)) { d += deb; c += cred }
+  for (const [m, v] of Object.entries(fa.mo)) {
+    if (monthsMM && !monthsMM.has(m.slice(5, 7))) continue
+    d += v[0]; c += v[1]
+  }
   return charge ? d - c : c - d
 }
 
@@ -90,6 +98,8 @@ function aggregateAccounts(
   companies: CompanyRaw[],
   predicate: (acc: string) => boolean,
   charge: boolean,
+  monthsMM: Set<string>,      // mois (MM) disponibles dans N → période de comparaison
+  budgetIdx: Set<number>,     // index fiscaux (0-11) correspondants pour le budget
 ): { detail: CompteLigne[]; familles: CompteLigne[]; totalN: number; totalN1: number; totalBudget: number } {
   // acc -> { totalN, totalN1, budget, freq, label }
   const map = new Map<string, { totalN: number; totalN1: number; budget: number; freq: number; label: string }>()
@@ -108,15 +118,15 @@ function aggregateAccounts(
     for (const [acc, fa] of Object.entries(co.p1 ?? {})) {
       if (!predicate(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
-      e.totalN1 += soldeFec(fa, charge)
+      e.totalN1 += soldeFec(fa, charge, monthsMM)
       if (!e.label) e.label = fa.l
       map.set(acc, e)
     }
-    // Budget (somme des 12 mois)
+    // Budget : seulement les mois correspondant à la période de N (même période)
     for (const [acc, ba] of Object.entries(co.bud ?? {})) {
       if (!predicate(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: ba.l }
-      e.budget += (ba.b ?? []).reduce((s, v) => s + v, 0)
+      e.budget += (ba.b ?? []).reduce((s, v, i) => budgetIdx.has(i) ? s + v : s, 0)
       if (!e.label) e.label = ba.l
       map.set(acc, e)
     }
@@ -217,16 +227,28 @@ export function useRapportData(): RapportData | null {
     const exerciceN  = currentFiscalYear(startMonth)
     const exerciceN1 = exerciceN - 1
 
+    // ── Période de comparaison « à même période » ─────────────────────────
+    // N est souvent incomplet (ex : jan→avr). On restreint N-1 et le budget aux
+    // mêmes mois pour une comparaison juste (sinon 4 mois de N vs 12 mois de N-1).
+    const monthsN = (RAW.mn ?? []).filter(m =>
+      companyKeys.some(k => fiscalYearOf(m, fiscalSettings[k] ?? startMonth) === exerciceN))
+    const monthsMM = new Set(monthsN.map(m => m.slice(5, 7)))
+    const budgetIdx = new Set(monthsN.map(m => fiscalMonthIndex(m, startMonth)))
+    // Garde-fou : si on ne détecte aucun mois (données atypiques), pas de restriction.
+    const safeMM = monthsMM.size > 0 ? monthsMM : new Set(Array.from({length:12},(_,i)=>String(i+1).padStart(2,'0')))
+    const safeIdx = budgetIdx.size > 0 ? budgetIdx : new Set(Array.from({length:12},(_,i)=>i))
+    const periodeComplete = safeMM.size >= 12
+
     // ── P&L : produits / charges ──────────────────────────────────────────
-    const prod    = aggregateAccounts(companies, isProduit, false)
-    const charges = aggregateAccounts(companies, isCharge, true)
+    const prod    = aggregateAccounts(companies, isProduit, false, safeMM, safeIdx)
+    const charges = aggregateAccounts(companies, isCharge, true, safeMM, safeIdx)
 
     // ── Bilan : immobilisations (20/21/23, hors 28) & amortissements ──────
     const immobilisations = aggregateBilan(companies, acc =>
       acc.startsWith('2') && !acc.startsWith('28'))
     // Amortissements : cumul bilan 28x + dotations P&L 68x
     const amortBilan = aggregateBilan(companies, acc => acc.startsWith('28'))
-    const amortPL    = aggregateAccounts(companies, acc => acc.startsWith('68'), true).detail
+    const amortPL    = aggregateAccounts(companies, acc => acc.startsWith('68'), true, safeMM, safeIdx).detail
     const amortissements = [...amortBilan, ...amortPL]
       .sort((a, b) => Math.abs(b.totalN) - Math.abs(a.totalN))
 
@@ -313,6 +335,9 @@ export function useRapportData(): RapportData | null {
             if (kind === 'client' && hasCd) continue   // déjà couvert par cdN → éviter le doublon
             if (ba.e && ba.e.length) {
               for (const e of ba.e) {
+                const date = (e[0] as string) || ''
+                // N-1 : ne garder que les mois de la période de comparaison (même période).
+                if (field === 'totalN1' && date && !safeMM.has(date.slice(5, 7))) continue
                 const label = (e[1] as string) || ''
                 const amount = kind === 'client' ? (e[2] as number) : (e[3] as number)  // débit / crédit
                 if (!(amount > 0)) continue
@@ -393,6 +418,8 @@ export function useRapportData(): RapportData | null {
       exerciceN,
       exerciceN1,
       companyKeys,
+      nbMois: safeMM.size,
+      periodeComplete,
       produitsFamilles: prod.familles,
       produitsDetail: prod.detail.slice(0, 25),
       totalProduitsN: prod.totalN,
