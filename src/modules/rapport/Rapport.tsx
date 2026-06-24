@@ -132,13 +132,13 @@ export function Rapport() {
           <Section titre="Délais clients" accent="#f59e0b" texte={rapport.clients_analyse} />
           <Section titre="Délais fournisseurs" accent="#ec4899" texte={rapport.fournisseurs_analyse} />
 
-          <ActionTable titre="Actions clients" couleur="#f59e0b" col="Client" rows={rapport.actions_clients.map(a => ({ nom: a.client ?? '', constat: a.constat, action: a.action }))} />
-          <ActionTable titre="Actions fournisseurs" couleur="#ec4899" col="Fournisseur" rows={rapport.actions_fournisseurs.map(a => ({ nom: a.fournisseur ?? '', constat: a.constat, action: a.action }))} />
-          <ActionTable titre="Actions sur les postes" couleur="#3b82f6" col="Poste" rows={rapport.actions_postes.map(a => ({ nom: a.poste ?? '', constat: a.constat, action: a.action }))} />
+          <ActionTable titre="Actions clients" couleur="#f59e0b" col="Client" rows={(rapport.actions_clients ?? []).map(a => ({ nom: a.client ?? '', constat: a.constat, action: a.action }))} />
+          <ActionTable titre="Actions fournisseurs" couleur="#ec4899" col="Fournisseur" rows={(rapport.actions_fournisseurs ?? []).map(a => ({ nom: a.fournisseur ?? '', constat: a.constat, action: a.action }))} />
+          <ActionTable titre="Actions sur les postes" couleur="#3b82f6" col="Poste" rows={(rapport.actions_postes ?? []).map(a => ({ nom: a.poste ?? '', constat: a.constat, action: a.action }))} />
 
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, margin:'20px 0' }} className="rapport-grid">
-            <ListBox titre="Points forts" couleur="#10b981" items={rapport.points_forts} puce="✓" />
-            <ListBox titre="Points de vigilance" couleur="#ef4444" items={rapport.alertes} puce="!" />
+            <ListBox titre="Points forts" couleur="#10b981" items={rapport.points_forts ?? []} puce="✓" />
+            <ListBox titre="Points de vigilance" couleur="#ef4444" items={rapport.alertes ?? []} puce="!" />
           </div>
 
           <div style={{ marginTop:24, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.08)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>
@@ -152,7 +152,7 @@ export function Rapport() {
       <TiersTable titre="Fournisseurs — délais et poids" tiers={data.fournisseurs} />
       <ComptesTable titre="Charges par poste" lignes={data.chargesDetail} inverse />
       <ComptesTable titre="Produits par poste" lignes={data.produitsDetail} />
-      {data.immobilisations.length > 0 && <ComptesTable titre="Immobilisations" lignes={data.immobilisations} noBudget />}
+      {(data.immobilisations?.length ?? 0) > 0 && <ComptesTable titre="Immobilisations" lignes={data.immobilisations} noBudget />}
 
       <style>{`
         @media print {
@@ -187,7 +187,7 @@ function Section({ titre, accent, texte, grand }: { titre: string; accent: strin
 }
 
 function ActionTable({ titre, couleur, col, rows }: { titre: string; couleur: string; col: string; rows: { nom: string; constat: string; action: string }[] }) {
-  if (!rows.length) return null
+  if (!rows?.length) return null
   return (
     <div style={{ marginBottom:20 }}>
       <div style={{ fontSize:11, fontWeight:800, color:couleur, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>{titre}</div>
@@ -214,7 +214,7 @@ function ActionTable({ titre, couleur, col, rows }: { titre: string; couleur: st
 }
 
 function TiersTable({ titre, tiers }: { titre: string; tiers: TiersDelai[] }) {
-  if (!tiers.length) return null
+  if (!tiers?.length) return null
   return (
     <div style={{ marginTop:24 }}>
       <div style={{ fontSize:12, fontWeight:800, color:'var(--text-1)', marginBottom:10 }}>{titre}</div>
@@ -244,7 +244,7 @@ function TiersTable({ titre, tiers }: { titre: string; tiers: TiersDelai[] }) {
 }
 
 function ComptesTable({ titre, lignes, inverse, noBudget }: { titre: string; lignes: CompteLigne[]; inverse?: boolean; noBudget?: boolean }) {
-  if (!lignes.length) return null
+  if (!lignes?.length) return null
   return (
     <div style={{ marginTop:24 }}>
       <div style={{ fontSize:12, fontWeight:800, color:'var(--text-1)', marginBottom:10 }}>{titre}</div>
@@ -281,8 +281,8 @@ function ListBox({ titre, couleur, items, puce }: { titre: string; couleur: stri
     <div style={{ background:`${couleur}11`, border:`1px solid ${couleur}33`, borderRadius:12, padding:'16px 18px' }}>
       <div style={{ fontSize:11, fontWeight:800, color:couleur, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>{titre}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
-        {items.length === 0 && <span style={{ fontSize:12, color:'var(--text-3)' }}>—</span>}
-        {items.map((it, i) => (
+        {(items ?? []).length === 0 && <span style={{ fontSize:12, color:'var(--text-3)' }}>—</span>}
+        {(items ?? []).map((it, i) => (
           <div key={i} style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
             <span style={{ width:16, height:16, borderRadius:'50%', background:`${couleur}33`, color:couleur, fontSize:10, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, marginTop:2 }}>{puce}</span>
             <span style={{ fontSize:12.5, color:'var(--text-1)', lineHeight:1.55 }}>{it}</span>
