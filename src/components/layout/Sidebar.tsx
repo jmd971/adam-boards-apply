@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { sb } from '@/lib/supabase'
 import type { TabId } from '@/types'
 import { canAccessTab, roleLabel, roleColor, type Role } from '@/lib/roles'
+import { AdamBoardsInline } from '@/components/Logo'
 
 interface SidebarProps { onTabChange?: (t: TabId) => void }
 
@@ -96,16 +97,9 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       )}
       {/* Logo */}
       <div style={{ padding:'18px 16px 12px', borderBottom:'1px solid var(--border-0)', flexShrink:0 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <div style={{ width:34, height:34, borderRadius:10, background:'linear-gradient(135deg,#3b82f6,#6366f1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, flexShrink:0 }}>📊</div>
-          <div>
-            <div style={{ fontSize:15, fontWeight:800, color:'#f1f5f9', letterSpacing:'-0.3px' }}>
-              <span style={{ color:'#3b82f6' }}>adam</span>boards
-            </div>
-            <div style={{ fontSize:9, color:'#94a3b8', letterSpacing:'1.5px', textTransform:'uppercase', marginTop:1 }}>Tableau de bord financier</div>
-            {tenantName && <div style={{ fontSize:9, color:'#3b82f6', marginTop:2, fontWeight:600 }}>{tenantName}</div>}
-          </div>
-        </div>
+        <AdamBoardsInline markSize={34} fontSize={15} />
+        <div style={{ fontSize:9, color:'#94a3b8', letterSpacing:'1.5px', textTransform:'uppercase', marginTop:6 }}>Tableau de bord financier</div>
+        {tenantName && <div style={{ fontSize:9, color:'#3b82f6', marginTop:2, fontWeight:600 }}>{tenantName}</div>}
       </div>
 
       {/* Sélecteur sociétés */}
