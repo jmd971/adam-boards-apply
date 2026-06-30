@@ -5,7 +5,7 @@ export type Role = 'superadmin' | 'admin' | 'comptable' | 'viewer'
 const ADMIN_TABS: TabId[] = [
   'dashboard', 'cr', 'sig', 'equilibre', 'objectifs', 'bilan', 'ratios', 'tva',
   'import', 'budget', 'saisie', 'tresorerie', 'verification', 'creances', 'dettes',
-  'complementaire', 'rapprochement', 'depot', 'aide', 'ventes', 'parametres', 'rapport',
+  'complementaire', 'rapprochement', 'depot', 'aide', 'ventes', 'parametres', 'rapport', 'conseiller',
 ]
 
 /** Tabs accessible per role */

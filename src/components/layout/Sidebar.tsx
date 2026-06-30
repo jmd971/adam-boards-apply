@@ -21,6 +21,7 @@ const NAV: { id: TabId; label: string; icon: string; group: string }[] = [
   { id:'tva',             label:'TVA',                icon:'🧾', group:'analyse' },
   { id:'ventes',         label:'Ventes & Clients',  icon:'🛒', group:'analyse' },
   { id:'rapport',         label:"Rapport d'activité", icon:'✨', group:'analyse' },
+  { id:'conseiller',      label:'Mon conseiller',     icon:'💬', group:'analyse' },
   { id:'complementaire',  label:'Complémentaire',     icon:'📈', group:'analyse' },
   { id:'creances',        label:'Créances clients',   icon:'📋', group:'analyse' },
   { id:'dettes',          label:'Dettes fournisseurs',icon:'📑', group:'analyse' },
