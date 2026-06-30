@@ -31,6 +31,7 @@ import { Ventes }           from '@/modules/ventes/VentesPage'
 import { SuperadminDashboard } from '@/modules/superadmin/SuperadminDashboard'
 import { Parametres }           from '@/modules/parametres/Parametres'
 import { Rapport }              from '@/modules/rapport/Rapport'
+import { Conseiller }           from '@/modules/conseiller/Conseiller'
 import { useCompanyData }   from '@/hooks/useCompanyData'
 import type { User }        from '@supabase/supabase-js'
 
@@ -167,6 +168,7 @@ function AppInner() {
       aide:           ['Aide',            <Aide />],
       parametres:     ['Paramètres',      <Parametres />],
       rapport:        ['Rapport d\'activité', <Rapport />],
+      conseiller:     ['Mon conseiller', <Conseiller />],
     }
     const entry = modules[tab]
     if (!entry) return null
