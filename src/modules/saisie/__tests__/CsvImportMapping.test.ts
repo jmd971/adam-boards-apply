@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parseCSVStructure,
   detectMapping,
+  applyMapping,
   mappingToHeaders,
   headersToMapping,
   scoreSavedMapping,
@@ -47,6 +48,19 @@ describe('mappings CSV enregistrés — aller-retour par nom d’en-tête', () =
     // Sur le fichier Achats (pas de « montant ht ») → obligatoire manquant → -1
     const sAchats = parseCSVStructure(ACHATS)
     expect(scoreSavedMapping(saved, sAchats.headers)).toBe(-1)
+  })
+
+  it('applyMapping : la catégorie du profil (defaultCategory) force la catégorie des lignes', () => {
+    // Fichier avec une colonne « nature » qui détecterait Achat…
+    const withNature = 'Date;Montant HT;Nature\n15/03/2026;100;Achat fournisseur\n'
+    const struct = parseCSVStructure(withNature)
+    const m = detectMapping(struct.headers)
+
+    // …sans profil : la nature est détectée (Achat)
+    expect(applyMapping(struct, m)[0].category).toBe('Achat')
+    // …avec profil « Vente » : toutes les lignes reprennent la catégorie du profil
+    const rows = applyMapping(struct, m, 'Vente')
+    expect(rows.every(r => r.category === 'Vente')).toBe(true)
   })
 
   it('en-tête introuvable → champ à -1, sans collision de colonne', () => {

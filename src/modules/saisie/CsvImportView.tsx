@@ -262,7 +262,9 @@ export function scoreSavedMapping(saved: Partial<Record<FieldKey, string>>, head
 }
 
 // Étape 3 : appliquer le mapping aux lignes → CsvRow[]
-export function applyMapping(structure: CsvStructure, m: Mapping): CsvRow[] {
+// `defaultCategory` (facultatif) : si fourni (ex : catégorie d'un profil de mapping
+// enregistré), force la catégorie de toutes les lignes au lieu de la détecter.
+export function applyMapping(structure: CsvStructure, m: Mapping, defaultCategory?: ManualEntry['category']): CsvRow[] {
   const rows: CsvRow[] = []
   structure.dataRows.forEach((cols, i) => {
     const get = (idx: number) => idx >= 0 ? cols[idx]?.trim() ?? '' : ''
@@ -279,7 +281,7 @@ export function applyMapping(structure: CsvStructure, m: Mapping): CsvRow[] {
     else if (ht > 0 && ttc > ht) tvaRate = (((ttc - ht) / ht) * 100).toFixed(2)
 
     const rawNature = get(m.nature)
-    const cat = rawNature ? detectCat(rawNature) : 'Depense'
+    const cat = defaultCategory ?? (rawNature ? detectCat(rawNature) : 'Depense')
 
     const tiers = get(m.counterpart)
     const labelRaw = get(m.label)
@@ -475,15 +477,18 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
   // ── Valider le mapping → prévisualisation ──────────────────────────────────
   const confirmMapping = () => {
     if (!structure || !mapping) return
-    setRows(applyMapping(structure, mapping))
+    // Si un profil enregistré est appliqué, sa catégorie devient la catégorie par
+    // défaut des lignes prévisualisées (« sauvegardable par catégorie »).
+    const prof = appliedProfileId ? companyMappings.find(s => s.id === appliedProfileId) : null
+    setRows(applyMapping(structure, mapping, prof?.category))
+    if (prof) setGCat(prof.category)
     setStep('preview')
   }
 
   const setFieldMap = (key: FieldKey, idx: number) => {
     setMapping(m => m ? { ...m, [key]: idx } : m)
-    // Toute modif manuelle diverge du profil appliqué → on retire le lien
-    setAppliedProfileId(null)
-    setProfileMsg(null)
+    // On conserve le lien au profil (et donc sa catégorie) même après un ajustement
+    // manuel des colonnes ; ré-enregistrer sous le même nom écrase le profil.
   }
 
   // ── Profils de mapping ─────────────────────────────────────────────────────
