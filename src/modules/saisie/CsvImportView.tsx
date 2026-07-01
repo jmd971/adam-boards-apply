@@ -21,6 +21,15 @@ export type CsvRow = {
   subcategory: string
 }
 
+/** Mapping d'import enregistré : correspondance champ → en-tête (normalisé). */
+export type SavedCsvMapping = {
+  id: string
+  company_key: string
+  category: ManualEntry['category']
+  name: string
+  mapping: Partial<Record<FieldKey, string>>
+}
+
 interface Props {
   companyKeys: string[]
   defaultCompanyKey: string
@@ -29,6 +38,12 @@ interface Props {
   saving: boolean
   /** Comptes réels par société : FEC N-1/N + historique des saisies (code + libellé). */
   realAccountsByCompany?: Record<string, { code: string; label: string; source: string }[]>
+  /** Mappings enregistrés du tenant (toutes sociétés) — filtrés par société en interne. */
+  savedMappings?: SavedCsvMapping[]
+  /** Enregistre / met à jour un mapping (upsert sur société + catégorie + nom). */
+  onSaveMapping?: (input: { company_key: string; category: ManualEntry['category']; name: string; mapping: Partial<Record<FieldKey, string>> }) => Promise<void>
+  /** Supprime un mapping enregistré par id. */
+  onDeleteMapping?: (id: string) => Promise<void>
 }
 
 // ─── Parsing helpers ──────────────────────────────────────────────────────────
@@ -201,6 +216,51 @@ export function detectMapping(headers: string[]): Mapping {
   return m
 }
 
+// ─── Mappings enregistrés (par nom d'en-tête, robuste au réordonnancement) ────
+
+// Convertit un mapping par index → mapping par en-tête normalisé (pour stockage).
+// Seuls les champs réellement mappés (idx >= 0) sont conservés.
+export function mappingToHeaders(m: Mapping, headers: string[]): Partial<Record<FieldKey, string>> {
+  const out: Partial<Record<FieldKey, string>> = {}
+  for (const f of FIELDS) {
+    const idx = m[f.key]
+    if (idx >= 0 && headers[idx]) out[f.key] = headers[idx]
+  }
+  return out
+}
+
+// Résout un mapping enregistré (par en-tête) vers des index de colonnes du fichier
+// courant. En-tête introuvable → -1. Une colonne n'est jamais affectée deux fois.
+export function headersToMapping(saved: Partial<Record<FieldKey, string>>, headers: string[]): Mapping {
+  const m = {} as Mapping
+  const used = new Set<number>()
+  for (const f of FIELDS) {
+    const h = saved[f.key]
+    let idx = -1
+    if (h) idx = headers.findIndex((hh, i) => hh === h && !used.has(i))
+    if (idx >= 0) used.add(idx)
+    m[f.key] = idx
+  }
+  return m
+}
+
+// Score de correspondance d'un mapping enregistré avec les en-têtes d'un fichier :
+// nombre de champs dont l'en-tête stocké existe dans le fichier. -1 si les champs
+// obligatoires (date, montant HT) ne sont pas tous résolvables (mapping inapplicable).
+export function scoreSavedMapping(saved: Partial<Record<FieldKey, string>>, headers: string[]): number {
+  const reqOk = FIELDS.filter(f => f.required).every(f => {
+    const h = saved[f.key]
+    return !!h && headers.includes(h)
+  })
+  if (!reqOk) return -1
+  let score = 0
+  for (const f of FIELDS) {
+    const h = saved[f.key]
+    if (h && headers.includes(h)) score++
+  }
+  return score
+}
+
 // Étape 3 : appliquer le mapping aux lignes → CsvRow[]
 export function applyMapping(structure: CsvStructure, m: Mapping): CsvRow[] {
   const rows: CsvRow[] = []
@@ -351,7 +411,7 @@ function SubCombo({ category, value, onChange, realAccounts = [] }: {
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
-export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, onImport, saving, realAccountsByCompany = {} }: Props) {
+export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, onImport, saving, realAccountsByCompany = {}, savedMappings = [], onSaveMapping, onDeleteMapping }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [rows,       setRows]       = useState<CsvRow[]>([])
   const [step,       setStep]       = useState<'idle' | 'mapping' | 'preview'>('idle')
@@ -361,9 +421,18 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
   // Structure du fichier + mapping de colonnes
   const [structure,  setStructure]  = useState<CsvStructure | null>(null)
   const [mapping,    setMapping]    = useState<Mapping | null>(null)
+  // Profils de mapping enregistrés
+  const [appliedProfileId, setAppliedProfileId] = useState<string | null>(null)
+  const [saveName, setSaveName] = useState('')
+  const [saveCat,  setSaveCat]  = useState<ManualEntry['category']>('Vente')
+  const [profileMsg,  setProfileMsg]  = useState<string | null>(null)
+  const [profileBusy, setProfileBusy] = useState(false)
   // Affectation globale
   const [gCat, setGCat] = useState<ManualEntry['category']>('Depense')
   const [gSub, setGSub] = useState('')
+
+  // Mappings enregistrés pour la société sélectionnée (les plus récents d'abord)
+  const companyMappings = savedMappings.filter(s => s.company_key === companyKey)
 
   const selectedRows = rows.filter(r => r.selected)
   const allChecked   = rows.length > 0 && rows.every(r => r.selected)
@@ -379,7 +448,24 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
       const struct = parseCSVStructure(text)
       if (struct.dataRows.length === 0) { setParseErr('Fichier vide ou format non reconnu.'); return }
       setStructure(struct)
-      setMapping(detectMapping(struct.headers))
+      // Auto-application : on choisit le profil enregistré (de cette société) dont
+      // les colonnes correspondent le mieux au fichier ; sinon auto-détection.
+      let best: SavedCsvMapping | null = null, bestScore = 0
+      for (const s of companyMappings) {
+        const sc = scoreSavedMapping(s.mapping, struct.headers)
+        if (sc > bestScore) { bestScore = sc; best = s }
+      }
+      if (best) {
+        setMapping(headersToMapping(best.mapping, struct.headers))
+        setAppliedProfileId(best.id)
+        setSaveName(best.name)
+        setSaveCat(best.category)
+        setProfileMsg(`✓ Mapping « ${best.name} » (${best.category}) appliqué automatiquement`)
+      } else {
+        setMapping(detectMapping(struct.headers))
+        setAppliedProfileId(null)
+        setProfileMsg(null)
+      }
       setStep('mapping')
     } catch (e: any) {
       setParseErr(e?.message ?? 'Erreur de lecture')
@@ -395,6 +481,63 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
 
   const setFieldMap = (key: FieldKey, idx: number) => {
     setMapping(m => m ? { ...m, [key]: idx } : m)
+    // Toute modif manuelle diverge du profil appliqué → on retire le lien
+    setAppliedProfileId(null)
+    setProfileMsg(null)
+  }
+
+  // ── Profils de mapping ─────────────────────────────────────────────────────
+  // Sélection dans le menu déroulant : '' = auto-détection, sinon id de profil
+  const selectProfile = (id: string) => {
+    if (!structure) return
+    if (!id) {
+      setMapping(detectMapping(structure.headers))
+      setAppliedProfileId(null)
+      setProfileMsg(null)
+      return
+    }
+    const prof = companyMappings.find(s => s.id === id)
+    if (!prof) return
+    setMapping(headersToMapping(prof.mapping, structure.headers))
+    setAppliedProfileId(prof.id)
+    setSaveName(prof.name)
+    setSaveCat(prof.category)
+    setProfileMsg(`✓ Mapping « ${prof.name} » (${prof.category}) chargé`)
+  }
+
+  const saveProfile = async () => {
+    if (!onSaveMapping || !structure || !mapping) return
+    const name = saveName.trim()
+    if (!name) { setProfileMsg('⚠ Donnez un nom au mapping avant d’enregistrer'); return }
+    setProfileBusy(true)
+    setProfileMsg(null)
+    try {
+      await onSaveMapping({
+        company_key: companyKey,
+        category:    saveCat,
+        name,
+        mapping:     mappingToHeaders(mapping, structure.headers),
+      })
+      setProfileMsg(`💾 Mapping « ${name} » (${saveCat}) enregistré pour ${companyNames[companyKey] || companyKey}`)
+    } catch (e: any) {
+      setProfileMsg('❌ ' + (e?.message ?? 'Échec de l’enregistrement'))
+    } finally {
+      setProfileBusy(false)
+    }
+  }
+
+  const deleteProfile = async (id: string, name: string) => {
+    if (!onDeleteMapping) return
+    setProfileBusy(true)
+    try {
+      await onDeleteMapping(id)
+      if (appliedProfileId === id) setAppliedProfileId(null)
+      setProfileMsg(`🗑 Mapping « ${name} » supprimé`)
+    } catch (e: any) {
+      setProfileMsg('❌ ' + (e?.message ?? 'Échec de la suppression'))
+    } finally {
+      setProfileBusy(false)
+    }
   }
 
   // ── Affectation globale ────────────────────────────────────────────────────
@@ -425,7 +568,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
     setFileName('')
   }
 
-  const resetAll = () => { setStep('idle'); setRows([]); setStructure(null); setMapping(null); setFileName('') }
+  const resetAll = () => { setStep('idle'); setRows([]); setStructure(null); setMapping(null); setFileName(''); setAppliedProfileId(null); setProfileMsg(null) }
 
   const fmt = (n: number) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -504,6 +647,60 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
           Vérifiez la correspondance entre les colonnes de votre fichier et les champs AdamBoards.
           Les colonnes ont été détectées automatiquement — corrigez si nécessaire. <strong style={{ color: '#14b8a6' }}>Date</strong> et <strong style={{ color: '#14b8a6' }}>Montant HT</strong> sont obligatoires.
         </div>
+
+        {/* Profils de mapping enregistrés (par société + catégorie) */}
+        {onSaveMapping && (
+          <div style={{ padding: '12px 20px', background: 'rgba(139,92,246,0.06)', borderBottom: '1px solid rgba(139,92,246,0.15)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#a78bfa', whiteSpace: 'nowrap' }}>🗂 Profil de mapping</span>
+              {companyMappings.length > 0 && (
+                <select value={appliedProfileId ?? ''} onChange={e => selectProfile(e.target.value)} style={{ ...inputSt, fontSize: 11 }}>
+                  <option value="">🔍 Auto-détection</option>
+                  {companyMappings.map(p => <option key={p.id} value={p.id}>{p.name} · {p.category}</option>)}
+                </select>
+              )}
+              <div style={{ flex: 1, minWidth: 8 }} />
+              <input type="text" value={saveName} onChange={e => setSaveName(e.target.value)} placeholder="Nom du profil…"
+                style={{ ...inputSt, fontSize: 11, width: 150, padding: '5px 8px' }} />
+              <select value={saveCat} onChange={e => setSaveCat(e.target.value as ManualEntry['category'])} style={{ ...inputSt, fontSize: 11, padding: '5px 8px' }}>
+                {CATEGORIES.map(c => <option key={c.cat} value={c.cat}>{c.cat}</option>)}
+              </select>
+              <button onClick={saveProfile} disabled={profileBusy || missingRequired.length > 0 || !saveName.trim()}
+                title={missingRequired.length > 0 ? 'Mappez d’abord les champs obligatoires' : ''}
+                style={{
+                  padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
+                  background: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'rgba(255,255,255,0.05)' : 'rgba(139,92,246,0.2)',
+                  border: `1px solid ${(profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'rgba(255,255,255,0.1)' : 'rgba(139,92,246,0.45)'}`,
+                  color: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? '#94a3b8' : '#c4b5fd',
+                  cursor: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'not-allowed' : 'pointer',
+                }}>
+                💾 Enregistrer
+              </button>
+            </div>
+
+            {companyMappings.length > 0 && onDeleteMapping && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+                {companyMappings.map(p => (
+                  <span key={p.id} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: '#cbd5e1',
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '3px 6px 3px 10px',
+                  }}>
+                    {p.name} <span style={{ color: '#64748b' }}>· {p.category}</span>
+                    <span onClick={() => !profileBusy && deleteProfile(p.id, p.name)} title="Supprimer ce profil"
+                      style={{ cursor: profileBusy ? 'default' : 'pointer', color: '#f87171', fontSize: 11, lineHeight: 1, padding: '0 2px' }}>✕</span>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {profileMsg && (
+              <div style={{ marginTop: 8, fontSize: 11, color: (profileMsg.startsWith('❌') || profileMsg.startsWith('⚠')) ? '#f59e0b' : '#a78bfa' }}>{profileMsg}</div>
+            )}
+            <div style={{ marginTop: 6, fontSize: 10.5, color: '#94a3b8', lineHeight: 1.5 }}>
+              Enregistrez cette correspondance pour la réappliquer automatiquement aux prochains imports de <strong style={{ color: '#cbd5e1' }}>{companyNames[companyKey] || companyKey}</strong>. Le mapping est reconnu par le nom des colonnes du fichier.
+            </div>
+          </div>
+        )}
 
         {/* Grille de mapping */}
         <div style={{ padding: '16px 20px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 12 }}>

@@ -49,6 +49,12 @@ vi.mock('@/components/ui', async (orig) => {
   return { ...actual }
 })
 
+// Hook de mappings CSV (useQuery) — mocké pour éviter d'exiger un QueryClientProvider
+vi.mock('@/hooks/useCsvMappings', () => ({
+  useCsvMappings: () => ({ data: { all: [], byCompany: {} } }),
+  useCsvMappingMutations: () => ({ save: vi.fn(), remove: vi.fn() }),
+}))
+
 import { Saisie } from '@/modules/saisie/Saisie'
 
 /* ─── Tests ──────────────────────────────────────────────────────────────── */
