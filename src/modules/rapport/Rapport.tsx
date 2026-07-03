@@ -3,6 +3,7 @@ import { sb } from '@/lib/supabase'
 import { useAppStore, useTenantId } from '@/store'
 import { Spinner } from '@/components/ui'
 import { useRapportData, type CompteLigne, type TiersDelai } from '@/hooks/useRapportData'
+import { RapportTheme1 } from './RapportTheme1'
 
 const RAPPORT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-rapport`
 
@@ -115,6 +116,9 @@ export function Rapport() {
         <Kpi label="Délai moyen clients" value={jour(data.delaiMoyenClientGlobal)} accent={(data.delaiMoyenClientGlobal ?? 0) > 60 ? '#f59e0b' : undefined} />
         <Kpi label="Délai moyen fournisseurs" value={jour(data.delaiMoyenFournGlobal)} />
       </div>
+
+      {/* Rapport par thèmes (β) — Thème 1 : le résultat */}
+      <RapportTheme1 />
 
       {!rapport && !loading && (
         <div style={{ background:'rgba(59,130,246,0.06)', border:'1px dashed rgba(59,130,246,0.3)', borderRadius:12, padding:'24px', textAlign:'center', color:'var(--text-2)', fontSize:13, lineHeight:1.7, marginBottom:24 }}>
