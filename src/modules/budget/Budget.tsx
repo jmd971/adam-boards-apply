@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
 import { pcgLabel } from '@/lib/pcg'
 import { useAppStore } from '@/store'
-import { fmt, pct, fiscalIndex } from '@/lib/calc'
+import { fmt, pct, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { EcrituresModal } from '@/components/ui'
 import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
@@ -443,6 +444,7 @@ export function Budget() {
   const [creating,     setCreating]     = useState(false)
   const [fillModal,    setFillModal]    = useState<{
     acc: string
+    ci?: number          // si défini → on recopie sur le sous-compte d'indice ci, pas sur le compte
     amount: string
     startM: number
     count: number
@@ -450,6 +452,9 @@ export function Budget() {
     resetOthers: boolean
   } | null>(null)
   const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
+  // Détail des écritures réalisées (FEC + saisies) d'un compte du budget — ouvert au clic sur la ligne.
+  // budChildren : ventilation budget (sous-comptes, ou la ligne du compte) affichée sous les écritures.
+  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number; budChildren?: { name: string; b: number[] }[] } | null>(null)
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -498,15 +503,14 @@ export function Budget() {
   }, [coBud, compareBud])
 
   // Générer le budget depuis FEC N-1
-  const handleGenerate = () => {
-    if (!RAW) return
-    const co = budCo
+  // Construit les lignes de budget à partir du réel N-1 (p1) puis N (pn).
+  // N'écrase pas les comptes déjà présents dans `base` (préserve les saisies manuelles).
+  const buildBudFromRaw = (co: string, base: Record<string, any> = {}): Record<string, any> => {
+    if (!RAW) return base
     const p1 = RAW.companies[co]?.p1 ?? {}
     const pn = RAW.companies[co]?.pn ?? {}
-    const newBud: Record<string, any> = { ...coBud }
-
-    const sources = [p1, pn]
-    for (const src of sources) {
+    const newBud: Record<string, any> = { ...base }
+    for (const src of [p1, pn]) {
       for (const [acc, data] of Object.entries(src)) {
         if (!acc.startsWith('6') && !acc.startsWith('7')) continue
         if (newBud[acc]) continue
@@ -524,13 +528,21 @@ export function Budget() {
         }
       }
     }
+    return newBud
+  }
 
+  const handleGenerate = () => {
+    if (!RAW) return
+    const co = budCo
+    const newBud = buildBudFromRaw(co, coBud)
     // Update store: versions + legacy budData
     const updated = budVersions.map(v =>
       v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newBud } : v
     )
     setBudVersions(updated)
     setBudData({ ...budData, [co]: newBud } as any)
+    // Déplier tous les groupes pour que les comptes générés (FEC N-1) soient visibles immédiatement.
+    setGrpOpen({})
     setMsg('✅ Budget généré depuis N-1 — pensez à sauvegarder')
     setTimeout(() => setMsg(null), 4000)
   }
@@ -558,11 +570,15 @@ export function Budget() {
     return positions
   }
 
-  const openFillModal = (acc: string) => {
-    const cur = coBud[acc] ?? { b: Array(12).fill(0) }
+  const openFillModal = (acc: string, ci?: number) => {
+    const parent = coBud[acc] as any
+    const cur = ci != null
+      ? (parent?.children?.[ci] ?? { b: Array(12).fill(0) })
+      : (parent ?? { b: Array(12).fill(0) })
     const firstNonZero = (cur.b ?? []).find((v: number) => v > 0) ?? 0
     setFillModal({
       acc,
+      ci,
       amount: firstNonZero > 0 ? String(firstNonZero) : '',
       startM: 0,
       count: 12,
@@ -573,11 +589,27 @@ export function Budget() {
 
   const applyFill = () => {
     if (!fillModal) return
-    const { acc, amount, startM, count, freq, resetOthers } = fillModal
+    const { acc, ci, amount, startM, count, freq, resetOthers } = fillModal
     const num = parseFloat(amount.replace(',', '.')) || 0
+    const positions = computeFillPositions(startM, count, freq)
+
+    // Recopie sur un sous-compte : on met à jour son b[] puis on re-somme le parent
+    // (même logique que handleChildCell → l'aval lit toujours bv.b = somme des enfants).
+    if (ci != null) {
+      const cur = coBud[acc]; if (!cur?.children) { setFillModal(null); return }
+      const children = cur.children.map((ch: any, i: number) => {
+        if (i !== ci) return ch
+        const b = resetOthers ? Array(12).fill(0) : [...(ch.b ?? Array(12).fill(0))]
+        for (const pos of positions) b[pos] = num
+        return { ...ch, b }
+      })
+      commitData({ ...coBud, [acc]: { ...cur, children, b: sumChildren(children) } })
+      setFillModal(null)
+      return
+    }
+
     const cur = coBud[acc] ?? { b: Array(12).fill(0), t: 'c', l: acc }
     const newB = resetOthers ? Array(12).fill(0) : [...(cur.b ?? Array(12).fill(0))]
-    const positions = computeFillPositions(startM, count, freq)
     for (const pos of positions) newB[pos] = num
     const newData = { ...coBud, [acc]: { ...cur, b: newB } }
     const updated = budVersions.map(v =>
@@ -698,8 +730,10 @@ export function Budget() {
       return
     }
     setCreating(true)
+    // Générer immédiatement les lignes depuis le FEC N-1 (sinon la version reste vide).
+    const genData = buildBudFromRaw(budCo)
     const { data: insertedRows, error } = await sb.from('budget').upsert(
-      { tenant_id: tenantId, company_key: budCo, version_name: vn, data: {}, status: 'draft' },
+      { tenant_id: tenantId, company_key: budCo, version_name: vn, data: genData, status: 'draft' },
       { onConflict: 'tenant_id,company_key,version_name' }
     ).select()
     setCreating(false)
@@ -712,12 +746,14 @@ export function Budget() {
       id: (insertedRows as any)?.[0]?.id,
       company_key: budCo,
       version_name: vn,
-      data: {},
+      data: genData,
       status: 'draft' as const,
     }
     setBudVersions([...budVersions, newVersion])
+    setBudData({ ...budData, [budCo]: genData } as any)
     setSelVersion(vn)
-    setMsg('✅ Version créée — génération en cours...')
+    setGrpOpen({})
+    setMsg('✅ Version créée et générée depuis N-1 — pensez à sauvegarder')
     setTimeout(() => setMsg(null), 4000)
   }
 
@@ -810,49 +846,47 @@ export function Budget() {
 
       {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444', display:'block', marginBottom:8 }}>{msg}</span>}
 
-      {/* Main layout: version list left, editor right */}
-      <div style={{ display:'flex', gap:16, alignItems:'flex-start' }}>
+      {/* Main layout: version bar on top, editor below */}
+      <div style={{ display:'flex', flexDirection:'column', gap:16, alignItems:'stretch' }}>
 
-        {/* Left panel: version list */}
+        {/* Top panel: version bar */}
         <div style={{
-          width: 220, flexShrink: 0,
           background: '#0a0f1a', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
-          padding: '12px 10px',
+          padding: '10px 14px',
+          display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', whiteSpace: 'nowrap' }}>
             Versions
           </div>
 
           {coVersions.length === 0 && (
-            <div style={{ marginBottom: 8 }}>
-              <div style={{ fontSize: 11, color: '#334155', marginBottom: 10 }}>Aucune version</div>
-              <button
-                onClick={handleCreateAndGenerate}
-                disabled={creating}
-                style={{
-                  width: '100%', padding: '8px 6px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                  cursor: creating ? 'not-allowed' : 'pointer',
-                  background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
-                  border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
-                  lineHeight: 1.4, opacity: creating ? 0.6 : 1,
-                }}
-              >
-                {creating ? 'Création...' : '⚡ Créer + Générer\ndepuis FEC N-1'}
-              </button>
-            </div>
+            <button
+              onClick={handleCreateAndGenerate}
+              disabled={creating}
+              style={{
+                padding: '8px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                cursor: creating ? 'not-allowed' : 'pointer',
+                background: 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(249,115,22,0.2))',
+                border: '1px solid rgba(245,158,11,0.4)', color: '#f59e0b',
+                whiteSpace: 'nowrap', opacity: creating ? 0.6 : 1,
+              }}
+            >
+              {creating ? 'Création...' : '⚡ Créer + Générer depuis FEC N-1'}
+            </button>
           )}
 
+          {/* Version chips */}
           {coVersions.map(v => (
             <div key={v.version_name} style={{
               display: 'flex', alignItems: 'center', gap: 4,
-              padding: '6px 8px', borderRadius: 7, marginBottom: 4,
-              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'transparent',
-              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'transparent'}`,
+              padding: '6px 10px', borderRadius: 7,
+              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
+              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.06)'}`,
               cursor: 'pointer',
             }}
               onClick={() => setSelVersion(v.version_name)}
             >
-              <span style={{ flex: 1, fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, whiteSpace: 'nowrap' }}>
                 {v.version_name}
               </span>
               <button
@@ -866,19 +900,19 @@ export function Budget() {
           ))}
 
           {/* New version input */}
-          <div style={{ marginTop: 10, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
             <input
               type="text" placeholder="Nom de la version..." value={newVersionName}
               onChange={e => setNewVersionName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleCreateVersion()}
-              style={{ ...inputSt, width: '100%', boxSizing: 'border-box', marginBottom: 6, fontSize: 11 }}
+              style={{ ...inputSt, width: 150, fontSize: 11 }}
             />
             <button
               onClick={handleCreateVersion}
               disabled={creating || !newVersionName.trim()}
-              style={{ width: '100%', padding: '5px 8px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
+              style={{ padding: '6px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
                 background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#93c5fd',
-                opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
+                whiteSpace: 'nowrap', opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
             >
               {creating ? 'Création...' : '+ Nouvelle version'}
             </button>
@@ -886,14 +920,14 @@ export function Budget() {
 
           {/* Compare against another version */}
           {coVersions.length >= 2 && (
-            <div style={{ marginTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 10 }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.6px', whiteSpace: 'nowrap' }}>
                 Comparer avec
               </div>
               <select
                 value={compareVersion}
                 onChange={e => setCompareVersion(e.target.value)}
-                style={{ ...inputSt, width: '100%', boxSizing: 'border-box', fontSize: 11 }}
+                style={{ ...inputSt, width: 160, fontSize: 11 }}
               >
                 <option value="">— Aucune —</option>
                 {coVersions
@@ -904,7 +938,7 @@ export function Budget() {
           )}
         </div>
 
-        {/* Right panel: budget editor */}
+        {/* Bottom panel: budget editor */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
           {selVersion ? (
@@ -1064,13 +1098,29 @@ export function Budget() {
                         const hasChildren = children.length > 0
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
+                        // Écritures réalisées (FEC + saisies) de l'exercice N pour ce compte → modal au clic.
+                        const ents = RAW ? mergeEntries(RAW, [budCo], 'pn', acc) : []
+                        const realN = ents.reduce((s: number, e: any) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
                         return (
                           <Fragment key={acc}>
                           <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
                             <td style={{ padding: indent ? '3px 12px 3px 30px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
                               {indent && <span style={{ color:'#475569', marginRight:6, fontSize:11 }}>└</span>}
-                              <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
-                              <span>{bv.l}</span>
+                              <span
+                                onClick={ents.length > 0 ? () => setEcrModal({
+                                  title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0,
+                                  budChildren: children.length > 0
+                                    ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
+                                    : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
+                                }) : undefined}
+                                title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
+                                style={{ cursor: ents.length > 0 ? 'pointer' : 'default' }}>
+                                <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
+                                <span>{bv.l}</span>
+                                {ents.length > 0 && (
+                                  <span style={{ marginLeft:6, fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>
+                                )}
+                              </span>
                               {!hasChildren && (
                                 <button onClick={() => openFillModal(acc)}
                                   title="Recopier un montant sur plusieurs mois"
@@ -1125,6 +1175,10 @@ export function Budget() {
                                 <input type="text" value={ch.name} placeholder="Sous-compte (ex : OpenAI)"
                                   onChange={e => renameChild(acc, ci, e.target.value)}
                                   style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', width:150 }} />
+                                <button onClick={() => openFillModal(acc, ci)} title="Recopier un montant sur plusieurs mois"
+                                  style={{ marginLeft:6, background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize:10, padding:'1px 7px', borderRadius:5 }}>
+                                  ↻ Recopier
+                                </button>
                                 <button onClick={() => removeChild(acc, ci)} title="Supprimer ce sous-compte"
                                   style={{ marginLeft:6, background:'transparent', border:'none', color:'#64748b', cursor:'pointer', fontSize:11 }}>✕</button>
                               </td>
@@ -1148,7 +1202,9 @@ export function Budget() {
                         const isSearching = search.trim() !== ''
                         return groups.map(g => {
                           if (g.flat) return renderAccountRow(g.entries[0])
-                          const open = isSearching || !!grpOpen[g.root]
+                          // Déplié par défaut (undefined → ouvert) pour que les comptes du FEC N-1
+                          // soient visibles ; repli explicite mémorisé via grpOpen[root] === false.
+                          const open = isSearching || grpOpen[g.root] !== false
                           const label = pcgLabel(g.root) || g.entries.find(([a]) => a === g.root)?.[1]?.l || ''
                           return (
                             <Fragment key={g.root}>
@@ -1219,7 +1275,10 @@ export function Budget() {
       {fillModal && (() => {
         const positions = computeFillPositions(fillModal.startM, fillModal.count, fillModal.freq)
         const num = parseFloat(fillModal.amount.replace(',', '.')) || 0
-        const accLabel = (coBud[fillModal.acc] as any)?.l ?? ''
+        const _parent = coBud[fillModal.acc] as any
+        const accLabel = fillModal.ci != null
+          ? `${_parent?.l ?? fillModal.acc} ▸ ${_parent?.children?.[fillModal.ci]?.name || 'sous-compte'}`
+          : (_parent?.l ?? '')
         return (
           <div onClick={() => setFillModal(null)}
             style={{
@@ -1354,6 +1413,8 @@ export function Budget() {
           </div>
         )
       })()}
+
+      {ecrModal && <EcrituresModal {...ecrModal} onClose={() => setEcrModal(null)} />}
 
       {noteModal && (
         <div onClick={() => setNoteModal(null)}

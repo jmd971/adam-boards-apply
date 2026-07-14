@@ -11,6 +11,7 @@ import { usePeriodFilter } from '@/hooks/usePeriodFilter'
 import { computeBilan } from '@/lib/bilan'
 import { KpiCard, ObjectifsChart, ExplainModal } from '@/components/ui'
 import type { Explanation } from '@/components/ui'
+import { AdamBoardsInline, AdamBoardsMark } from '@/components/Logo'
 import { evalThreshold, formatThresholdValue } from '@/lib/alertThresholds'
 
 // ── Dashboard KPI explanations ───────────────────────────────────────────────
@@ -524,7 +525,7 @@ export function Dashboard() {
 
   if (!RAW) return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:400, gap:16, color:'var(--text-2)' }}>
-      <div style={{ fontSize:40 }}>📊</div>
+      <AdamBoardsMark size={56} />
       <div style={{ fontSize:16, fontWeight:700, color:'var(--text-0)' }}>Bienvenue sur Adam Boards</div>
       <div style={{ fontSize:13 }}>Importez un fichier FEC pour voir votre tableau de bord</div>
       <button onClick={() => useAppStore.getState().setTab('import')}
@@ -536,6 +537,11 @@ export function Dashboard() {
 
   return (
     <div ref={printRef} style={{ padding:'20px 24px', display:'flex', flexDirection:'column', gap:20 }}>
+
+      {/* Logo accueil */}
+      <div style={{ display:'flex', justifyContent:'center', paddingBottom:4, borderBottom:'1px solid var(--border-0)' }}>
+        <AdamBoardsInline markSize={30} fontSize={20} />
+      </div>
 
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>

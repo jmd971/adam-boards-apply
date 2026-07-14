@@ -613,17 +613,30 @@ export function Tresorerie() {
                 <tr style={{background:'var(--bg-1)'}}>
                   <th style={{...thSt,textAlign:'left',minWidth:200,paddingLeft:12}}>
                     <div>Poste</div>
-                    <div style={{display:'flex',gap:12,marginTop:5,fontWeight:400,textTransform:'none',letterSpacing:0}}>
+                    {/* Filtre source du prévisionnel — 3 choix exclusifs.
+                        « Prévisionnel budget » s'appuie sur la version active
+                        sélectionnée dans la TopBar (filters.budVersionKey → useEffectiveBudData). */}
+                    <div style={{display:'flex',gap:12,marginTop:5,fontWeight:400,textTransform:'none',letterSpacing:0,flexWrap:'wrap',alignItems:'center'}}>
                       <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:10,color:'var(--text-2)'}}>
-                        <input type="checkbox" checked={prevSrc.echeance}
-                          onChange={e=>setPrevSrc(s=>({...s,echeance:e.target.checked}))} />
-                        Échéances à venir
+                        <input type="checkbox" checked={prevSrc.echeance && !prevSrc.budget}
+                          onChange={()=>setPrevSrc({echeance:true,budget:false})} />
+                        Échéance à venir
                       </label>
                       <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:10,color:'var(--text-2)'}}>
-                        <input type="checkbox" checked={prevSrc.budget}
-                          onChange={e=>setPrevSrc(s=>({...s,budget:e.target.checked}))} />
+                        <input type="checkbox" checked={prevSrc.budget && !prevSrc.echeance}
+                          onChange={()=>setPrevSrc({echeance:false,budget:true})} />
                         Prévisionnel budget
                       </label>
+                      <label style={{display:'flex',alignItems:'center',gap:4,cursor:'pointer',fontSize:10,color:'var(--text-2)'}}>
+                        <input type="checkbox" checked={prevSrc.echeance && prevSrc.budget}
+                          onChange={()=>setPrevSrc({echeance:true,budget:true})} />
+                        Les deux
+                      </label>
+                      {prevSrc.budget && (
+                        <span style={{fontSize:9,color:'var(--text-3)',fontStyle:'italic'}}>
+                          budget : {filters.budVersionKey ? filters.budVersionKey.split('|||')[1] : 'version active'}
+                        </span>
+                      )}
                     </div>
                   </th>
                   {forecast.map(r=><th key={r.month} style={{...thSt,minWidth:65}}>{r.month}</th>)}

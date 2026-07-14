@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { PlTable, KpiCard, ExportBar, EcrituresModal } from '@/components/ui'
+import { PlTable, KpiCard, ExportBar, EcrituresModal, budChildrenForAccount } from '@/components/ui'
 import { EQ } from '@/lib/structure'
 import { computePlCalc, fmt, pct } from '@/lib/calc'
 import { usePeriodFilter } from '@/hooks/usePeriodFilter'
@@ -29,7 +29,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export function Equilibre() {
   const printRef = useRef<HTMLDivElement>(null)
   const budData = useEffectiveBudData()
-  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number}|null>(null)
+  const [modal, setModal] = useState<{title:string;entries:any[];cumN:number;cumN1:number;budChildren?:{name:string;b:number[]}[]}|null>(null)
 
   const { RAW, filters, selCo, selectedMs, msSrc, allMsN1Same, allMsN1SameSrc } = usePeriodFilter()
 
@@ -114,10 +114,10 @@ export function Equilibre() {
           excludeOD={filters.excludeOD}
           budData={budData as any}
           collapsible
-          onOpenModal={(title, entries, _, cumN, cumN1) => setModal({title, entries, cumN, cumN1})} />
+          onOpenModal={(title, entries, _, cumN, cumN1, acc) => setModal({title, entries, cumN, cumN1, budChildren: budChildrenForAccount(budData as any, selCo, acc)})} />
       </div>
 
-      {modal && <EcrituresModal {...modal} onClose={() => setModal(null)} />}
+      {modal && <EcrituresModal {...modal} budSelMonths={selectedMs} onClose={() => setModal(null)} />}
     </div>
   )
 }

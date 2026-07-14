@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { sb } from '@/lib/supabase'
 import { Spinner } from '@/components/ui'
+import { AdamBoardsLogo } from '@/components/Logo'
 import type { User } from '@supabase/supabase-js'
 
 interface LoginPageProps {
@@ -78,15 +79,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <div className="w-full max-w-sm mx-4">
 
         {/* Logo */}
-        <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-4"
-            style={{ background: 'linear-gradient(135deg,#3b82f6,#8b5cf6)' }}>
-            <span className="text-2xl">📊</span>
-          </div>
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">
-            <span className="text-brand-blue">adam</span>boards
-          </h1>
-          <p className="text-sm text-muted mt-1">Tableau de bord financier</p>
+        <div className="flex flex-col items-center mb-10">
+          <AdamBoardsLogo width={300} />
+          <p className="text-sm text-muted mt-2">Tableau de bord financier</p>
         </div>
 
         {/* Card */}

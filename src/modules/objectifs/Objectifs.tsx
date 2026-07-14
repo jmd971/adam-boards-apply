@@ -112,8 +112,10 @@ export function Objectifs() {
       const nbSal        = numH(h.nbSal)
       const monthlyHours = numH(h.monthlyHours)
       const salePrice    = numH(h.salePrice)
-      // Coût horaire global (mensuel) = (Total Dépenses Budget / 12) / heures travaillées mensuelles
-      const coutHoraireGlobal = monthlyHours > 0 ? Math.round((depenses / 12) / monthlyHours) : 0
+      // Coût horaire global = Total Dépenses Budget / (Nb salariés × heures travaillées mensuelles × 12)
+      // = coût annuel total rapporté au total des heures travaillées sur l'année.
+      const heuresAnnuelles   = nbSal * monthlyHours * 12
+      const coutHoraireGlobal = heuresAnnuelles > 0 ? Math.round(depenses / heuresAnnuelles) : 0
       // Objectif Ventes en nombre d'heures (mensuel) = (Total Dépenses Budget / 12) / prix de vente horaire
       const objVentesHeures   = salePrice > 0 ? Math.round((depenses / 12) / salePrice) : 0
 
@@ -271,8 +273,8 @@ export function Objectifs() {
                 {/* Résultats calculés */}
                 <div style={{ display:'grid', gap:6, marginTop:4 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.15)', borderRadius:6 }}>
-                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="(Total Dépenses Budget / 12) / Heures travaillées mensuelles — base mensuelle">Coût horaire global</span>
-                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:'#fca5a5' }}>{d.monthlyHours > 0 ? `${fmt(d.coutHoraireGlobal)} €/h` : '—'}</span>
+                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="Total Dépenses Budget / (Nombre de salariés × Heures travaillées mensuelles × 12)">Coût horaire global</span>
+                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:'#fca5a5' }}>{d.nbSal > 0 && d.monthlyHours > 0 ? `${fmt(d.coutHoraireGlobal)} €/h` : '—'}</span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:`${color}12`, border:`1px solid ${color}33`, borderRadius:6 }}>
                     <span style={{ fontSize:10.5, color:'#94a3b8' }} title="(Total Dépenses Budget / 12) / Prix de vente horaire prévisionnel — base mensuelle, comparable aux heures travaillées/mois">Objectif Ventes (nb d'heures / mois)</span>

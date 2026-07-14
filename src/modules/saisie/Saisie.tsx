@@ -9,6 +9,7 @@ import { useTenantId } from '@/store'
 import { CATEGORIES, SUB_ALIASES, normSub, extractAcc } from '@/lib/categories'
 import { suggestFromPCG, pcgLabel } from '@/lib/pcg'
 import { CsvImportView, type CsvRow } from './CsvImportView'
+import { useCsvMappings, useCsvMappingMutations } from '@/hooks/useCsvMappings'
 
 
 
@@ -68,6 +69,8 @@ export function Saisie() {
   const setFilters     = useAppStore(s => s.setFilters)
   const manualEntries  = useAppStore(s => s.manualEntries)
   const fiscalSettings = useAppStore(s => s.fiscalSettings)
+  const { data: csvMappings } = useCsvMappings()
+  const { save: saveCsvMapping, remove: removeCsvMapping } = useCsvMappingMutations()
   const isReadOnly     = !canWrite(role)
   
   const dataLoading    = useAppStore(s => s.dataLoading)
@@ -865,6 +868,9 @@ export function Saisie() {
             onImport={handleCsvImport}
             saving={saving}
             realAccountsByCompany={realAccountsByCompany}
+            savedMappings={csvMappings?.all ?? []}
+            onSaveMapping={saveCsvMapping}
+            onDeleteMapping={removeCsvMapping}
           />
           {msg && <div style={{ marginBottom:16, padding:'10px 14px', borderRadius:8, fontSize:12, background: msg.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: msg.startsWith('✅') ? '#10b981' : '#ef4444', border: `1px solid ${msg.startsWith('✅') ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}` }}>{msg}</div>}
         </>
