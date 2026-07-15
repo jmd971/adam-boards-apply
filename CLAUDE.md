@@ -364,6 +364,8 @@ const plField = inN ? 'pn' : inN1 ? 'p1' : inN2 ? 'p2' : 'pn'
 ```
 **Ne JAMAIS** simplifier en `isN1 ? 'p1' : 'pn'` — ça oublierait `p2`.
 
+**Même règle côté lecture** (corrigé 2026-07-15) : toute boucle qui balaie les champs P&L doit inclure `'p2'` — `['pn', 'p1', 'p2']`. Bug historique : le drill-down de `PlTable.tsx` (sous-comptes d'une catégorie CR/SIG/Equilibre) et `sumByPrefixes` (totaux EQ dans calc.ts) ne lisaient que `pn`/`p1` → une société dont l'unique FEC est classé N-2 par exercice fiscal (ex : exercice avr→mars importé 2 ans après, cas THAIS SELFCARE) affichait le CR agrégé (via `getAdjMixed`+`msSrc`) mais **aucun compte au clic sur les catégories**.
+
 **Pipeline Trésorerie** — `Tresorerie.tsx` traite deux vues :
 
 | Vue | Source | Comportement |
