@@ -271,7 +271,9 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
         const seen = new Set<string>()
         const plAccs: string[] = []
         for (const co of selCo) {
-          for (const field of ['pn', 'p1'] as const) {
+          // p2 inclus : un FEC classé N-2 par exercice fiscal (ex: exercice avr→mars importé
+          // 2 ans après) doit exposer ses sous-comptes comme pn/p1 (cf CLAUDE.md « oublierait p2 »).
+          for (const field of ['pn', 'p1', 'p2'] as const) {
             const src = (RAW.companies[co] as any)?.[field] ?? {}
             for (const k of Object.keys(src)) {
               if (excludeOD && isODAccount(k)) continue   // « Hors OD » : masquer les comptes d'inventaire
@@ -300,7 +302,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           let val = 0
           for (const m of selectedMs) {
             for (const co of selCo) {
-              for (const field of ['pn', 'p1'] as const) {
+              for (const field of ['pn', 'p1', 'p2'] as const) {
                 const src = (RAW.companies[co] as any)?.[field] ?? {}
                 const mo  = src[acc]?.mo?.[m]
                 if (mo && Array.isArray(mo)) val += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
@@ -331,10 +333,10 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           const allEnts: any[] = []
           let fecLabel = ''
           for (const co of selCo) {
-            for (const field of ['pn', 'p1'] as const) {
+            for (const field of ['pn', 'p1', 'p2'] as const) {
               const src = (RAW.companies[co] as any)?.[field] ?? {}
               if (!fecLabel && src[acc]?.l) fecLabel = src[acc].l
-              const tag = field === 'pn' ? 'N' : 'N-1'
+              const tag = field === 'pn' ? 'N' : field === 'p1' ? 'N-1' : 'N-2'
               allEnts.push(...mergeEntries(RAW, [co], field, acc).map((e: any) => [...e, tag]))
             }
             // Si le compte n'a ni val FEC ni écritures, prendre son label depuis le budget
@@ -371,7 +373,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               {showMonths && selectedMs.map((m, _mi) => {
                 let mv = 0
                 for (const co of selCo) {
-                  for (const field of ['pn', 'p1'] as const) {
+                  for (const field of ['pn', 'p1', 'p2'] as const) {
                     const src = (RAW.companies[co] as any)?.[field] ?? {}
                     const mo  = src[acc]?.mo?.[m]
                     if (mo && Array.isArray(mo)) mv += isCharge ? (mo[0] - mo[1]) : (mo[1] - mo[0])
