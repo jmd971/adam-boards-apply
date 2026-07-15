@@ -322,7 +322,8 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
       // exact keys, as that would double-count when FEC has both '706' and '7061'/'7062'.
       const allAccKeys = new Set<string>()
       for (const co of selCo) {
-        for (const f of ['pn', 'p1'] as const) {
+        // p2 inclus : société dont le seul FEC est classé N-2 par exercice fiscal
+        for (const f of ['pn', 'p1', 'p2'] as const) {
           const src = (RAW.companies[co] as any)?.[f]
           if (!src) continue
           for (const k of Object.keys(src)) {
@@ -335,12 +336,12 @@ export function computePlCalc(RAW: RAWData, selCo: string[], selectedMs: string[
       for (const acc of allAccKeys) {
         for (const co of selCo) {
           for (let mi = 0; mi < selectedMs.length; mi++) {
-            const field = msSrc[mi] === 'p1' ? 'p1' : 'pn'
+            const field = msSrc[mi] === 'p2' ? 'p2' : msSrc[mi] === 'p1' ? 'p1' : 'pn'
             const v = (RAW.companies[co] as any)?.[field]?.[acc]?.mo?.[selectedMs[mi]]
             if (v) { const s = type === 'charge' ? v[0] - v[1] : v[1] - v[0]; monthsN[mi] += s; cumulN += s }
           }
           for (let mi = 0; mi < allMsN1Same.length; mi++) {
-            const field = allMsN1SameSrc[mi] === 'p1' ? 'p1' : 'pn'
+            const field = allMsN1SameSrc[mi] === 'p2' ? 'p2' : allMsN1SameSrc[mi] === 'p1' ? 'p1' : 'pn'
             const v = (RAW.companies[co] as any)?.[field]?.[acc]?.mo?.[allMsN1Same[mi]]
             if (v) cumulN1S += type === 'charge' ? v[0] - v[1] : v[1] - v[0]
           }
