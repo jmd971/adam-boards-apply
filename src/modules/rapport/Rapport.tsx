@@ -4,6 +4,7 @@ import { useAppStore, useTenantId } from '@/store'
 import { Spinner } from '@/components/ui'
 import { useRapportData, type CompteLigne, type TiersDelai } from '@/hooks/useRapportData'
 import { RapportTheme1 } from './RapportTheme1'
+import { RapportMethode } from './RapportMethode'
 
 const RAPPORT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-rapport`
 
@@ -116,6 +117,9 @@ export function Rapport() {
         <Kpi label="Délai moyen clients" value={jour(data.delaiMoyenClientGlobal)} accent={(data.delaiMoyenClientGlobal ?? 0) > 60 ? '#f59e0b' : undefined} />
         <Kpi label="Délai moyen fournisseurs" value={jour(data.delaiMoyenFournGlobal)} />
       </div>
+
+      {/* Méthode AdamBoards (β) — analyse descendante résultat → écritures */}
+      <RapportMethode />
 
       {/* Rapport par thèmes (β) — Thème 1 : le résultat */}
       <RapportTheme1 />

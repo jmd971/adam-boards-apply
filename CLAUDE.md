@@ -1072,3 +1072,31 @@ Ce détail a déjà régressé (perdu lors du refactor sous-comptes/regroupement
 > ⚠️ Règle générale : `EcrituresModal` et `PlTable` sont des composants PARTAGÉS. Toute
 > modification doit être vérifiée sur TOUS leurs consommateurs (CR, Équilibre, SIG, Budget),
 > pas seulement celui en cours.
+
+### 41. Rapport Méthode AdamBoards — moteur déterministe + IA de rédaction
+
+Module ajouté 2026-07-18. Spécification complète : `docs/METHODE_ADAMBOARDS_V1.md`.
+
+| Fichier | Rôle |
+|---------|------|
+| `src/lib/methode.ts` | Moteur déterministe : cadrage → patterns (compte×tiers) → attendus → verdicts → décomposition. Fonctions pures (`buildMethodeRapport`), testées. |
+| `src/lib/__tests__/methode.test.ts` | Tests du moteur (verdicts, contrepartie, dégradation sans N-1) |
+| `src/hooks/useMethodeRapport.ts` | Hook (1ère société de selCo) |
+| `src/modules/rapport/RapportMethode.tsx` | Restitution hiérarchisée dépliable + annexes A (questions comptable) et B (recos saisie) |
+| `supabase/functions/generate-methode-rapport/index.ts` | Étape 5 : rédaction IA (Claude) + sauvegarde `rapports` (`rapport_json.type='methode'`) |
+
+**Invariants** :
+- Les étapes 1-4 (calculs, verdicts, montants) sont 100 % **code déterministe** — l'IA ne
+  fait QUE rédiger (étape 5). Ne JAMAIS déplacer un calcul vers le prompt.
+- **Résolution du tiers** — chaîne de repli figée (conf 1→4) : ① contrepartie
+  (pièce, date) avec les sous-comptes 401x/411x du bilan ② motif de libellé
+  (`CLIENT X`, préfixe `TIERS/…`) ③ regroupement par mots significatifs ④ sans tiers.
+  Ne pas réordonner. Tout se calcule depuis la base (pas de FEC brut).
+- **Seuils combinés absolu ET relatif** (`DEFAULT_METHODE_PARAMS`) — jamais un seuil
+  purement relatif (10 % de 1 000 € ≠ 10 % de 100 000 €).
+- **Décomposition exacte** : variation du compte = manquants + nouveaux + écarts de
+  montant + résiduel. Les tests le vérifient — préserver cette équation.
+- Comptes OD (`isODAccount`) : inclus dans les totaux, JAMAIS d'attendus.
+- **Dégradation gracieuse** : sans écritures N-1 → `histoLimite=true`, verdicts `null`,
+  bandeau UI — jamais d'erreur bloquante.
+- La comparaison N-1 est « à même période » (mois MM de N), comme useRapportData/Theme1.
