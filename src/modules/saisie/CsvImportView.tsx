@@ -162,16 +162,20 @@ export type CsvStructure = {
 export const FIELDS: { key: FieldKey; label: string; required?: boolean; candidates: string[] }[] = [
   { key: 'date',           label: 'Date',                 required: true,  candidates: ['date'] },
   { key: 'invoice_number', label: 'N° Facture',                            candidates: ['numero', 'num_facture', 'numero_facture', 'invoice_number', 'ref_facture', 'reference', 'ref'] },
-  { key: 'counterpart',    label: 'Tiers / Client',                        candidates: ['societe', 'denomination', 'contrepartie', 'counterpart', 'tiers', 'fournisseur', 'client', 'nom', 'raison'] },
-  { key: 'label',          label: 'Libellé',                               candidates: ['libelle', 'label', 'description', 'designation', 'objet', 'intitule'] },
+  // « nom du fournisseur »/« nom du client » AVANT « tiers » : sur un export Axonaut,
+  // « tiers » matcherait la colonne « Compte de tiers du fournisseur » (401xxx) au lieu du nom.
+  { key: 'counterpart',    label: 'Tiers / Client',                        candidates: ['societe', 'denomination', 'contrepartie', 'counterpart', 'nom du fournisseur', 'nom du client', 'tiers', 'fournisseur', 'client', 'nom', 'raison'] },
+  { key: 'label',          label: 'Libellé',                               candidates: ['libelle', 'label', 'description', 'designation', 'objet', 'intitule', 'titre'] },
   { key: 'amount_ht',      label: 'Montant HT',           required: true,  candidates: ['montant ht', 'montant_ht', 'amount_ht', 'prix_ht', 'net_ht', 'base_ht', 'debit', 'sortie', 'decaissement', 'montant', 'amount', 'valeur'] },
   { key: 'amount_ttc',     label: 'Montant TTC',                           candidates: ['montant ttc', 'montant_ttc', 'amount_ttc', 'prix_ttc', 'total_ttc'] },
   { key: 'tva_amount',     label: 'Montant TVA',                           candidates: ['montant tva', 'montant_tva', 'tva_amount', 'tva', 'taxe', 'tax_amount'] },
   { key: 'tva_rate',       label: 'Taux TVA',                              candidates: ['taux_tva', 'tva_rate', 'taux', 'tax_rate'] },
-  { key: 'payment_date',   label: 'Date encaissement',                     candidates: ['encaissee le', 'encaissee_le', 'date_paiement', 'payment_date', 'date_reglement', 'paid_date'] },
+  { key: 'payment_date',   label: 'Date encaissement',                     candidates: ['encaissee le', 'encaissee_le', 'date_paiement', 'date de paiement', 'payment_date', 'date_reglement', 'paid_date'] },
   { key: 'payment_mode',   label: 'Mode de règlement',                     candidates: ['mode de reglement', 'mode_reglement', 'mode_paiement', 'payment_mode', 'reglement', 'moyen_paiement'] },
   { key: 'nature',         label: 'Nature (Vente/Achat)',                  candidates: ['nature', 'type_facture', 'type_document', 'categorie', 'category', 'type'] },
-  { key: 'subcategory',    label: 'Sous-catégorie',                        candidates: ['sous_categorie', 'subcategory', 'sous_cat', 'compte', 'poste'] },
+  // « code comptable » AVANT « compte » : la colonne Axonaut « Code comptable du type
+  // de la dépense » porte le vrai compte (6233…), pas « Compte de tiers du fournisseur ».
+  { key: 'subcategory',    label: 'Sous-catégorie',                        candidates: ['sous_categorie', 'subcategory', 'sous_cat', 'code comptable', 'compte', 'poste'] },
 ]
 
 // Étape 1 : extraire en-têtes + lignes de données (filtre totaux et lignes vides)
@@ -287,10 +291,13 @@ export function applyMapping(structure: CsvStructure, m: Mapping, defaultCategor
     const labelRaw = get(m.label)
     const label = labelRaw && labelRaw !== tiers ? labelRaw : tiers
 
+    const date = parseDate(get(m.date))
     rows.push({
       id: i,
-      selected: true,
-      date:           parseDate(get(m.date)),
+      // Lignes sans date ou à 0 € : décochées par défaut — elles n'apportent rien
+      // au P&L et faisaient échouer l'insert du lot entier. Re-cochables à la main.
+      selected: !!date && ht > 0,
+      date,
       invoice_number: get(m.invoice_number),
       label,
       counterpart:    tiers,
@@ -906,6 +913,11 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
         </div>
         {someInvalid && (
           <div style={{ fontSize: 11, color: '#f59e0b' }}>⚠ Certaines lignes ont une date ou un montant manquant</div>
+        )}
+        {rows.some(r => !r.selected && (!r.date || r.amount_ht === 0)) && (
+          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+            ⓘ {rows.filter(r => !r.selected && (!r.date || r.amount_ht === 0)).length} ligne(s) sans date ou à 0 € décochée(s) automatiquement
+          </div>
         )}
         <button onClick={handleImport} disabled={saving || selectedRows.length === 0}
           style={{
