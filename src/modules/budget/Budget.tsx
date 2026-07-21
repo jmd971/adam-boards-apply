@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
 import { pcgLabel } from '@/lib/pcg'
 import { useAppStore } from '@/store'
-import { fmt, pct, fiscalIndex, mergeEntries } from '@/lib/calc'
+import { fmt, pct, fiscalIndex, mergeEntries, fiscalExerciseMonths, currentFiscalYear } from '@/lib/calc'
 import { EcrituresModal } from '@/components/ui'
 import { sb } from '@/lib/supabase'
 
@@ -76,9 +76,10 @@ const PRESETS: Scenario[] = [
 
 interface WhatIfProps {
   coBud: Record<string, any>
+  monthOrder: number[]
 }
 
-function WhatIfPanel({ coBud }: WhatIfProps) {
+function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
   const [caVar, setCaVar]       = useState(0)
   const [achVar, setAchVar]     = useState(0)
   const [servVar, setServVar]   = useState(0)
@@ -353,8 +354,8 @@ function WhatIfPanel({ coBud }: WhatIfProps) {
             <thead>
               <tr style={{ background: '#080d1a' }}>
                 <th style={{ padding: '6px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#080d1a', zIndex: 2 }}>Indicateur</th>
-                {MONTHS_SHORT.map(m => (
-                  <th key={m} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{m}</th>
+                {monthOrder.map(ci => (
+                  <th key={ci} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{MONTHS_SHORT[ci]}</th>
                 ))}
                 <th style={{ padding: '6px 10px', textAlign: 'right', color: '#3b82f6', fontWeight: 700, minWidth: 80, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Total</th>
               </tr>
@@ -385,12 +386,13 @@ function WhatIfPanel({ coBud }: WhatIfProps) {
                     }}>
                       {label}
                     </td>
-                    {simMonthly.map((m, i) => {
+                    {monthOrder.map(ci => {
+                      const m = simMonthly[ci]
                       const val = m[key as keyof typeof m] ?? 0
-                      const base = baseMonthly[i][key as keyof typeof baseMonthly[0]] ?? 0
+                      const base = baseMonthly[ci][key as keyof typeof baseMonthly[0]] ?? 0
                       const diff = val - base
                       return (
-                        <td key={i} style={{ padding: '4px 4px', textAlign: 'right', fontFamily: 'monospace' }}>
+                        <td key={ci} style={{ padding: '4px 4px', textAlign: 'right', fontFamily: 'monospace' }}>
                           <div style={{ color: val < 0 ? '#ef4444' : color, fontWeight: isBold ? 600 : 400 }}>
                             {fmt(val)}
                           </div>
@@ -431,6 +433,7 @@ export function Budget() {
   const budVersions  = useAppStore(s => s.budVersions)
   const setBudVersions = useAppStore(s => s.setBudVersions)
   const tenantId     = useAppStore(s => s.tenantId)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
 
   const [budCo,        setBudCo]        = useState(filters.selCo[0] ?? '')
   const [selVersion,   setSelVersion]   = useState<string>('')
@@ -454,7 +457,26 @@ export function Budget() {
   const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
   // Détail des écritures réalisées (FEC + saisies) d'un compte du budget — ouvert au clic sur la ligne.
   // budChildren : ventilation budget (sous-comptes, ou la ligne du compte) affichée sous les écritures.
-  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number; budChildren?: { name: string; b: number[] }[] } | null>(null)
+  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number; budChildren?: { name: string; b: number[] }[]; budSelMonths?: string[] } | null>(null)
+
+  // ── Exercice fiscal de la société (règle 21) : ordre d'AFFICHAGE des 12 mois.
+  // b[12] reste indexé par mois CALENDAIRE (invariant règle 17 — jan=0…déc=11) ;
+  // seul l'ordre des colonnes suit l'exercice (ex : Avr…Mar pour startMonth=4).
+  const startMonth = fiscalSettings[budCo] ?? 1
+  const monthOrder = useMemo(
+    () => Array.from({ length: 12 }, (_, i) => (startMonth - 1 + i) % 12),
+    [startMonth]
+  )
+  // Mois (YYYY-MM) de l'exercice courant en ordre fiscal → colonnes de EcrituresModal.
+  const exerciseMonths = useMemo(
+    () => fiscalExerciseMonths(startMonth, currentFiscalYear(startMonth)),
+    [startMonth]
+  )
+  // Écritures réalisées : si l'exercice N n'a AUCUNE écriture pour cette société
+  // (nouvel exercice, FEC pas encore importé), repli sur l'exercice précédent (p1)
+  // pour que le détail des comptes reste consultable.
+  const hasEcrN = !!RAW && Object.keys(RAW.companies[budCo]?.pn ?? {}).length > 0
+  const ecrField: 'pn' | 'p1' = hasEcrN ? 'pn' : 'p1'
 
   // Versions for the selected company
   const coVersions = useMemo(
@@ -560,12 +582,16 @@ export function Budget() {
     setBudData({ ...budData, [budCo]: newData } as any)
   }
 
+  // Avance en ORDRE D'EXERCICE (Avr→Mar pour un exercice décalé) sans déborder de
+  // l'exercice. Renvoie des index CALENDAIRES (compatibles b[12], invariant règle 17).
   const computeFillPositions = (startM: number, count: number, freq: number): number[] => {
+    const startF = monthOrder.indexOf(startM)
+    if (startF < 0) return []
     const positions: number[] = []
     for (let i = 0; i < count; i++) {
-      const pos = startM + i * freq
-      if (pos >= 12) break
-      positions.push(pos)
+      const f = startF + i * freq
+      if (f >= 12) break
+      positions.push(monthOrder[f])
     }
     return positions
   }
@@ -580,7 +606,7 @@ export function Budget() {
       acc,
       ci,
       amount: firstNonZero > 0 ? String(firstNonZero) : '',
-      startM: 0,
+      startM: monthOrder[0],
       count: 12,
       freq: 1,
       resetOthers: false,
@@ -787,10 +813,12 @@ export function Budget() {
       })
     }
     const result = produits.map((p, i) => p - charges[i])
+    // Cumul en ORDRE D'EXERCICE (Avr→Mar pour un exercice décalé), stocké à l'index calendaire.
+    const cumul = Array(12).fill(0)
     let cum = 0
-    const cumul = result.map(v => { cum += v; return cum })
+    for (const ci of monthOrder) { cum += result[ci]; cumul[ci] = cum }
     return { charges, produits, result, cumul }
-  }, [coBud])
+  }, [coBud, monthOrder])
 
   const accounts = useMemo(() => {
     return Object.entries(coBud)
@@ -842,6 +870,11 @@ export function Budget() {
         <select value={budCo} onChange={e => setBudCo(e.target.value)} style={inputSt}>
           {RAW.keys.map(k => <option key={k} value={k}>{RAW.companies[k]?.name || k}</option>)}
         </select>
+        {startMonth !== 1 && (
+          <span style={{ marginLeft: 10, fontSize: 11, color: '#64748b' }}>
+            Exercice : {MONTHS_SHORT[startMonth - 1]} → {MONTHS_SHORT[(startMonth + 10) % 12]}
+          </span>
+        )}
       </div>
 
       {msg && <span style={{ fontSize:12, color: msg.startsWith('✅') ? '#10b981':'#ef4444', display:'block', marginBottom:8 }}>{msg}</span>}
@@ -992,9 +1025,16 @@ export function Budget() {
                 </div>
               </div>
 
+              {/* Réalisé N absent → le détail des comptes affiche l'exercice précédent */}
+              {!hasEcrN && Object.keys(coBud).length > 0 && (
+                <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 8, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', fontSize: 11, color: '#f59e0b' }}>
+                  ⓘ Aucune écriture sur l'exercice en cours pour cette société — le détail des comptes (clic sur une ligne) affiche le réalisé de l'exercice précédent. Importez le FEC de l'exercice en cours pour suivre le réalisé N.
+                </div>
+              )}
+
               {/* What-if simulation */}
               {showWhatIf && Object.keys(coBud).length > 0 && (
-                <WhatIfPanel coBud={coBud} />
+                <WhatIfPanel coBud={coBud} monthOrder={monthOrder} />
               )}
 
               {/* Comparaison de versions (#7 bis) */}
@@ -1082,8 +1122,8 @@ export function Budget() {
                       <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
                         <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
                         <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
-                        {MONTHS_SHORT.map(m => (
-                          <th key={m} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{m}</th>
+                        {monthOrder.map(ci => (
+                          <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ci]}</th>
                         ))}
                         <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
                       </tr>
@@ -1098,8 +1138,9 @@ export function Budget() {
                         const hasChildren = children.length > 0
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
-                        // Écritures réalisées (FEC + saisies) de l'exercice N pour ce compte → modal au clic.
-                        const ents = RAW ? mergeEntries(RAW, [budCo], 'pn', acc) : []
+                        // Écritures réalisées (FEC + saisies) → modal au clic. Exercice N,
+                        // ou repli sur l'exercice précédent si N est vide (cf. ecrField).
+                        const ents = RAW ? mergeEntries(RAW, [budCo], ecrField, acc) : []
                         const realN = ents.reduce((s: number, e: any) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
                         return (
                           <Fragment key={acc}>
@@ -1108,10 +1149,11 @@ export function Budget() {
                               {indent && <span style={{ color:'#475569', marginRight:6, fontSize:11 }}>└</span>}
                               <span
                                 onClick={ents.length > 0 ? () => setEcrModal({
-                                  title: `${acc} — ${bv.l}`, entries: ents, cumN: Math.round(realN), cumN1: 0,
+                                  title: `${acc} — ${bv.l}${hasEcrN ? '' : ' · réalisé exercice précédent'}`, entries: ents, cumN: Math.round(realN), cumN1: 0,
                                   budChildren: children.length > 0
                                     ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
                                     : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
+                                  budSelMonths: exerciseMonths,
                                 }) : undefined}
                                 title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
                                 style={{ cursor: ents.length > 0 ? 'pointer' : 'default' }}>
@@ -1151,7 +1193,7 @@ export function Budget() {
                                 {isCharge ? 'charge':'produit'}
                               </span>
                             </td>
-                            {Array(12).fill(0).map((_, fi) => (
+                            {monthOrder.map(fi => (
                               <td key={fi} style={{ padding:'2px 2px' }}>
                                 {hasChildren ? (
                                   <div style={{ ...inputBase, color:'#8b5cf6', background:'transparent', border:'1px solid transparent' }}>
@@ -1183,7 +1225,7 @@ export function Budget() {
                                   style={{ marginLeft:6, background:'transparent', border:'none', color:'#64748b', cursor:'pointer', fontSize:11 }}>✕</button>
                               </td>
                               <td />
-                              {Array(12).fill(0).map((_, fi) => (
+                              {monthOrder.map(fi => (
                                 <td key={fi} style={{ padding:'2px 2px' }}>
                                   <input type="number" value={ch.b?.[fi] ?? 0}
                                     onChange={e => handleChildCell(acc, ci, fi, e.target.value)}
@@ -1221,8 +1263,8 @@ export function Budget() {
                                     {g.isCharge ? 'charge':'produit'}
                                   </span>
                                 </td>
-                                {g.b.map((v, fi) => (
-                                  <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color:'#8b5cf6' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                                {monthOrder.map(fi => (
+                                  <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color:'#8b5cf6' }}>{g.b[fi] !== 0 ? fmt(g.b[fi]) : '—'}</td>
                                 ))}
                                 <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:700 }}>{fmt(g.total)}</td>
                               </tr>
@@ -1239,14 +1281,15 @@ export function Budget() {
                         { label:'💰 Résultat',        row:totals.result,   color:'#3b82f6', isCumul:false },
                         { label:'📊 Résultat cumulé', row:totals.cumul,    color:'#8b5cf6', isCumul:true  },
                       ].map(({ label, row, color, isCumul }) => {
-                        const grandTotal = isCumul ? (row[row.length-1] ?? 0) : row.reduce((s,x)=>s+x,0)
+                        // Cumul : le total = dernier mois de l'EXERCICE (Mar pour Avr→Mar), pas Déc.
+                        const grandTotal = isCumul ? (row[monthOrder[11]] ?? 0) : row.reduce((s,x)=>s+x,0)
                         return (
                         <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
                           <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
                           <td />
-                          {row.map((v, i) => (
-                            <td key={i} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
-                              color: v<0 ? '#ef4444' : color }}>{fmt(v)}</td>
+                          {monthOrder.map(ci => (
+                            <td key={ci} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
+                              color: row[ci]<0 ? '#ef4444' : color }}>{fmt(row[ci])}</td>
                           ))}
                           <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
                             color: grandTotal<0 ? '#ef4444':color }}>
@@ -1309,7 +1352,7 @@ export function Budget() {
                 <select value={fillModal.startM}
                   onChange={e => setFillModal(m => m && { ...m, startM: parseInt(e.target.value) })}
                   style={{ ...inputSt, width: '100%', boxSizing: 'border-box' }}>
-                  {MONTHS_SHORT.map((mo, i) => <option key={i} value={i}>{mo}</option>)}
+                  {monthOrder.map(ci => <option key={ci} value={ci}>{MONTHS_SHORT[ci]}</option>)}
                 </select>
 
                 <label style={{ fontSize: 12, color:'#94a3b8' }}>Nombre de mois</label>
@@ -1363,16 +1406,16 @@ export function Budget() {
                   </span>}
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap: 4 }}>
-                  {MONTHS_SHORT.map((mo, i) => {
-                    const active = positions.includes(i)
+                  {monthOrder.map(ci => {
+                    const active = positions.includes(ci)
                     return (
-                      <span key={i} style={{
+                      <span key={ci} style={{
                         fontSize: 10, padding: '3px 8px', borderRadius: 6, fontFamily:'monospace',
                         background: active ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.04)',
                         color: active ? '#93c5fd' : '#475569',
                         fontWeight: active ? 700 : 400,
                       }}>
-                        {mo}{active && num > 0 ? ` · ${fmt(num)}` : ''}
+                        {MONTHS_SHORT[ci]}{active && num > 0 ? ` · ${fmt(num)}` : ''}
                       </span>
                     )
                   })}

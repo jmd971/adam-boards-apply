@@ -687,6 +687,8 @@ Ces deux règles s'appliquent **partout où le budget est calculé** : `computeP
 
 Les agrégats `marge_eq` et `resultat_eq` sont calculés via `add()` qui propage automatiquement `budTotal` / `budMonths` une fois les rangées source remplies (les `budTotal` enfants sont déjà restreints à la période).
 
+**Affichage en ordre d'exercice — 2026-07-21** : la PAGE Budget (`Budget.tsx`) affiche les 12 colonnes dans l'**ordre de l'exercice fiscal** de la société (`monthOrder = [(startMonth-1+i)%12]`, ex : Avr→Mar pour `fiscal_year_start_month=4`), mais `b[12]` reste **indexé calendaire** (la règle ci-dessus est inchangée — seul l'AFFICHAGE est réordonné : en-têtes, cellules, sous-comptes, groupes, footer, what-if, modal Recopier). Le « Résultat cumulé » se cumule en ordre d'exercice (total = `row[monthOrder[11]]`, pas `row[11]`). `computeFillPositions` avance en positions d'exercice et renvoie des index calendaires. Le détail écritures d'une ligne budget se replie sur `p1` quand `pn` est vide pour la société (nouvel exercice sans FEC importé) — bandeau ambre + titre de modal annoté ; les colonnes budget de `EcrituresModal` reçoivent `budSelMonths = fiscalExerciseMonths(...)` (composant partagé inchangé). **JAMAIS** réindexer `b[12]` en positions fiscales — ça casserait tous les consommateurs (CR/SIG/EQ/trésorerie/dashboard/objectifs).
+
 ---
 
 ### 18. Sélecteur de version budget — source unique dans la TopBar
@@ -1072,3 +1074,31 @@ Ce détail a déjà régressé (perdu lors du refactor sous-comptes/regroupement
 > ⚠️ Règle générale : `EcrituresModal` et `PlTable` sont des composants PARTAGÉS. Toute
 > modification doit être vérifiée sur TOUS leurs consommateurs (CR, Équilibre, SIG, Budget),
 > pas seulement celui en cours.
+
+### 41. Rapport Méthode AdamBoards — moteur déterministe + IA de rédaction
+
+Module ajouté 2026-07-18. Spécification complète : `docs/METHODE_ADAMBOARDS_V1.md`.
+
+| Fichier | Rôle |
+|---------|------|
+| `src/lib/methode.ts` | Moteur déterministe : cadrage → patterns (compte×tiers) → attendus → verdicts → décomposition. Fonctions pures (`buildMethodeRapport`), testées. |
+| `src/lib/__tests__/methode.test.ts` | Tests du moteur (verdicts, contrepartie, dégradation sans N-1) |
+| `src/hooks/useMethodeRapport.ts` | Hook (1ère société de selCo) |
+| `src/modules/rapport/RapportMethode.tsx` | Restitution hiérarchisée dépliable + annexes A (questions comptable) et B (recos saisie) |
+| `supabase/functions/generate-methode-rapport/index.ts` | Étape 5 : rédaction IA (Claude) + sauvegarde `rapports` (`rapport_json.type='methode'`) |
+
+**Invariants** :
+- Les étapes 1-4 (calculs, verdicts, montants) sont 100 % **code déterministe** — l'IA ne
+  fait QUE rédiger (étape 5). Ne JAMAIS déplacer un calcul vers le prompt.
+- **Résolution du tiers** — chaîne de repli figée (conf 1→4) : ① contrepartie
+  (pièce, date) avec les sous-comptes 401x/411x du bilan ② motif de libellé
+  (`CLIENT X`, préfixe `TIERS/…`) ③ regroupement par mots significatifs ④ sans tiers.
+  Ne pas réordonner. Tout se calcule depuis la base (pas de FEC brut).
+- **Seuils combinés absolu ET relatif** (`DEFAULT_METHODE_PARAMS`) — jamais un seuil
+  purement relatif (10 % de 1 000 € ≠ 10 % de 100 000 €).
+- **Décomposition exacte** : variation du compte = manquants + nouveaux + écarts de
+  montant + résiduel. Les tests le vérifient — préserver cette équation.
+- Comptes OD (`isODAccount`) : inclus dans les totaux, JAMAIS d'attendus.
+- **Dégradation gracieuse** : sans écritures N-1 → `histoLimite=true`, verdicts `null`,
+  bandeau UI — jamais d'erreur bloquante.
+- La comparaison N-1 est « à même période » (mois MM de N), comme useRapportData/Theme1.
