@@ -443,6 +443,11 @@ export function Budget() {
   const [filter,       setFilter]       = useState<'all' | 'charge' | 'produit'>('all')
   const [search,       setSearch]       = useState('')
   const [showWhatIf,   setShowWhatIf]   = useState(false)
+  // Ajout d'un compte manuel (hors FEC) — feature f3d8b5a, perdue par 78799f9, restaurée 2026-07-21.
+  const [showAddAccount, setShowAddAccount] = useState(false)
+  const [newAccNum,    setNewAccNum]    = useState('')
+  const [newAccLabel,  setNewAccLabel]  = useState('')
+  const [newAccType,   setNewAccType]   = useState<'c' | 'p'>('c')
   const [newVersionName, setNewVersionName] = useState('')
   const [creating,     setCreating]     = useState(false)
   const [fillModal,    setFillModal]    = useState<{
@@ -702,6 +707,28 @@ export function Budget() {
     const next = t ? { ...cur, note: t } : (() => { const { note: _d, ...rest } = cur; return rest })()
     commitData({ ...coBud, [acc]: next })
     setNoteModal(null)
+  }
+
+  // Ajoute un compte manuel (hors FEC) au budget courant. Le compte est créé avec
+  // un tableau b[12]=0 — l'utilisateur saisit ensuite les montants mois par mois.
+  const handleAddAccount = () => {
+    const accNum = newAccNum.trim()
+    if (!accNum) { setMsg('❌ Numéro de compte requis'); setTimeout(() => setMsg(null), 3000); return }
+    if (!/^\d{3,}/.test(accNum)) { setMsg('❌ Le numéro de compte doit commencer par au moins 3 chiffres'); setTimeout(() => setMsg(null), 3000); return }
+    if (coBud[accNum]) { setMsg('❌ Compte déjà existant dans cette version'); setTimeout(() => setMsg(null), 3000); return }
+    const newAcc = { b: Array(12).fill(0), t: newAccType, l: newAccLabel.trim() || accNum }
+    const newData = { ...coBud, [accNum]: newAcc }
+    const updated = budVersions.map(v =>
+      v.company_key === budCo && v.version_name === selVersion ? { ...v, data: newData } : v
+    )
+    setBudVersions(updated)
+    setBudData({ ...budData, [budCo]: newData } as any)
+    setNewAccNum('')
+    setNewAccLabel('')
+    setNewAccType('c')
+    setShowAddAccount(false)
+    setMsg('✅ Compte ajouté — pensez à saisir les montants puis sauvegarder')
+    setTimeout(() => setMsg(null), 4000)
   }
 
   const handleSave = async () => {
@@ -1009,6 +1036,13 @@ export function Budget() {
                       🔄 Régénérer
                     </button>
                   )}
+                  <button onClick={() => setShowAddAccount(v => !v)}
+                    style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                      background: showAddAccount ? 'rgba(16,185,129,0.2)' : 'transparent',
+                      border: `1px solid ${showAddAccount ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                      color: showAddAccount ? '#6ee7b7' : '#94a3b8' }}>
+                    {showAddAccount ? '× Annuler' : '+ Ajouter un compte'}
+                  </button>
                   <button onClick={handleSave} disabled={saving}
                     style={{ padding:'6px 14px', borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', fontSize:12, cursor:'pointer', fontWeight:600 }}>
                     {saving ? 'Sauvegarde...' : '💾 Sauvegarder'}
@@ -1024,6 +1058,63 @@ export function Budget() {
                   )}
                 </div>
               </div>
+
+              {/* Ajout d'un compte manuel (hors FEC) */}
+              {showAddAccount && (
+                <div style={{
+                  marginBottom:16, padding:'14px 16px', borderRadius:12,
+                  background:'linear-gradient(135deg, rgba(16,185,129,0.10), rgba(20,184,166,0.06))',
+                  border:'1px solid rgba(16,185,129,0.3)',
+                  display:'flex', gap:10, alignItems:'flex-end', flexWrap:'wrap',
+                }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                      N° de compte
+                    </label>
+                    <input
+                      type="text" placeholder="ex : 6280001"
+                      value={newAccNum} onChange={e => setNewAccNum(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
+                      style={{ ...inputSt, width: 140 }}
+                    />
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:4, flex:1, minWidth:200 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                      Libellé
+                    </label>
+                    <input
+                      type="text" placeholder="ex : Cotisation CCI"
+                      value={newAccLabel} onChange={e => setNewAccLabel(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleAddAccount()}
+                      style={{ ...inputSt, width: '100%' }}
+                    />
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                    <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
+                      Type
+                    </label>
+                    <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)' }}>
+                      <button type="button" onClick={() => setNewAccType('c')}
+                        style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
+                          background: newAccType === 'c' ? 'rgba(239,68,68,0.2)' : 'transparent',
+                          color: newAccType === 'c' ? '#fca5a5' : '#94a3b8' }}>
+                        📤 Charge
+                      </button>
+                      <button type="button" onClick={() => setNewAccType('p')}
+                        style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
+                          background: newAccType === 'p' ? 'rgba(16,185,129,0.2)' : 'transparent',
+                          color: newAccType === 'p' ? '#6ee7b7' : '#94a3b8' }}>
+                        📥 Produit
+                      </button>
+                    </div>
+                  </div>
+                  <button onClick={handleAddAccount}
+                    style={{ padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+                      background:'rgba(16,185,129,0.25)', border:'1px solid rgba(16,185,129,0.4)', color:'#6ee7b7' }}>
+                    Ajouter
+                  </button>
+                </div>
+              )}
 
               {/* Réalisé N absent → le détail des comptes affiche l'exercice précédent */}
               {!hasEcrN && Object.keys(coBud).length > 0 && (
@@ -1116,16 +1207,19 @@ export function Budget() {
                   </button>
                 </div>
               ) : (
-                <div style={{ overflowX:'auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 240px)', overflowY:'auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
+                  {/* maxHeight + overflow:auto → le scroll vertical se fait DANS ce conteneur,
+                      condition nécessaire pour que les th sticky (top:0) restent visibles.
+                      Sticky posé sur les th (pas le tr) : sticky sur <tr> n'est pas fiable sous Chrome. */}
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                     <thead>
-                      <tr style={{ background:'#0a0f1a', position:'sticky', top:0, zIndex:5 }}>
-                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, background:'#0a0f1a', zIndex:7 }}>Compte</th>
-                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Type</th>
+                      <tr>
+                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, top:0, background:'#0a0f1a', zIndex:8 }}>Compte</th>
+                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>Type</th>
                         {monthOrder.map(ci => (
-                          <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{MONTHS_SHORT[ci]}</th>
+                          <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>{MONTHS_SHORT[ci]}</th>
                         ))}
-                        <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Total</th>
+                        <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
