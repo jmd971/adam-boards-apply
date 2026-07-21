@@ -655,7 +655,9 @@ export function Saisie() {
         amount_ttc:     String(ttc),
         amount_ht:      String(ht),
         tva_amount:     r.tva_amount > 0 ? String(r.tva_amount) : String(calcTvaAmount(ht, ttc)),
-        tva_rate:       r.tva_rate  || calcTvaRate(ht, ttc),
+        // `null` si TVA non calculable (HT=0) : la colonne DB est numeric, '' fait
+        // échouer l'insert du lot ENTIER (invalid input syntax for type numeric).
+        tva_rate:       r.tva_rate  || calcTvaRate(ht, ttc) || null,
         counterpart:    r.counterpart,
         payment_mode:   r.payment_mode || 'virement',
         payment_date:   r.payment_date || null,
@@ -722,7 +724,7 @@ export function Saisie() {
       amount_ht:    String(ht),
       amount_ht_saisie: String(ht),
       tva_amount:   String(tvaAmt),
-      tva_rate:     tvaRte,
+      tva_rate:     tvaRte || null,   // '' dans une colonne numeric → erreur d'insert
       counterpart:  form.counterpart,
       payment_mode: form.payment_mode,
       payment_date: !isEch && form.payment_date ? form.payment_date : null,

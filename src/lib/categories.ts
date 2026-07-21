@@ -93,6 +93,10 @@ export function normSub(s: string): string {
 /** Extrait le numéro de compte d'un libellé de sous-catégorie : "Publicité (623)" → "623" */
 export function extractAcc(sub: string, fallback: string): string {
   const m = sub.match(/\((\d[\d/]*)\)/)
-  if (!m) return fallback
-  return m[1].split('/')[0]
+  if (m) return m[1].split('/')[0]
+  // Sous-catégorie fournie directement comme code comptable brut (ex : colonne
+  // « Code comptable » d'un export Axonaut : "6233") → utiliser le code tel quel.
+  const raw = sub.trim().match(/^\d{3,}$/)
+  if (raw) return raw[0]
+  return fallback
 }
