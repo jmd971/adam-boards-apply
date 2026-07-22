@@ -22,6 +22,10 @@ interface EcrituresModalProps {
   /** Mois sélectionnés (YYYY-MM) du filtre période — pour ne sommer le budget que sur ces mois,
    *  exactement comme la colonne Budget de CR/Équilibre/SIG (sumBudInPeriod). */
   budSelMonths?: string[]
+  /** Réalisé mensuel (12 valeurs, index calendaire) — affiché sous le budget pour comparer
+   *  budget / réalisé N / réalisé N-1 mois par mois. Optionnel (Budget uniquement). */
+  realisedN?: number[]
+  realisedN1?: number[]
   onClose: () => void
 }
 
@@ -66,7 +70,7 @@ export function budChildrenForAccount(
   return hasBud ? [{ name: 'Budget du compte', b: own }] : []
 }
 
-export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSelMonths, onClose }: EcrituresModalProps) {
+export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSelMonths, realisedN, realisedN1, onClose }: EcrituresModalProps) {
   const [search,  setSearch]  = useState('')
   const [sortCol, setSortCol] = useState(0)
   const [sortDir, setSortDir] = useState<SortDir>(1)
@@ -251,20 +255,21 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
           {/* Détail budget par sous-comptes — même fenêtre, sous les écritures réelles.
               On ne somme QUE les mois sélectionnés (index calendaire), exactement comme la
               colonne Budget de CR/Équilibre/SIG → les totaux concordent avec le tableau. */}
-          {budChildren && budChildren.length > 0 && (() => {
+          {((budChildren && budChildren.length > 0) || (realisedN && realisedN.some(v => v)) || (realisedN1 && realisedN1.some(v => v))) && (() => {
+            const kids = budChildren ?? []
             // Mois affichés = mois sélectionnés (ordonnés). À défaut, les 12 mois.
             const cols = (budSelMonths && budSelMonths.length)
               ? budSelMonths.map(m => ({ idx: fiscalIndex(m), label: MONTHS_SHORT[fiscalIndex(m)] ?? m }))
               : MONTHS_SHORT.map((label, idx) => ({ idx, label }))
             const sumCols = (b: number[]) => cols.reduce((s, c) => s + (b?.[c.idx] ?? 0), 0)
-            const monthTotals = cols.map(c => budChildren.reduce((s, ch) => s + (ch.b?.[c.idx] ?? 0), 0))
+            const monthTotals = cols.map(c => kids.reduce((s, ch) => s + (ch.b?.[c.idx] ?? 0), 0))
             const grandTotal = monthTotals.reduce((s, x) => s + (x || 0), 0)
             const isFullYear = cols.length === 12
             return (
               <div style={{ borderTop:'8px solid rgba(245,158,11,0.12)', padding:'14px 20px 4px' }}>
                 <div style={{ fontSize:12, fontWeight:700, color:'var(--amber)', marginBottom:10 }}>
-                  📋 Détail budget — sous-comptes ({budChildren.length}) · {isFullYear ? 'annuel' : `${cols.length} mois sélectionnés`} ·{' '}
-                  <span style={{ fontFamily:'monospace' }}>{fmt(grandTotal)}</span>
+                  📋 Détail budget & réalisé{kids.length ? ` — sous-comptes (${kids.length})` : ''} · {isFullYear ? 'annuel' : `${cols.length} mois sélectionnés`} ·{' '}
+                  <span style={{ fontFamily:'monospace' }}>budget {fmt(grandTotal)}</span>
                 </div>
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                   <thead>
@@ -277,7 +282,7 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
                     </tr>
                   </thead>
                   <tbody>
-                    {budChildren.map((ch, ci) => (
+                    {kids.map((ch, ci) => (
                       <tr key={ci} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                         <td style={{ padding:'4px 8px', color:'var(--text-1)', whiteSpace:'nowrap' }}>
                           <span style={{ color:'var(--amber)', marginRight:6, opacity:0.7 }}>└</span>
@@ -296,13 +301,33 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
                     ))}
                   </tbody>
                   <tfoot>
-                    <tr style={{ borderTop:'2px solid var(--border-1)', background:'rgba(245,158,11,0.04)' }}>
-                      <td style={{ padding:'6px 8px', fontWeight:700, color:'var(--text-1)' }}>Total budget compte</td>
-                      {monthTotals.map((v, i) => (
-                        <td key={i} style={{ padding:'6px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color:'var(--amber)' }}>{v !== 0 ? fmt(v) : '—'}</td>
-                      ))}
-                      <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:'var(--amber)' }}>{fmt(grandTotal)}</td>
-                    </tr>
+                    {kids.length > 0 && (
+                      <tr style={{ borderTop:'2px solid var(--border-1)', background:'rgba(245,158,11,0.04)' }}>
+                        <td style={{ padding:'6px 8px', fontWeight:700, color:'var(--text-1)' }}>Total budget compte</td>
+                        {monthTotals.map((v, i) => (
+                          <td key={i} style={{ padding:'6px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color:'var(--amber)' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                        ))}
+                        <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:'var(--amber)' }}>{fmt(grandTotal)}</td>
+                      </tr>
+                    )}
+                    {realisedN && (
+                      <tr style={{ borderTop:'2px solid var(--border-1)' }}>
+                        <td style={{ padding:'6px 8px', fontWeight:700, color:'var(--blue)' }}>Réalisé N</td>
+                        {cols.map((c, i) => { const v = realisedN[c.idx] ?? 0; return (
+                          <td key={i} style={{ padding:'6px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: v !== 0 ? 'var(--blue)' : 'var(--text-3)' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                        )})}
+                        <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:'var(--blue)' }}>{fmt(cols.reduce((s, c) => s + (realisedN[c.idx] ?? 0), 0))}</td>
+                      </tr>
+                    )}
+                    {realisedN1 && (
+                      <tr>
+                        <td style={{ padding:'6px 8px', fontWeight:700, color:'var(--text-2)' }}>Réalisé N-1</td>
+                        {cols.map((c, i) => { const v = realisedN1[c.idx] ?? 0; return (
+                          <td key={i} style={{ padding:'6px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:500, color: v !== 0 ? 'var(--text-1)' : 'var(--text-3)' }}>{v !== 0 ? fmt(v) : '—'}</td>
+                        )})}
+                        <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:'var(--text-2)' }}>{fmt(cols.reduce((s, c) => s + (realisedN1[c.idx] ?? 0), 0))}</td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>

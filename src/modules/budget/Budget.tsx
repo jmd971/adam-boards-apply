@@ -500,7 +500,7 @@ export function Budget() {
   const [noteModal,    setNoteModal]    = useState<{ acc: string; text: string } | null>(null)
   // Détail des écritures réalisées (FEC + saisies) d'un compte du budget — ouvert au clic sur la ligne.
   // budChildren : ventilation budget (sous-comptes, ou la ligne du compte) affichée sous les écritures.
-  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number; budChildren?: { name: string; b: number[] }[]; budSelMonths?: string[] } | null>(null)
+  const [ecrModal,     setEcrModal]     = useState<{ title: string; entries: any[]; cumN: number; cumN1: number; budChildren?: { name: string; b: number[] }[]; budSelMonths?: string[]; realisedN?: number[]; realisedN1?: number[] } | null>(null)
 
   // ── Exercice fiscal de la société (règle 21) : ordre d'AFFICHAGE des 12 mois.
   // b[12] reste indexé par mois CALENDAIRE (invariant règle 17 — jan=0…déc=11) ;
@@ -931,11 +931,27 @@ export function Budget() {
     const isCharge = bv.t === 'c'
     const ents = RAW ? mergeEntries(RAW, [budCo], ecrField, acc) : []
     if (!ents.length) return
+    // Réalisé mensuel (index calendaire) depuis les totaux mensuels du compte :
+    // pn = exercice N, p1 = exercice N-1. Signe métier (charge : D−C, produit : C−D).
+    const co = RAW?.companies[budCo]
+    const monthly = (src: Record<string, any> | undefined): number[] => {
+      const out = Array(12).fill(0)
+      const mo = (src?.[acc]?.mo ?? {}) as Record<string, number[]>
+      for (const [m, v] of Object.entries(mo)) {
+        const i = parseInt(m.slice(5, 7)) - 1
+        if (i >= 0 && i < 12) out[i] += isCharge ? (v[0] - v[1]) : (v[1] - v[0])
+      }
+      return out
+    }
+    const realisedN  = monthly(co?.pn)
+    const realisedN1 = monthly(co?.p1)
+    const sum = (a: number[]) => a.reduce((s, x) => s + x, 0)
     const realN = ents.reduce((s: number, e: any) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
     const children = (bv.children ?? []) as any[]
     setEcrModal({
       title: `${acc} — ${bv.l}${hasEcrN ? '' : ' · réalisé exercice précédent'}`,
-      entries: ents, cumN: Math.round(realN), cumN1: 0,
+      entries: ents, cumN: Math.round(realN), cumN1: Math.round(sum(realisedN1)),
+      realisedN, realisedN1,
       budChildren: children.length > 0
         ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
         : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
