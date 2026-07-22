@@ -287,7 +287,14 @@ export function classifyFreq(dates: string[]): FreqLabel {
 
 // ── Moteur principal ─────────────────────────────────────────────────────────
 
-export interface MethodeOpts { today?: Date; params?: Partial<MethodeParams> }
+export interface MethodeOpts {
+  today?: Date
+  params?: Partial<MethodeParams>
+  /** Restreint l'analyse à une plage de mois (YYYY-MM) de l'exercice courant.
+   *  null/absent = exercice courant complet à date. La comparaison N-1 reste
+   *  « à même période » (mêmes numéros de mois un an plus tôt). */
+  period?: { startM: string; endM: string } | null
+}
 
 export function buildMethodeRapport(
   RAW: RAWData | null,
@@ -304,9 +311,13 @@ export function buildMethodeRapport(
   const exerciceN1 = exerciceN - 1
 
   // Période N = mois de l'exercice courant présents dans les données
-  const monthsN = (RAW.mn ?? [])
+  const monthsAll = (RAW.mn ?? [])
     .filter(m => fiscalYearOf(m, startMonth) === exerciceN)
     .filter(m => Object.values(co.pn ?? {}).some(fa => fa.mo?.[m]))
+  // Filtre de période optionnel (plage de mois de l'exercice courant).
+  const monthsN = opts.period
+    ? monthsAll.filter(m => m >= opts.period!.startM && m <= opts.period!.endM)
+    : monthsAll
   const monthsNSet = new Set(monthsN)
   if (!monthsN.length) return null
   const mmSet = new Set(monthsN.map(m => m.slice(5, 7)))   // même période sur N-1
