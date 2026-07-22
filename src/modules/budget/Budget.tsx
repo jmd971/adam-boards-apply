@@ -1390,7 +1390,7 @@ export function Budget() {
                                 ))}
                                 <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:700, position:'sticky', right:0, background:'#0a1020', zIndex:2 }}>{fmt(g.total)}</td>
                               </tr>
-                              {open && g.entries.map(e => renderAccountRow(e, true))}
+                              {open && g.entries.map((e: [string, any]) => renderAccountRow(e, true))}
                             </Fragment>
                           )
                         }
