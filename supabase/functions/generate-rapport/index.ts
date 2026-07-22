@@ -13,28 +13,32 @@ const RAPPORT_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      synthese: { type: 'string', description: '3-4 phrases : résultat N vs N-1, tendance, risques majeurs nommés' },
-      produits: { type: 'string', description: 'Analyse des produits : postes nommés, évolution vs N-1/budget, fréquence/montant moyen' },
-      charges: { type: 'string', description: 'Analyse des charges : postes qui pèsent/dérapent (nommés), fréquence, montant moyen' },
-      immobilisations: { type: ['string', 'null'], description: 'Immobilisations et impact sur amortissements, ou null si aucune' },
-      clients_analyse: { type: 'string', description: 'Délais clients : comment chaque gros client nommé impacte le délai global' },
-      fournisseurs_analyse: { type: 'string', description: 'Délais fournisseurs : comment chaque fournisseur nommé impacte le délai global' },
-      actions_clients: {
+      titre: { type: 'string', description: 'Titre en UNE phrase courte qui capte le message principal (ex : "Résultat en repli, sous l\'effet du recul des ventes").' },
+      essentiel: { type: 'array', items: { type: 'string' }, description: 'EXACTEMENT 3 messages clés à retenir, le plus important en premier. Chaque message = 1 phrase courte AVEC un chiffre.' },
+      produits: { type: 'array', items: { type: 'string' }, description: '3 à 5 puces courtes. Format : poste ou client nommé + constat chiffré (évolution vs N-1 et/ou budget). Une seule idée par puce.' },
+      charges: { type: 'array', items: { type: 'string' }, description: '3 à 5 puces courtes : postes nommés qui pèsent ou dérapent, chiffrés (vs N-1 / budget).' },
+      immobilisations: { type: ['array', 'null'], items: { type: 'string' }, description: 'Puces sur immobilisations et impact amortissements si significatif, sinon null.' },
+      delais_clients: { type: 'array', items: { type: 'string' }, description: '2 à 4 puces : délai moyen global (jours) + QUELS clients nommés tirent la moyenne (impact via contributionDelaiJours) + impayés éventuels. Chiffré.' },
+      delais_fournisseurs: { type: 'array', items: { type: 'string' }, description: '2 à 4 puces : délai moyen global fournisseurs + fournisseurs nommés qui pèsent. Chiffré.' },
+      points_forts: { type: 'array', items: { type: 'string' }, description: '2 à 4 points forts, courts et chiffrés.' },
+      alertes: { type: 'array', items: { type: 'string' }, description: '2 à 5 points de vigilance / risques, courts, chiffrés et nommés.' },
+      plan_action: {
         type: 'array',
-        items: { type: 'object', properties: { client: { type: 'string' }, constat: { type: 'string' }, action: { type: 'string' } }, required: ['client', 'constat', 'action'] },
+        description: '3 à 6 actions priorisées (priorité "haute" en premier), les plus impactantes, nominatives et concrètes.',
+        items: {
+          type: 'object',
+          properties: {
+            priorite: { type: 'string', enum: ['haute', 'moyenne', 'basse'] },
+            cible: { type: 'string', description: 'Client, fournisseur ou poste nommé concerné.' },
+            constat: { type: 'string', description: 'Constat chiffré en 1 phrase courte.' },
+            action: { type: 'string', description: 'Action concrète recommandée.' },
+            impact: { type: 'string', description: 'Impact estimé, en € si possible (ex : "+89 k€ CA", "+2 pts marge") sinon "fiabilité" / "structurel".' },
+          },
+          required: ['priorite', 'cible', 'constat', 'action'],
+        },
       },
-      actions_fournisseurs: {
-        type: 'array',
-        items: { type: 'object', properties: { fournisseur: { type: 'string' }, constat: { type: 'string' }, action: { type: 'string' } }, required: ['fournisseur', 'constat', 'action'] },
-      },
-      actions_postes: {
-        type: 'array',
-        items: { type: 'object', properties: { poste: { type: 'string' }, constat: { type: 'string' }, action: { type: 'string' } }, required: ['poste', 'constat', 'action'] },
-      },
-      points_forts: { type: 'array', items: { type: 'string' } },
-      alertes: { type: 'array', items: { type: 'string' } },
     },
-    required: ['synthese', 'produits', 'charges', 'clients_analyse', 'fournisseurs_analyse', 'actions_clients', 'actions_fournisseurs', 'actions_postes', 'points_forts', 'alertes'],
+    required: ['titre', 'essentiel', 'produits', 'charges', 'delais_clients', 'delais_fournisseurs', 'points_forts', 'alertes', 'plan_action'],
   },
 } as const
 
@@ -100,20 +104,31 @@ Deno.serve(async (req: Request) => {
 
     const anthropic = new Anthropic({ apiKey: Deno.env.get('ANTHROPIC_API_KEY')! })
 
-    const systemPrompt = `Tu es un expert-comptable qui rédige un rapport d'activité ACTIONNABLE pour un dirigeant. Tu compares l'exercice N à N-1 et au budget.
-Règles :
-- NOMME toujours les clients, fournisseurs et postes concernés (noms fournis dans les données). Jamais d'analyse anonyme.
-- Pas de jargon (pas de "DSO", "z-score"). Chiffres arrondis en euros et en jours.
-- DÉLAIS : explique comment chaque tiers nommé tire la moyenne globale (le champ contributionDelaiJours indique son impact pondéré).
-- CHARGES/PRODUITS : commente fréquence, montant moyen, poids, évolution vs N-1 et budget. Signale les dérapages.
-- IMMOBILISATIONS : impact sur les amortissements.
-- PÉRIODE : si periodeComplete=false, l'exercice N ne couvre que nbMois mois ; N-1 et budget sont déjà restreints à CETTE MÊME PÉRIODE. Précise-le (ex : \"sur les 4 premiers mois\") et ne projette pas sur l'année.
-- Chaque action concrète et nominative. Appelle l'outil rapport_activite avec ton analyse.`
+    const systemPrompt = `Tu rédiges le rapport d'activité d'une TPE/PME pour son DIRIGEANT (pas pour un comptable). Objectif : lisible en une minute, actionnable.
+
+STYLE — impératif :
+- Phrases COURTES. UNE seule idée par puce. TOUJOURS un chiffre (€ arrondis, %, jours).
+- ZÉRO jargon (jamais "DSO", "z-score", "EBE", "BFR"...). Parle cash : "ce client ne commande plus", "les achats mangent la marge".
+- NOMME les clients, fournisseurs et postes (noms fournis dans les données). Jamais d'analyse anonyme.
+- Hiérarchise par IMPACT : le plus important d'abord (dans "essentiel" et "plan_action").
+- N'invente aucun chiffre : n'utilise que les données fournies.
+
+CONTENU :
+- titre : une phrase qui résume LE message principal.
+- essentiel : 3 messages, le retournement / le chiffre clé d'abord.
+- produits / charges : puces "poste nommé : constat chiffré (vs N-1 / budget)". Signale les postes qui pèsent et les dérapages.
+- delais_clients / delais_fournisseurs : délai moyen global + QUI tire la moyenne (contributionDelaiJours) + impayés. Chiffré, nommé.
+- points_forts / alertes : courts, chiffrés, nommés.
+- plan_action : 3 à 6 actions, priorité "haute" d'abord, chacune avec un impact chiffré si possible (€ ou points de marge).
+
+PÉRIODE : si periodeComplete=false, l'analyse porte sur nbMois mois ; N-1 et budget sont déjà restreints à CETTE MÊME PÉRIODE. Dis-le (ex : "sur les 5 premiers mois") et ne projette pas sur l'année.
+
+Appelle l'outil rapport_activite.`
 
     const userPrompt = `Données de l'exercice (montants en euros, délais en jours) :\n\n${JSON.stringify(compact(rapportData), null, 2)}`
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: 'claude-sonnet-5',
       max_tokens: 4096,
       system: systemPrompt,
       tools: [RAPPORT_TOOL as any],
