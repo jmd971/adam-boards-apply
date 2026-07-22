@@ -105,6 +105,9 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
   const solde    = totalD - totalC
   const totalN   = filtered.filter(e => e[6] === 'N').reduce((s, e) => s + (e[3] - e[2]), 0)
   const totalN1  = filtered.filter(e => e[6] === 'N-1').reduce((s, e) => s + (e[3] - e[2]), 0)
+  // Moyenne mensuelle du solde = solde ÷ nombre de mois distincts ayant des écritures.
+  const nbMois     = new Set(filtered.map(e => String(e[0]).slice(0, 7)).filter(m => /^\d{4}-\d{2}$/.test(m))).size
+  const moyMensuel = nbMois > 0 ? solde / nbMois : 0
 
   const SortTh = ({ col, label, align = 'right', w }: { col: number; label: string; align?: string; w?: number }) => (
     <th onClick={() => toggleSort(col)} style={{
@@ -347,6 +350,10 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
               <span style={{ fontFamily:'monospace', fontWeight:700, color }}>{fmt2(value)}</span>
             </div>
           ))}
+          <div style={{ fontSize:11 }} title={`Solde ÷ ${nbMois} mois avec écritures`}>
+            <span style={{ color:'var(--text-2)' }}>Moy. mensuelle : </span>
+            <span style={{ fontFamily:'monospace', fontWeight:700, color: moyMensuel < 0 ? 'var(--red)' : 'var(--green)' }}>{fmt2(moyMensuel)}</span>
+          </div>
           {hasPeriod && (
             <>
               <div style={{ width:1, height:16, background:'var(--border-1)', margin:'0 4px' }} />
