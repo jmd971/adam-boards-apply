@@ -74,12 +74,15 @@ const isCharge = (acc: string) => acc.startsWith('6')
 const isProduit = (acc: string) => acc.startsWith('7')
 
 /** Solde net d'un compte FEC (charge: débit-crédit, produit: crédit-débit).
- *  monthsMM (optionnel) : ne somme que les mois dont le numéro (MM) est dans le set
- *  → comparaison « à même période » (N-1 restreint aux mois disponibles de N). */
-function soldeFec(fa: FecAccount, charge: boolean, monthsMM?: Set<string>): number {
+ *  monthsMM (optionnel)   : ne somme que les mois dont le numéro (MM) est dans le set
+ *                           → comparaison « à même période » (N-1 restreint aux mois de N).
+ *  monthsFull (optionnel) : ne somme que les mois (YYYY-MM) présents dans le set
+ *                           → restriction du côté N à une plage de mois choisie. */
+function soldeFec(fa: FecAccount, charge: boolean, monthsMM?: Set<string>, monthsFull?: Set<string>): number {
   let d = 0, c = 0
   for (const [m, v] of Object.entries(fa.mo)) {
     if (monthsMM && !monthsMM.has(m.slice(5, 7))) continue
+    if (monthsFull && !monthsFull.has(m)) continue
     d += v[0]; c += v[1]
   }
   return charge ? d - c : c - d
@@ -100,6 +103,7 @@ function aggregateAccounts(
   charge: boolean,
   monthsMM: Set<string>,      // mois (MM) disponibles dans N → période de comparaison
   budgetIdx: Set<number>,     // index fiscaux (0-11) correspondants pour le budget
+  restrictN: Set<string> | null, // plage de mois (YYYY-MM) côté N, ou null = pas de restriction
 ): { detail: CompteLigne[]; familles: CompteLigne[]; totalN: number; totalN1: number; totalBudget: number } {
   // acc -> { totalN, totalN1, budget, freq, label }
   const map = new Map<string, { totalN: number; totalN1: number; budget: number; freq: number; label: string }>()
@@ -109,8 +113,10 @@ function aggregateAccounts(
     for (const [acc, fa] of Object.entries(co.pn ?? {})) {
       if (!predicate(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
-      e.totalN += soldeFec(fa, charge)
-      e.freq   += fa.e?.length ?? 0
+      e.totalN += soldeFec(fa, charge, undefined, restrictN ?? undefined)
+      e.freq   += restrictN
+        ? (fa.e?.filter(en => restrictN.has(((en[0] as string) || '').slice(0, 7))).length ?? 0)
+        : (fa.e?.length ?? 0)
       if (!e.label) e.label = fa.l
       map.set(acc, e)
     }
@@ -208,11 +214,13 @@ function aggregateBilan(
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
 
-export function useRapportData(): RapportData | null {
+export function useRapportData(period?: { startM: string; endM: string } | null): RapportData | null {
   const RAW            = useAppStore(s => s.RAW)
   const manualEntries  = useAppStore(s => s.manualEntries)
   const fiscalSettings = useAppStore(s => s.fiscalSettings)
   const filters        = useAppStore(s => s.filters)
+  const startM = period?.startM ?? ''
+  const endM   = period?.endM ?? ''
 
   return useMemo(() => {
     if (!RAW || RAW.keys.length === 0) return null
@@ -230,8 +238,14 @@ export function useRapportData(): RapportData | null {
     // ── Période de comparaison « à même période » ─────────────────────────
     // N est souvent incomplet (ex : jan→avr). On restreint N-1 et le budget aux
     // mêmes mois pour une comparaison juste (sinon 4 mois de N vs 12 mois de N-1).
-    const monthsN = (RAW.mn ?? []).filter(m =>
+    const monthsAll = (RAW.mn ?? []).filter(m =>
       companyKeys.some(k => fiscalYearOf(m, fiscalSettings[k] ?? startMonth) === exerciceN))
+    // Filtre de période optionnel (plage de mois de l'exercice courant).
+    const monthsN = (startM && endM)
+      ? monthsAll.filter(m => m >= startM && m <= endM)
+      : monthsAll
+    // Côté N : on ne restreint aux mois choisis que si une plage est active.
+    const restrictN = (startM && endM) ? new Set(monthsN) : null
     const monthsMM = new Set(monthsN.map(m => m.slice(5, 7)))
     const budgetIdx = new Set(monthsN.map(m => fiscalMonthIndex(m, startMonth)))
     // Garde-fou : si on ne détecte aucun mois (données atypiques), pas de restriction.
@@ -240,15 +254,15 @@ export function useRapportData(): RapportData | null {
     const periodeComplete = safeMM.size >= 12
 
     // ── P&L : produits / charges ──────────────────────────────────────────
-    const prod    = aggregateAccounts(companies, isProduit, false, safeMM, safeIdx)
-    const charges = aggregateAccounts(companies, isCharge, true, safeMM, safeIdx)
+    const prod    = aggregateAccounts(companies, isProduit, false, safeMM, safeIdx, restrictN)
+    const charges = aggregateAccounts(companies, isCharge, true, safeMM, safeIdx, restrictN)
 
     // ── Bilan : immobilisations (20/21/23, hors 28) & amortissements ──────
     const immobilisations = aggregateBilan(companies, acc =>
       acc.startsWith('2') && !acc.startsWith('28'))
     // Amortissements : cumul bilan 28x + dotations P&L 68x
     const amortBilan = aggregateBilan(companies, acc => acc.startsWith('28'))
-    const amortPL    = aggregateAccounts(companies, acc => acc.startsWith('68'), true, safeMM, safeIdx).detail
+    const amortPL    = aggregateAccounts(companies, acc => acc.startsWith('68'), true, safeMM, safeIdx, restrictN).detail
     const amortissements = [...amortBilan, ...amortPL]
       .sort((a, b) => Math.abs(b.totalN) - Math.abs(a.totalN))
 
@@ -439,5 +453,5 @@ export function useRapportData(): RapportData | null {
       delaiMoyenClientGlobal: clientsRes.globalDelai,
       delaiMoyenFournGlobal: fournRes.globalDelai,
     }
-  }, [RAW, manualEntries, fiscalSettings, filters.selCo])
+  }, [RAW, manualEntries, fiscalSettings, filters.selCo, startM, endM])
 }

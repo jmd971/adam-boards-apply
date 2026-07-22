@@ -3,10 +3,14 @@ import { sb } from '@/lib/supabase'
 import { useAppStore, useTenantId } from '@/store'
 import { Spinner } from '@/components/ui'
 import { useRapportData, type CompteLigne, type TiersDelai } from '@/hooks/useRapportData'
+import { currentFiscalYear, fiscalYearOf, monthLabel } from '@/lib/calc'
 import { RapportTheme1 } from './RapportTheme1'
 import { RapportMethode } from './RapportMethode'
 
 const RAPPORT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-rapport`
+
+/** Plage de mois (YYYY-MM) de l'exercice courant, ou null = exercice complet à date. */
+type Period = { startM: string; endM: string } | null
 
 interface ActionTiers { client?: string; fournisseur?: string; poste?: string; constat: string; action: string }
 interface RapportIA {
@@ -23,18 +27,35 @@ interface RapportIA {
   alertes: string[]
 }
 
-const eur = (n: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Math.round(n)) + ' €'
+// Séparateur de milliers visible : espace insécable normale (U+00A0), + avant le €.
+const NBSP = String.fromCharCode(0x00a0)
+const eur = (n: number) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(Math.round(n)).replace(/[\u202f\u2009\u00a0]/g, NBSP) + NBSP + '€'
 const jour = (n: number | null) => n != null ? `${Math.round(n)} j` : '—'
 const pct = (n: number | null) => n != null ? `${n >= 0 ? '+' : ''}${Math.round(n)} %` : '—'
 const varColor = (n: number | null, inverse = false) => n == null ? 'var(--text-3)' : (inverse ? n > 0 : n < 0) ? '#10b981' : (inverse ? n < 0 : n > 0) ? '#ef4444' : 'var(--text-2)'
 
 export function Rapport() {
-  const data       = useRapportData()
   const tenantId   = useTenantId()
   const filters    = useAppStore(s => s.filters)
+  const RAW            = useAppStore(s => s.RAW)
+  const fiscalSettings = useAppStore(s => s.fiscalSettings)
   const [loading, setLoading] = useState(false)
   const [rapport, setRapport] = useState<RapportIA | null>(null)
   const [error, setError]     = useState<string | null>(null)
+  const [period, setPeriod]   = useState<Period>(null)
+
+  const data = useRapportData(period)
+
+  // Mois de l'exercice courant présents dans les données → options du sélecteur.
+  const availableMonths = useMemo(() => {
+    if (!RAW) return [] as string[]
+    const keys = (filters.selCo && filters.selCo.length > 0 ? filters.selCo : RAW.keys).filter(k => RAW.companies[k])
+    const startMonth = fiscalSettings[keys[0]] ?? 1
+    const exN = currentFiscalYear(startMonth)
+    return (RAW.mn ?? [])
+      .filter(m => keys.some(k => fiscalYearOf(m, fiscalSettings[k] ?? startMonth) === exN))
+      .sort()
+  }, [RAW, filters.selCo, fiscalSettings])
 
   const companyKey = useMemo(
     () => (filters.selCo && filters.selCo.length > 0 ? filters.selCo[0] : data?.companyKeys[0] ?? 'all'),
@@ -109,6 +130,9 @@ export function Rapport() {
         </div>
       )}
 
+      {/* Sélecteur de période — pilote les KPIs et la Méthode AdamBoards */}
+      <PeriodPicker months={availableMonths} period={period} onChange={setPeriod} />
+
       {/* KPIs */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:14, marginBottom:24 }}>
         <Kpi label={`Résultat ${data.exerciceN}`} value={eur(data.resultatN)} sub={`${data.exerciceN1} : ${eur(data.resultatN1)} (${pct(resVar)})`} accent={data.resultatN >= 0 ? '#10b981' : '#ef4444'} />
@@ -119,7 +143,7 @@ export function Rapport() {
       </div>
 
       {/* Méthode AdamBoards (β) — analyse descendante résultat → écritures */}
-      <RapportMethode />
+      <RapportMethode period={period} />
 
       {/* Rapport par thèmes (β) — Thème 1 : le résultat */}
       <RapportTheme1 />
@@ -171,6 +195,62 @@ export function Rapport() {
           .rapport-actions, .sidebar-wrapper { display: none !important; }
         }
       `}</style>
+    </div>
+  )
+}
+
+function PeriodPicker({ months, period, onChange }: { months: string[]; period: Period; onChange: (p: Period) => void }) {
+  if (!months.length) return null
+  const last = months[months.length - 1]
+  const first = months[0]
+  const n = months.length
+
+  const presets: { label: string; value: Period }[] = [
+    { label: 'Exercice complet', value: null },
+    ...(n > 6 ? [{ label: '6 derniers mois', value: { startM: months[n - 6], endM: last } as Period }] : []),
+    ...(n > 3 ? [{ label: '3 derniers mois', value: { startM: months[n - 3], endM: last } as Period }] : []),
+    ...(n > 1 ? [{ label: 'Mois en cours', value: { startM: last, endM: last } as Period }] : []),
+  ]
+  const isActive = (v: Period) =>
+    v === null ? period === null : (period != null && period.startM === v.startM && period.endM === v.endM)
+
+  const curStart = period?.startM ?? first
+  const curEnd   = period?.endM ?? last
+  const onStart = (v: string) => onChange({ startM: v, endM: v > curEnd ? v : curEnd })
+  const onEnd   = (v: string) => onChange({ startM: v < curStart ? v : curStart, endM: v })
+
+  const selStyle: React.CSSProperties = {
+    background: 'rgba(255,255,255,0.05)', color: 'var(--text-1)', border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: 8, padding: '5px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 20 }}>
+      <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginRight: 2 }}>Période :</span>
+      {presets.map((p, i) => {
+        const on = isActive(p.value)
+        return (
+          <button key={i} onClick={() => onChange(p.value)}
+            style={{
+              fontSize: 11.5, fontWeight: 700, cursor: 'pointer', borderRadius: 8, padding: '5px 11px',
+              color: on ? '#0b1220' : 'var(--text-1)',
+              background: on ? '#3b82f6' : 'rgba(255,255,255,0.04)',
+              border: `1px solid ${on ? '#3b82f6' : 'rgba(255,255,255,0.12)'}`,
+            }}>
+            {p.label}
+          </button>
+        )
+      })}
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 4 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-3)' }}>du</span>
+        <select value={curStart} onChange={e => onStart(e.target.value)} style={selStyle}>
+          {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+        </select>
+        <span style={{ fontSize: 11, color: 'var(--text-3)' }}>au</span>
+        <select value={curEnd} onChange={e => onEnd(e.target.value)} style={selStyle}>
+          {months.map(m => <option key={m} value={m}>{monthLabel(m)}</option>)}
+        </select>
+      </span>
     </div>
   )
 }
