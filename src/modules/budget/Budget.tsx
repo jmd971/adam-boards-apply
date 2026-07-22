@@ -7,6 +7,16 @@ import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
+// Palette « Option A » — lisibilité : montants en blanc, couleur = structure.
+const C_NUM    = '#e8edf5'   // montants détaillés (blanc cassé, contraste max)
+const C_AGG    = '#f1f5f9'   // agrégats (parents / groupes) — blanc franc
+const C_ZERO   = '#3a4658'   // zéro « — » (discret)
+const C_TOTAL  = '#8fc0ff'   // total annuel (bleu)
+const C_CHG    = '#ff8b8b'   // charges (bandes / pied)
+const C_PRD    = '#45d38a'   // produits (bandes / pied)
+const C_NEG    = '#ff6b6b'   // valeur négative
+const C_CUMUL  = '#b9a6ff'   // résultat cumulé
+
 // Cellule de budget : montant formaté en LECTURE, champ de saisie au CLIC.
 // Commit sur blur / Entrée ; Échap annule. Fini le mur de champs illisibles.
 function EditableCell({ value, color, onCommit }: { value: number; color: string; onCommit: (v: string) => void }) {
@@ -29,7 +39,7 @@ function EditableCell({ value, color, onCommit }: { value: number; color: string
   return (
     <div className="bud-cell" onClick={() => { setDraft(value ? String(value) : ''); setEditing(true) }}
       title="Cliquer pour modifier"
-      style={{ ...box, cursor: 'text', border: '1px solid transparent', color: value === 0 ? '#475569' : color }}>
+      style={{ ...box, cursor: 'text', border: '1px solid transparent', color: value === 0 ? C_ZERO : value < 0 ? C_NEG : color }}>
       {value === 0 ? '—' : fmt(value)}
     </div>
   )
@@ -1238,9 +1248,9 @@ export function Budget() {
                 )
                 return (
                   <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:10, marginBottom:14 }}>
-                    <Card label="Produits budgétés" val={pT} color="#34d399" />
-                    <Card label="Charges budgétées" val={cT} color="#f87171" />
-                    <Card label="Résultat prévisionnel" val={rT} color={rT < 0 ? '#f87171' : '#5b9dff'} />
+                    <Card label="Produits budgétés" val={pT} color={C_PRD} />
+                    <Card label="Charges budgétées" val={cT} color={C_CHG} />
+                    <Card label="Résultat prévisionnel" val={rT} color={rT < 0 ? C_NEG : C_TOTAL} />
                   </div>
                 )
               })()}
@@ -1270,7 +1280,7 @@ export function Budget() {
                         {monthOrder.map(ci => (
                           <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:64, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>{MONTHS_SHORT[ci]}</th>
                         ))}
-                        <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, right:0, background:'#0a0f1a', zIndex:7 }}>Total</th>
+                        <th style={{ padding:'8px 10px', textAlign:'right', color:C_TOTAL, fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, right:0, background:'#0a0f1a', zIndex:7 }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1322,16 +1332,16 @@ export function Budget() {
                             {monthOrder.map(fi => (
                               <td key={fi} style={{ padding:'2px 2px' }}>
                                 {hasChildren ? (
-                                  <div style={{ ...inputBase, textAlign:'right', color:'#8b5cf6', background:'transparent', border:'1px solid transparent', width:'100%', boxSizing:'border-box' }}>
+                                  <div style={{ ...inputBase, textAlign:'right', color:(bv.b?.[fi] ?? 0) === 0 ? C_ZERO : C_AGG, fontWeight:600, background:'transparent', border:'1px solid transparent', width:'100%', boxSizing:'border-box' }}>
                                     {(bv.b?.[fi] ?? 0) === 0 ? '—' : fmt(bv.b?.[fi] ?? 0)}
                                   </div>
                                 ) : (
-                                  <EditableCell value={bv.b?.[fi] ?? 0} color={isCharge ? '#fca5a5' : '#6ee7b7'}
+                                  <EditableCell value={bv.b?.[fi] ?? 0} color={C_NUM}
                                     onCommit={v => handleCell(acc, fi, v)} />
                                 )}
                               </td>
                             ))}
-                            <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
+                            <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color: total < 0 ? C_NEG : C_TOTAL, fontWeight:700, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
                               {fmt(total)}
                             </td>
                           </tr>
@@ -1353,11 +1363,11 @@ export function Budget() {
                               </td>
                               {monthOrder.map(fi => (
                                 <td key={fi} style={{ padding:'2px 2px' }}>
-                                  <EditableCell value={ch.b?.[fi] ?? 0} color={isCharge ? '#fca5a5' : '#6ee7b7'}
+                                  <EditableCell value={ch.b?.[fi] ?? 0} color={C_NUM}
                                     onCommit={v => handleChildCell(acc, ci, fi, v)} />
                                 </td>
                               ))}
-                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8', fontSize:10, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
+                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:C_TOTAL, fontSize:10, fontWeight:600, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
                                 {fmt((ch.b ?? []).reduce((s: number, x: number) => s + (x||0), 0))}
                               </td>
                             </tr>
@@ -1386,9 +1396,9 @@ export function Budget() {
                                   </div>
                                 </td>
                                 {monthOrder.map(fi => (
-                                  <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color:'#8b5cf6' }}>{g.b[fi] !== 0 ? fmt(g.b[fi]) : '—'}</td>
+                                  <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: g.b[fi] === 0 ? C_ZERO : (g.b[fi] < 0 ? C_NEG : C_AGG) }}>{g.b[fi] !== 0 ? fmt(g.b[fi]) : '—'}</td>
                                 ))}
-                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:700, position:'sticky', right:0, background:'#0a1020', zIndex:2 }}>{fmt(g.total)}</td>
+                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color: g.total < 0 ? C_NEG : C_TOTAL, fontWeight:700, position:'sticky', right:0, background:'#0a1020', zIndex:2 }}>{fmt(g.total)}</td>
                               </tr>
                               {open && g.entries.map((e: [string, any]) => renderAccountRow(e, true))}
                             </Fragment>
@@ -1405,7 +1415,7 @@ export function Budget() {
                               <tr style={{ background: bg, borderTop: '2px solid rgba(255,255,255,0.1)' }}>
                                 <td style={{ padding:'6px 10px', position:'sticky', left:0, background:bg, zIndex:2, width:150, minWidth:150, maxWidth:150, boxShadow:`inset 3px 0 0 ${color}`, fontWeight:800, letterSpacing:'0.05em', color, fontSize:11, textTransform:'uppercase' }}>{label}</td>
                                 {monthOrder.map(fi => (
-                                  <td key={fi} style={{ padding:'6px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:700, color: sub[fi] === 0 ? '#475569' : color }}>{sub[fi] === 0 ? '—' : fmt(sub[fi])}</td>
+                                  <td key={fi} style={{ padding:'6px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:700, color: sub[fi] === 0 ? C_ZERO : color }}>{sub[fi] === 0 ? '—' : fmt(sub[fi])}</td>
                                 ))}
                                 <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:800, color, position:'sticky', right:0, background:bg, zIndex:2 }}>{fmt(subTotal)}</td>
                               </tr>
@@ -1415,18 +1425,18 @@ export function Budget() {
                         }
                         return (
                           <>
-                            {section(groups.filter(g => g.isCharge), 'Charges', '#f87171')}
-                            {section(groups.filter(g => !g.isCharge), 'Produits', '#34d399')}
+                            {section(groups.filter(g => g.isCharge), 'Charges', C_CHG)}
+                            {section(groups.filter(g => !g.isCharge), 'Produits', C_PRD)}
                           </>
                         )
                       })()}
                     </tbody>
                     <tfoot>
                       {[
-                        { label:'📥 Total produits',  row:totals.produits, color:'#10b981', isCumul:false },
-                        { label:'📤 Total charges',   row:totals.charges,  color:'#ef4444', isCumul:false },
-                        { label:'💰 Résultat',        row:totals.result,   color:'#3b82f6', isCumul:false },
-                        { label:'📊 Résultat cumulé', row:totals.cumul,    color:'#8b5cf6', isCumul:true  },
+                        { label:'📥 Total produits',  row:totals.produits, color:C_PRD,   isCumul:false },
+                        { label:'📤 Total charges',   row:totals.charges,  color:C_CHG,   isCumul:false },
+                        { label:'💰 Résultat',        row:totals.result,   color:C_TOTAL, isCumul:false },
+                        { label:'📊 Résultat cumulé', row:totals.cumul,    color:C_CUMUL, isCumul:true  },
                       ].map(({ label, row, color, isCumul }) => {
                         // Cumul : le total = dernier mois de l'EXERCICE (Mar pour Avr→Mar), pas Déc.
                         const grandTotal = isCumul ? (row[monthOrder[11]] ?? 0) : row.reduce((s,x)=>s+x,0)
@@ -1436,10 +1446,10 @@ export function Budget() {
                           <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12, position:'sticky', left:0, background:stickyBg, zIndex:2, width:150, minWidth:150, maxWidth:150, whiteSpace:'nowrap' }}>{label}</td>
                           {monthOrder.map(ci => (
                             <td key={ci} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
-                              color: row[ci]<0 ? '#ef4444' : color }}>{fmt(row[ci])}</td>
+                              color: row[ci]<0 ? C_NEG : color }}>{fmt(row[ci])}</td>
                           ))}
                           <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, position:'sticky', right:0, background:stickyBg, zIndex:2,
-                            color: grandTotal<0 ? '#ef4444':color }}>
+                            color: grandTotal<0 ? C_NEG:color }}>
                             {fmt(grandTotal)}
                           </td>
                         </tr>
