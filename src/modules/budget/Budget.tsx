@@ -918,6 +918,31 @@ export function Budget() {
   }, [accounts])
   const [grpOpen, setGrpOpen] = useState<Record<string, boolean>>({})
 
+  // Menu d'actions par ligne (compte ou sous-compte), ouvert au clic sur « ⋯ ».
+  const [menu, setMenu] = useState<{ acc: string; ci?: number; x: number; y: number } | null>(null)
+  const openMenu = (e: React.MouseEvent, acc: string, ci?: number) => {
+    e.stopPropagation()
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    setMenu({ acc, ci, x: Math.max(8, Math.min(r.left, window.innerWidth - 260)), y: r.bottom + 4 })
+  }
+  const openEcritures = (acc: string) => {
+    const bv = coBud[acc] as any
+    if (!bv) return
+    const isCharge = bv.t === 'c'
+    const ents = RAW ? mergeEntries(RAW, [budCo], ecrField, acc) : []
+    if (!ents.length) return
+    const realN = ents.reduce((s: number, e: any) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
+    const children = (bv.children ?? []) as any[]
+    setEcrModal({
+      title: `${acc} — ${bv.l}${hasEcrN ? '' : ' · réalisé exercice précédent'}`,
+      entries: ents, cumN: Math.round(realN), cumN1: 0,
+      budChildren: children.length > 0
+        ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
+        : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
+      budSelMonths: exerciseMonths,
+    })
+  }
+
   if (!RAW) return (
     <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
   )
@@ -930,9 +955,9 @@ export function Budget() {
   return (
     <div style={{ padding: '16px 24px' }}>
       <style>{`
-        .bud-acts{ opacity:0; transition:opacity .12s; }
-        tr:hover .bud-acts{ opacity:1; }
         .bud-cell:hover{ background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1) !important; }
+        .bud-kebab:hover{ background:rgba(255,255,255,0.1) !important; color:#e2e8f0 !important; }
+        .bud-mi:hover{ background:rgba(255,255,255,0.07); }
       `}</style>
 
       {/* Company selector */}
@@ -1276,7 +1301,7 @@ export function Budget() {
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                     <thead>
                       <tr>
-                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, width:150, minWidth:150, maxWidth:150, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, top:0, background:'#0a0f1a', zIndex:8 }}>Compte</th>
+                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:280, whiteSpace:'nowrap', borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, top:0, background:'#0a0f1a', zIndex:8 }}>Compte</th>
                         {monthOrder.map(ci => (
                           <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:64, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>{MONTHS_SHORT[ci]}</th>
                         ))}
@@ -1293,40 +1318,17 @@ export function Budget() {
                         const hasChildren = children.length > 0
                         const total = (bv.b ?? []).reduce((s: number, x: number) => s + x, 0)
                         const isCharge = bv.t === 'c'
-                        // Écritures réalisées (FEC + saisies) → modal au clic. Exercice N,
-                        // ou repli sur l'exercice précédent si N est vide (cf. ecrField).
-                        const ents = RAW ? mergeEntries(RAW, [budCo], ecrField, acc) : []
-                        const realN = ents.reduce((s: number, e: any) => s + (isCharge ? (e[2] as number) - (e[3] as number) : (e[3] as number) - (e[2] as number)), 0)
                         return (
                           <Fragment key={acc}>
                           <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
-                            <td style={{ padding: indent ? '3px 8px 3px 22px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, width:150, minWidth:150, maxWidth:150, boxShadow:`inset 3px 0 0 ${isCharge ? 'rgba(248,113,113,0.35)' : 'rgba(52,211,153,0.35)'}` }}>
-                              <div style={{ position:'relative', display:'flex', alignItems:'center', overflow:'hidden' }}>
-                                {indent && <span style={{ color:'#475569', marginRight:4, fontSize:11, flexShrink:0 }}>└</span>}
-                                <span
-                                  onClick={ents.length > 0 ? () => setEcrModal({
-                                    title: `${acc} — ${bv.l}${hasEcrN ? '' : ' · réalisé exercice précédent'}`, entries: ents, cumN: Math.round(realN), cumN1: 0,
-                                    budChildren: children.length > 0
-                                      ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
-                                      : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
-                                    budSelMonths: exerciseMonths,
-                                  }) : undefined}
-                                  title={`${acc} — ${bv.l}${ents.length > 0 ? ' · voir les écritures réalisées' : ''}`}
-                                  style={{ cursor: ents.length > 0 ? 'pointer' : 'default', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }}>
-                                  <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
-                                  <span>{bv.l}</span>
-                                </span>
-                                <span className="bud-acts" style={{ position:'absolute', right:0, top:'50%', transform:'translateY(-50%)', display:'inline-flex', alignItems:'center', gap:4, background:'#080d1a', paddingLeft:8, boxShadow:'-12px 0 8px -4px #080d1a' }}>
-                                  {ents.length > 0 && <span title={`${ents.length} écritures réalisées`} style={{ fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
-                                  {!hasChildren && (
-                                    <button onClick={() => openFillModal(acc)} title="Recopier un montant sur plusieurs mois"
-                                      style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>↻</button>
-                                  )}
-                                  <button onClick={() => addChild(acc)} title="Ajouter un sous-compte (ex : OpenAI, Claude…)"
-                                    style={{ background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>＋</button>
-                                  <button onClick={() => setNoteModal({ acc, text: bv.note ?? '' })} title={bv.note ? bv.note : 'Ajouter une hypothèse / un commentaire'}
-                                    style={{ background: bv.note ? 'rgba(245,158,11,0.12)' : 'transparent', border:`1px solid ${bv.note ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: bv.note ? '#f59e0b' : '#64748b', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>💬</button>
-                                </span>
+                            <td style={{ padding: indent ? '3px 10px 3px 20px' : '3px 12px', position:'sticky', left:0, background:'#080d1a', zIndex:1, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${isCharge ? 'rgba(248,113,113,0.35)' : 'rgba(52,211,153,0.35)'}` }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                {indent && <span style={{ color:'#475569', fontSize:11, flexShrink:0 }}>└</span>}
+                                <span style={{ fontFamily:'monospace', color:'#5a6b85', flexShrink:0 }}>{acc}</span>
+                                <span style={{ color:'#cbd5e1' }}>{bv.l}</span>
+                                {bv.note && <span title={bv.note} style={{ fontSize:9.5, color:'#f5a524', background:'rgba(245,165,36,0.12)', border:'1px solid rgba(245,165,36,0.35)', borderRadius:6, padding:'1px 6px', flexShrink:0 }}>💬 Hypothèse</span>}
+                                <button className="bud-kebab" onClick={e => openMenu(e, acc)} title="Actions"
+                                  style={{ marginLeft:'auto', flexShrink:0, width:24, height:22, borderRadius:6, border:'1px solid rgba(255,255,255,0.1)', background: (menu?.acc === acc && menu?.ci == null) ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.03)', color:'#94a3b8', cursor:'pointer', fontSize:15, lineHeight:1, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>⋯</button>
                               </div>
                             </td>
                             {monthOrder.map(fi => (
@@ -1347,18 +1349,14 @@ export function Budget() {
                           </tr>
                           {children.map((ch, ci) => (
                             <tr key={ci} style={{ borderBottom: ci === children.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none', background:'rgba(139,92,246,0.03)' }}>
-                              <td style={{ padding: indent ? '2px 8px 2px 30px' : '2px 8px 2px 22px', position:'sticky', left:0, background:'#080d1a', zIndex:1, width:150, minWidth:150, maxWidth:150 }}>
-                                <div style={{ position:'relative', display:'flex', alignItems:'center', overflow:'hidden' }}>
-                                  <span style={{ color:'#a78bfa', marginRight:4, fontSize:11, flexShrink:0 }}>└</span>
-                                  <input type="text" value={ch.name} placeholder="Sous-compte"
+                              <td style={{ padding: indent ? '2px 10px 2px 26px' : '2px 10px 2px 20px', position:'sticky', left:0, background:'#080d1a', zIndex:1, minWidth:280, whiteSpace:'nowrap' }}>
+                                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                                  <span style={{ color:'#a78bfa', fontSize:11, flexShrink:0 }}>└</span>
+                                  <input type="text" value={ch.name} placeholder="Nom du sous-compte (ex : OpenAI)"
                                     onChange={e => renameChild(acc, ci, e.target.value)}
-                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', minWidth:0, flex:1 }} />
-                                  <span className="bud-acts" style={{ position:'absolute', right:0, top:'50%', transform:'translateY(-50%)', display:'inline-flex', alignItems:'center', gap:4, background:'#080d1a', paddingLeft:8, boxShadow:'-12px 0 8px -4px #080d1a' }}>
-                                    <button onClick={() => openFillModal(acc, ci)} title="Recopier un montant sur plusieurs mois"
-                                      style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>↻</button>
-                                    <button onClick={() => removeChild(acc, ci)} title="Supprimer ce sous-compte"
-                                      style={{ background:'transparent', border:'none', color:'#64748b', cursor:'pointer', fontSize:11 }}>✕</button>
-                                  </span>
+                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', width:220 }} />
+                                  <button className="bud-kebab" onClick={e => openMenu(e, acc, ci)} title="Actions"
+                                    style={{ marginLeft:'auto', flexShrink:0, width:24, height:22, borderRadius:6, border:'1px solid rgba(255,255,255,0.1)', background: (menu?.acc === acc && menu?.ci === ci) ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.03)', color:'#94a3b8', cursor:'pointer', fontSize:15, lineHeight:1, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>⋯</button>
                                 </div>
                               </td>
                               {monthOrder.map(fi => (
@@ -1387,11 +1385,11 @@ export function Budget() {
                             <Fragment key={g.root}>
                               <tr onClick={() => setGrpOpen(p => ({ ...p, [g.root]: !open }))}
                                 style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)', cursor:'pointer' }}>
-                                <td style={{ padding:'5px 10px', position:'sticky', left:0, background:'#0a1020', zIndex:1, width:150, minWidth:150, maxWidth:150, boxShadow:`inset 3px 0 0 ${g.isCharge ? 'rgba(248,113,113,0.5)' : 'rgba(52,211,153,0.5)'}` }}>
-                                  <div style={{ display:'flex', alignItems:'center', overflow:'hidden', gap:2 }}>
+                                <td style={{ padding:'5px 10px', position:'sticky', left:0, background:'#0a1020', zIndex:1, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${g.isCharge ? 'rgba(248,113,113,0.5)' : 'rgba(52,211,153,0.5)'}` }}>
+                                  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                                     <span style={{ width:12, color:'#64748b', fontSize:9, flexShrink:0 }}>{open ? '▾' : '▸'}</span>
-                                    <span style={{ fontFamily:'monospace', color:'#94a3b8', fontWeight:700, marginRight:4, flexShrink:0 }}>{g.root}</span>
-                                    <span style={{ color:'#cbd5e1', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }} title={label}>{label}</span>
+                                    <span style={{ fontFamily:'monospace', color:'#94a3b8', fontWeight:700, flexShrink:0 }}>{g.root}</span>
+                                    <span style={{ color:'#cbd5e1', fontWeight:600 }}>{label}</span>
                                     <span style={{ fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10, flexShrink:0 }} title={`${g.entries.length} comptes`}>{g.entries.length}</span>
                                   </div>
                                 </td>
@@ -1413,7 +1411,7 @@ export function Budget() {
                           return (
                             <Fragment key={label}>
                               <tr style={{ background: bg, borderTop: '2px solid rgba(255,255,255,0.1)' }}>
-                                <td style={{ padding:'6px 10px', position:'sticky', left:0, background:bg, zIndex:2, width:150, minWidth:150, maxWidth:150, boxShadow:`inset 3px 0 0 ${color}`, fontWeight:800, letterSpacing:'0.05em', color, fontSize:11, textTransform:'uppercase' }}>{label}</td>
+                                <td style={{ padding:'6px 10px', position:'sticky', left:0, background:bg, zIndex:2, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${color}`, fontWeight:800, letterSpacing:'0.05em', color, fontSize:11, textTransform:'uppercase' }}>{label}</td>
                                 {monthOrder.map(fi => (
                                   <td key={fi} style={{ padding:'6px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:700, color: sub[fi] === 0 ? C_ZERO : color }}>{sub[fi] === 0 ? '—' : fmt(sub[fi])}</td>
                                 ))}
@@ -1443,7 +1441,7 @@ export function Budget() {
                         const stickyBg = isCumul ? '#14162a' : '#0d121d'
                         return (
                         <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
-                          <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12, position:'sticky', left:0, background:stickyBg, zIndex:2, width:150, minWidth:150, maxWidth:150, whiteSpace:'nowrap' }}>{label}</td>
+                          <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12, position:'sticky', left:0, background:stickyBg, zIndex:2, minWidth:280, whiteSpace:'nowrap' }}>{label}</td>
                           {monthOrder.map(ci => (
                             <td key={ci} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
                               color: row[ci]<0 ? C_NEG : color }}>{fmt(row[ci])}</td>
@@ -1471,6 +1469,35 @@ export function Budget() {
           )}
         </div>
       </div>
+
+      {menu && (() => {
+        const bv = coBud[menu.acc] as any
+        if (!bv) return null
+        const isChild = menu.ci != null
+        const hasChildren = ((bv.children ?? []) as any[]).length > 0
+        const ents = RAW ? mergeEntries(RAW, [budCo], ecrField, menu.acc) : []
+        const close = () => setMenu(null)
+        const Item = ({ icon, label, extra, danger, onClick }: { icon: string; label: string; extra?: string; danger?: boolean; onClick: () => void }) => (
+          <div className="bud-mi" onClick={() => { onClick(); close() }}
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:7, fontSize:13, color: danger ? '#ff9d9d' : '#cbd5e1', cursor:'pointer' }}>
+            <span style={{ width:18, textAlign:'center' }}>{icon}</span>
+            <span>{label}</span>
+            {extra && <span style={{ marginLeft:'auto', fontSize:11, color:'#64748b' }}>{extra}</span>}
+          </div>
+        )
+        return (
+          <>
+            <div onClick={close} style={{ position:'fixed', inset:0, zIndex:200 }} />
+            <div style={{ position:'fixed', top:menu.y, left:menu.x, zIndex:201, background:'#0d1424', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:6, minWidth:238, boxShadow:'0 14px 44px rgba(0,0,0,0.55)' }}>
+              {!isChild && ents.length > 0 && <Item icon="📄" label="Voir les écritures réalisées" extra={`${ents.length} éc.`} onClick={() => openEcritures(menu.acc)} />}
+              {!isChild && <Item icon="＋" label="Ajouter un sous-compte" onClick={() => addChild(menu.acc)} />}
+              {(isChild || !hasChildren) && <Item icon="↻" label="Recopier un montant…" onClick={() => openFillModal(menu.acc, isChild ? menu.ci : undefined)} />}
+              {!isChild && <Item icon="💬" label={bv.note ? "Modifier l'hypothèse" : "Ajouter une hypothèse"} onClick={() => setNoteModal({ acc: menu.acc, text: bv.note ?? '' })} />}
+              {isChild && <Item icon="🗑" label="Supprimer le sous-compte" danger onClick={() => removeChild(menu.acc, menu.ci as number)} />}
+            </div>
+          </>
+        )
+      })()}
 
       {fillModal && (() => {
         const positions = computeFillPositions(fillModal.startM, fillModal.count, fillModal.freq)
