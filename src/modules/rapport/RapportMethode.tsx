@@ -130,12 +130,15 @@ export function RapportMethode({ period }: { period?: { startM: string; endM: st
         </div>
       )}
 
-      {/* Niveau 0 — cadrage : le résultat net en 3 grandeurs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 16 }}>
-        <MiniKpi label={`Résultat ${d.exerciceN}`} value={eur(d.resultatN)} sub={`${d.exerciceN1} même période : ${eur(d.resultatN1)}`} accent={d.resultatN >= 0 ? '#10b981' : '#ef4444'} />
-        <MiniKpi label="Variation" value={eurS(d.variation)} sub={pct(d.variationPct)} accent={d.variation >= 0 ? '#10b981' : '#ef4444'} />
-        <MiniKpi label="Résultat en % du CA" value={d.resPctCaN != null ? `${d.resPctCaN.toFixed(1)} %` : '—'} sub={`${d.exerciceN1} : ${d.resPctCaN1 != null ? d.resPctCaN1.toFixed(1) + ' %' : '—'} → ${pts(d.pointsCa)}`} accent={(d.pointsCa ?? 0) >= 0 ? '#10b981' : '#ef4444'} />
-        <MiniKpi label="Chiffre d'affaires" value={eur(d.caN)} sub={`${d.exerciceN1} même période : ${eur(d.caN1)}`} />
+      {/* Niveau 0 — cadrage : bande figée (sticky) pendant le scroll pour garder
+          la vision globale du résultat tout en explorant les détails. */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--bg-1)', margin: '0 -12px 16px', padding: '8px 12px 10px', borderRadius: 10, borderBottom: '1px solid var(--border-0)', boxShadow: '0 10px 16px -12px rgba(0,0,0,0.75)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
+          <MiniKpi label={`Résultat ${d.exerciceN}`} value={eur(d.resultatN)} sub={`${d.exerciceN1} même période : ${eur(d.resultatN1)}`} accent={d.resultatN >= 0 ? '#10b981' : '#ef4444'} />
+          <MiniKpi label="Variation" value={eurS(d.variation)} sub={pct(d.variationPct)} accent={d.variation >= 0 ? '#10b981' : '#ef4444'} />
+          <MiniKpi label="Résultat en % du CA" value={d.resPctCaN != null ? `${d.resPctCaN.toFixed(1)} %` : '—'} sub={`${d.exerciceN1} : ${d.resPctCaN1 != null ? d.resPctCaN1.toFixed(1) + ' %' : '—'} → ${pts(d.pointsCa)}`} accent={(d.pointsCa ?? 0) >= 0 ? '#10b981' : '#ef4444'} />
+          <MiniKpi label="Chiffre d'affaires" value={eur(d.caN)} sub={`${d.exerciceN1} même période : ${eur(d.caN1)}`} />
+        </div>
       </div>
 
       {/* Filtre par catégorie de variation — chips cliquables */}
