@@ -176,7 +176,7 @@ function AppInner() {
   }
 
   return (
-    <div style={{ display:'flex', minHeight:'100vh', background:'#080d1a', color:'#f1f5f9', fontFamily:'Outfit, Inter, sans-serif' }}>
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#080d1a', color:'#f1f5f9', fontFamily:'Outfit, Inter, sans-serif' }}>
       {/* Overlay mobile */}
       {navOpen && (
         <div onClick={() => setNavOpen(false)}
@@ -193,9 +193,9 @@ function AppInner() {
       </div>
 
       {/* Main */}
-      <div className={`main-content${sidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={{ flex:1, minWidth:0, display:'flex', flexDirection:'column' }}>
+      <div className={`main-content${sidebarCollapsed ? ' sidebar-collapsed' : ''}`} style={{ flex:1, minWidth:0, minHeight:0, display:'flex', flexDirection:'column' }}>
         <TopBar allMonths={allMonths} onMenuClick={() => setNavOpen(o => !o)} onSidebarToggle={() => setSidebarCollapsed(v => !v)} sidebarCollapsed={sidebarCollapsed} />
-        <main style={{ flex:1, overflowY:'auto' }}><TabContent /></main>
+        <main style={{ flex:1, minHeight:0, overflowY:'auto' }}><TabContent /></main>
       </div>
     </div>
   )

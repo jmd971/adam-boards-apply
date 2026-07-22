@@ -218,7 +218,8 @@ export function Saisie() {
       .filter(a => a.operation_type === 'acompte' && String(a.acompte_invoice_id ?? '') === String(e.id))
       .map(a => String(a.id)))
     setMode('manual')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    // Le conteneur de scroll est <main> (app-shell), pas la fenêtre.
+    ;(document.querySelector('main') ?? window).scrollTo({ top: 0, behavior: 'smooth' })
     setMsg('✏️ Modification en cours — éditez puis cliquez Enregistrer')
   }
 
