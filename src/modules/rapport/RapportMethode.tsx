@@ -17,10 +17,34 @@ interface MethodeIA {
   recommandations_saisie: string[]
 }
 
-const eur = (n: number) => Math.round(n).toLocaleString('fr-FR') + ' €'
-const eurS = (n: number) => (n > 0 ? '+' : '') + Math.round(n).toLocaleString('fr-FR') + ' €'
+// Séparateur de milliers visible : l'espace fine insécable (U+202F) produite par
+// fr-FR est remplacée par une espace insécable normale (U+00A0), plus lisible.
+const NBSP = String.fromCharCode(0x00a0)
+const grp = (s: string) => s.replace(/[\u202f\u2009\u00a0]/g, NBSP)
+const eur = (n: number) => grp(Math.round(n).toLocaleString('fr-FR')) + NBSP + '€'
+const eurS = (n: number) => (n > 0 ? '+' : '') + grp(Math.round(n).toLocaleString('fr-FR')) + NBSP + '€'
 const pct = (n: number | null) => n == null ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(0)} %`
 const pts = (n: number | null) => n == null ? '—' : `${n > 0 ? '+' : ''}${n.toFixed(1)} pt${Math.abs(n) >= 2 ? 's' : ''}`
+
+// ── Filtre par catégorie de variation (chips cliquables) ─────────────────────
+type CatKey = 'manquant' | 'nouveau' | 'ecart' | 'autres'
+const CAT_DEFS: { key: CatKey; label: string; color: string }[] = [
+  { key: 'manquant', label: 'Manquants',         color: '#f87171' },
+  { key: 'nouveau',  label: 'Nouveaux',          color: '#60a5fa' },
+  { key: 'ecart',    label: 'Écarts de montant', color: '#fbbf24' },
+  { key: 'autres',   label: 'Autres variations', color: '#94a3b8' },
+]
+/** Catégorie d'un groupe (compte × tiers) d'après son verdict. */
+const catOfGroupe = (g: GroupeAnalyse): CatKey =>
+  g.verdict === 'manquant' ? 'manquant'
+  : g.verdict === 'nouveau' ? 'nouveau'
+  : g.verdict === 'montant_anormal' ? 'ecart'
+  : 'autres'
+/** Un compte est visible si l'une de ses lignes correspond aux catégories actives. */
+const compteVisible = (c: CompteAnalyse, active: Set<CatKey>): boolean =>
+  active.size === 0 ? true
+  : c.isOD ? active.has('autres')
+  : c.groupes.some(g => active.has(catOfGroupe(g)))
 
 const FREQ_LABELS: Record<string, string> = {
   mensuel: 'mensuel', bimestriel: 'bimestriel', trimestriel: 'trimestriel',
@@ -34,14 +58,21 @@ const VERDICT_UI: Record<Verdict, { label: string; color: string; bg: string }> 
   nouveau:         { label: 'Nouveau',         color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
 }
 
-export function RapportMethode() {
-  const data     = useMethodeRapport()
+export function RapportMethode({ period }: { period?: { startM: string; endM: string } | null }) {
+  const data     = useMethodeRapport(period)
   const tenantId = useTenantId()
   const RAW      = useAppStore(s => s.RAW)
 
   const [loading, setLoading] = useState(false)
   const [ia, setIa]           = useState<MethodeIA | null>(null)
   const [error, setError]     = useState<string | null>(null)
+  const [activeCats, setActiveCats] = useState<Set<CatKey>>(new Set())
+
+  const toggleCat = (k: CatKey) => setActiveCats(prev => {
+    const next = new Set(prev)
+    next.has(k) ? next.delete(k) : next.add(k)
+    return next
+  })
 
   const generer = async () => {
     if (!data || !tenantId) return
@@ -69,6 +100,7 @@ export function RapportMethode() {
 
   if (!data || !RAW) return null
   const d = data
+  const filtering = activeCats.size > 0
 
   return (
     <div style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 14, padding: '20px 22px', marginBottom: 24 }}>
@@ -98,12 +130,42 @@ export function RapportMethode() {
         </div>
       )}
 
-      {/* Niveau 0 — cadrage : le résultat net en 3 grandeurs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 16 }}>
-        <MiniKpi label={`Résultat ${d.exerciceN}`} value={eur(d.resultatN)} sub={`${d.exerciceN1} même période : ${eur(d.resultatN1)}`} accent={d.resultatN >= 0 ? '#10b981' : '#ef4444'} />
-        <MiniKpi label="Variation" value={eurS(d.variation)} sub={pct(d.variationPct)} accent={d.variation >= 0 ? '#10b981' : '#ef4444'} />
-        <MiniKpi label="Résultat en % du CA" value={d.resPctCaN != null ? `${d.resPctCaN.toFixed(1)} %` : '—'} sub={`${d.exerciceN1} : ${d.resPctCaN1 != null ? d.resPctCaN1.toFixed(1) + ' %' : '—'} → ${pts(d.pointsCa)}`} accent={(d.pointsCa ?? 0) >= 0 ? '#10b981' : '#ef4444'} />
-        <MiniKpi label="Chiffre d'affaires" value={eur(d.caN)} sub={`${d.exerciceN1} même période : ${eur(d.caN1)}`} />
+      {/* Niveau 0 — cadrage : bande figée (sticky) pendant le scroll pour garder
+          la vision globale du résultat tout en explorant les détails. */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 3, background: 'var(--bg-1)', margin: '0 -12px 16px', padding: '8px 12px 10px', borderRadius: 10, borderBottom: '1px solid var(--border-0)', boxShadow: '0 10px 16px -12px rgba(0,0,0,0.75)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12 }}>
+          <MiniKpi label={`Résultat ${d.exerciceN}`} value={eur(d.resultatN)} sub={`${d.exerciceN1} même période : ${eur(d.resultatN1)}`} accent={d.resultatN >= 0 ? '#10b981' : '#ef4444'} />
+          <MiniKpi label="Variation" value={eurS(d.variation)} sub={pct(d.variationPct)} accent={d.variation >= 0 ? '#10b981' : '#ef4444'} />
+          <MiniKpi label="Résultat en % du CA" value={d.resPctCaN != null ? `${d.resPctCaN.toFixed(1)} %` : '—'} sub={`${d.exerciceN1} : ${d.resPctCaN1 != null ? d.resPctCaN1.toFixed(1) + ' %' : '—'} → ${pts(d.pointsCa)}`} accent={(d.pointsCa ?? 0) >= 0 ? '#10b981' : '#ef4444'} />
+          <MiniKpi label="Chiffre d'affaires" value={eur(d.caN)} sub={`${d.exerciceN1} même période : ${eur(d.caN1)}`} />
+        </div>
+      </div>
+
+      {/* Filtre par catégorie de variation — chips cliquables */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 600, marginRight: 2 }}>Filtrer les comptes :</span>
+        {CAT_DEFS.map(cat => {
+          const on = activeCats.has(cat.key)
+          return (
+            <button key={cat.key} onClick={() => toggleCat(cat.key)}
+              style={{
+                fontSize: 11.5, fontWeight: 700, cursor: 'pointer', borderRadius: 8, padding: '4px 10px',
+                color: on ? '#0b1220' : cat.color,
+                background: on ? cat.color : 'rgba(255,255,255,0.04)',
+                border: `1px solid ${on ? cat.color : 'rgba(255,255,255,0.12)'}`,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+              }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: on ? '#0b1220' : cat.color, display: 'inline-block' }} />
+              {cat.label}
+            </button>
+          )
+        })}
+        {filtering && (
+          <button onClick={() => setActiveCats(new Set())}
+            style={{ fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 8, padding: '4px 10px', color: 'var(--text-2)', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)' }}>
+            ✕ Tout afficher
+          </button>
+        )}
       </div>
 
       {/* Synthèse IA */}
@@ -126,8 +188,12 @@ export function RapportMethode() {
       )}
 
       {/* Niveaux 1-3 — Ventes puis Charges (ordre descendant de la méthode) */}
-      <FamillesBloc titre="Produits" familles={d.produits} charge={false} exN={d.exerciceN} exN1={d.exerciceN1} histoLimite={d.histoLimite} />
-      <FamillesBloc titre="Charges" familles={d.charges} charge exN={d.exerciceN} exN1={d.exerciceN1} histoLimite={d.histoLimite} />
+      <FamillesBloc titre="Produits" familles={d.produits} charge={false} exN={d.exerciceN} exN1={d.exerciceN1} histoLimite={d.histoLimite} activeCats={activeCats} />
+      <FamillesBloc titre="Charges" familles={d.charges} charge exN={d.exerciceN} exN1={d.exerciceN1} histoLimite={d.histoLimite} activeCats={activeCats} />
+
+      {filtering && d.produits.every(f => !f.comptes.some(c => compteVisible(c, activeCats))) && d.charges.every(f => !f.comptes.some(c => compteVisible(c, activeCats))) && (
+        <div style={{ fontSize: 12.5, color: 'var(--text-3)', padding: '10px 2px' }}>Aucun compte ne correspond aux catégories sélectionnées.</div>
+      )}
 
       {/* Annexe A — questions au comptable */}
       {d.questions.length > 0 && (
@@ -171,17 +237,23 @@ export function RapportMethode() {
 
 // ── Niveau 1 : familles ──────────────────────────────────────────────────────
 
-function FamillesBloc({ titre, familles, charge, exN, exN1, histoLimite }: {
-  titre: string; familles: FamilleAnalyse[]; charge: boolean; exN: number; exN1: number; histoLimite: boolean
+function FamillesBloc({ titre, familles, charge, exN, exN1, histoLimite, activeCats }: {
+  titre: string; familles: FamilleAnalyse[]; charge: boolean; exN: number; exN1: number; histoLimite: boolean; activeCats: Set<CatKey>
 }) {
   if (!familles.length) return null
+  const filtering = activeCats.size > 0
+  // Familles filtrées : on ne garde que les comptes correspondant aux catégories.
+  const visible = familles
+    .map(f => ({ f, comptes: f.comptes.filter(c => compteVisible(c, activeCats)) }))
+    .filter(({ comptes }) => comptes.length > 0)
+  if (!visible.length) return null
   const accent = charge ? '#f87171' : '#34d399'
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ fontSize: 11.5, fontWeight: 800, color: accent, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{titre}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {familles.map(f => (
-          <details key={f.key} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+        {visible.map(({ f, comptes }) => (
+          <details key={f.key} open={filtering} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
             <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', fontSize: 12.5, listStyle: 'none' }}>
               <span style={{ fontWeight: 700, color: 'var(--text-0)' }}>
                 <span style={{ color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 10.5, marginRight: 6 }}>{f.key}</span>{f.label}
@@ -193,7 +265,7 @@ function FamillesBloc({ titre, familles, charge, exN, exN1, histoLimite }: {
               </span>
             </summary>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {f.comptes.map(c => <CompteBloc key={c.account} c={c} charge={charge} exN={exN} exN1={exN1} histoLimite={histoLimite} />)}
+              {comptes.map(c => <CompteBloc key={c.account} c={c} charge={charge} exN={exN} exN1={exN1} histoLimite={histoLimite} activeCats={activeCats} />)}
             </div>
           </details>
         ))}
@@ -204,15 +276,19 @@ function FamillesBloc({ titre, familles, charge, exN, exN1, histoLimite }: {
 
 // ── Niveau 2 : comptes, avec décomposition de la variation ───────────────────
 
-function CompteBloc({ c, charge, histoLimite }: { c: CompteAnalyse; charge: boolean; exN: number; exN1: number; histoLimite: boolean }) {
+function CompteBloc({ c, charge, histoLimite, activeCats }: { c: CompteAnalyse; charge: boolean; exN: number; exN1: number; histoLimite: boolean; activeCats: Set<CatKey> }) {
   const chips: { label: string; val: number; color: string }[] = []
   if (Math.abs(c.manquants) >= 1)     chips.push({ label: 'manquants', val: c.manquants, color: '#f87171' })
   if (Math.abs(c.nouveaux) >= 1)      chips.push({ label: 'nouveaux', val: c.nouveaux, color: '#60a5fa' })
   if (Math.abs(c.ecartsMontant) >= 1) chips.push({ label: 'écarts de montant', val: c.ecartsMontant, color: '#fbbf24' })
   if (Math.abs(c.residuel) >= 1)      chips.push({ label: c.isOD ? 'OD / clôture' : 'autres variations', val: c.residuel, color: 'var(--text-3)' })
 
+  const filtering = activeCats.size > 0
+  // Lignes détaillées filtrées par catégorie active.
+  const groupes = filtering ? c.groupes.filter(g => activeCats.has(catOfGroupe(g))) : c.groupes
+
   return (
-    <details style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 10px', marginLeft: 8 }}>
+    <details open={filtering} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 10px', marginLeft: 8 }}>
       <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', fontSize: 12, listStyle: 'none', flexWrap: 'wrap' }}>
         <span style={{ color: 'var(--text-1)' }}>
           <span style={{ color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 10, marginRight: 6 }}>{c.account}</span>{c.label}
@@ -234,9 +310,11 @@ function CompteBloc({ c, charge, histoLimite }: { c: CompteAnalyse; charge: bool
         </div>
       )}
       <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {c.groupes.map((g, i) => <GroupeLigne key={i} g={g} exN1={0} histoLimite={histoLimite} />)}
-        {c.groupes.length === 0 && !c.isOD && (
-          <div style={{ fontSize: 11, color: 'var(--text-3)', padding: '2px 0' }}>Pas d'écriture détaillée sur la période.</div>
+        {groupes.map((g, i) => <GroupeLigne key={i} g={g} exN1={0} histoLimite={histoLimite} />)}
+        {groupes.length === 0 && !c.isOD && (
+          <div style={{ fontSize: 11, color: 'var(--text-3)', padding: '2px 0' }}>
+            {filtering ? 'Aucune ligne de cette catégorie.' : 'Pas d\'écriture détaillée sur la période.'}
+          </div>
         )}
       </div>
     </details>
