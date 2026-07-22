@@ -1367,12 +1367,12 @@ export function Budget() {
                         }
                         // Rendu : groupes par racine (parent dépliable) ou ligne plate
                         const isSearching = search.trim() !== ''
-                        return groups.map(g => {
+                        const renderGroupRow = (g: any) => {
                           if (g.flat) return renderAccountRow(g.entries[0])
                           // Déplié par défaut (undefined → ouvert) pour que les comptes du FEC N-1
                           // soient visibles ; repli explicite mémorisé via grpOpen[root] === false.
                           const open = isSearching || grpOpen[g.root] !== false
-                          const label = pcgLabel(g.root) || g.entries.find(([a]) => a === g.root)?.[1]?.l || ''
+                          const label = pcgLabel(g.root) || g.entries.find(([a]: [string, any]) => a === g.root)?.[1]?.l || ''
                           return (
                             <Fragment key={g.root}>
                               <tr onClick={() => setGrpOpen(p => ({ ...p, [g.root]: !open }))}
@@ -1393,7 +1393,32 @@ export function Budget() {
                               {open && g.entries.map(e => renderAccountRow(e, true))}
                             </Fragment>
                           )
-                        })
+                        }
+                        // Deux blocs distincts : Charges puis Produits, chacun avec son sous-total en tête.
+                        const section = (gs: any[], label: string, color: string) => {
+                          if (!gs.length) return null
+                          const sub = Array.from({ length: 12 }, (_, i) => gs.reduce((s: number, g: any) => s + (g.b[i] || 0), 0))
+                          const subTotal = sub.reduce((s, x) => s + x, 0)
+                          const bg = '#0e1526'
+                          return (
+                            <Fragment key={label}>
+                              <tr style={{ background: bg, borderTop: '2px solid rgba(255,255,255,0.1)' }}>
+                                <td style={{ padding:'6px 10px', position:'sticky', left:0, background:bg, zIndex:2, width:150, minWidth:150, maxWidth:150, boxShadow:`inset 3px 0 0 ${color}`, fontWeight:800, letterSpacing:'0.05em', color, fontSize:11, textTransform:'uppercase' }}>{label}</td>
+                                {monthOrder.map(fi => (
+                                  <td key={fi} style={{ padding:'6px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:700, color: sub[fi] === 0 ? '#475569' : color }}>{sub[fi] === 0 ? '—' : fmt(sub[fi])}</td>
+                                ))}
+                                <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:800, color, position:'sticky', right:0, background:bg, zIndex:2 }}>{fmt(subTotal)}</td>
+                              </tr>
+                              {gs.map(renderGroupRow)}
+                            </Fragment>
+                          )
+                        }
+                        return (
+                          <>
+                            {section(groups.filter(g => g.isCharge), 'Charges', '#f87171')}
+                            {section(groups.filter(g => !g.isCharge), 'Produits', '#34d399')}
+                          </>
+                        )
                       })()}
                     </tbody>
                     <tfoot>
