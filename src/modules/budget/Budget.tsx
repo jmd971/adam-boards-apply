@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, Fragment } from 'react'
+import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
 import { pcgLabel } from '@/lib/pcg'
 import { useAppStore } from '@/store'
 import { fmt, pct, fiscalIndex, mergeEntries, fiscalExerciseMonths, currentFiscalYear } from '@/lib/calc'
@@ -6,6 +6,34 @@ import { EcrituresModal } from '@/components/ui'
 import { sb } from '@/lib/supabase'
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
+
+// Cellule de budget : montant formaté en LECTURE, champ de saisie au CLIC.
+// Commit sur blur / Entrée ; Échap annule. Fini le mur de champs illisibles.
+function EditableCell({ value, color, onCommit }: { value: number; color: string; onCommit: (v: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const cancel = useRef(false)
+  const box: React.CSSProperties = { width: '100%', boxSizing: 'border-box', padding: '3px 5px', textAlign: 'right', fontSize: 11, fontFamily: 'monospace', borderRadius: 4 }
+  if (editing) {
+    return (
+      <input type="number" autoFocus value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={() => { if (!cancel.current) onCommit(draft); cancel.current = false; setEditing(false) }}
+        onKeyDown={e => {
+          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+          else if (e.key === 'Escape') { cancel.current = true; (e.target as HTMLInputElement).blur() }
+        }}
+        style={{ ...box, background: 'rgba(59,130,246,0.12)', border: '1px solid rgba(59,130,246,0.6)', outline: 'none', color }} />
+    )
+  }
+  return (
+    <div className="bud-cell" onClick={() => { setDraft(value ? String(value) : ''); setEditing(true) }}
+      title="Cliquer pour modifier"
+      style={{ ...box, cursor: 'text', border: '1px solid transparent', color: value === 0 ? '#475569' : color }}>
+      {value === 0 ? '—' : fmt(value)}
+    </div>
+  )
+}
 
 /* ═══════════════════════════════════════════════════════════
    What-if Simulation Panel — Scénarios budgétaires
@@ -894,6 +922,7 @@ export function Budget() {
       <style>{`
         .bud-acts{ opacity:0; transition:opacity .12s; }
         tr:hover .bud-acts{ opacity:1; }
+        .bud-cell:hover{ background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1) !important; }
       `}</style>
 
       {/* Company selector */}
@@ -1293,13 +1322,12 @@ export function Budget() {
                             {monthOrder.map(fi => (
                               <td key={fi} style={{ padding:'2px 2px' }}>
                                 {hasChildren ? (
-                                  <div style={{ ...inputBase, color:'#8b5cf6', background:'transparent', border:'1px solid transparent' }}>
-                                    {fmt(bv.b?.[fi] ?? 0)}
+                                  <div style={{ ...inputBase, textAlign:'right', color:'#8b5cf6', background:'transparent', border:'1px solid transparent', width:'100%', boxSizing:'border-box' }}>
+                                    {(bv.b?.[fi] ?? 0) === 0 ? '—' : fmt(bv.b?.[fi] ?? 0)}
                                   </div>
                                 ) : (
-                                  <input type="number" value={bv.b?.[fi] ?? 0}
-                                    onChange={e => handleCell(acc, fi, e.target.value)}
-                                    style={{ ...inputBase, color: isCharge ? '#fca5a5':'#6ee7b7' }} />
+                                  <EditableCell value={bv.b?.[fi] ?? 0} color={isCharge ? '#fca5a5' : '#6ee7b7'}
+                                    onCommit={v => handleCell(acc, fi, v)} />
                                 )}
                               </td>
                             ))}
@@ -1325,9 +1353,8 @@ export function Budget() {
                               </td>
                               {monthOrder.map(fi => (
                                 <td key={fi} style={{ padding:'2px 2px' }}>
-                                  <input type="number" value={ch.b?.[fi] ?? 0}
-                                    onChange={e => handleChildCell(acc, ci, fi, e.target.value)}
-                                    style={{ ...inputBase, color: isCharge ? '#fca5a5':'#6ee7b7' }} />
+                                  <EditableCell value={ch.b?.[fi] ?? 0} color={isCharge ? '#fca5a5' : '#6ee7b7'}
+                                    onCommit={v => handleChildCell(acc, ci, fi, v)} />
                                 </td>
                               ))}
                               <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8', fontSize:10, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
