@@ -891,6 +891,10 @@ export function Budget() {
 
   return (
     <div style={{ padding: '16px 24px' }}>
+      <style>{`
+        .bud-acts{ opacity:0; transition:opacity .12s; }
+        tr:hover .bud-acts{ opacity:1; }
+      `}</style>
 
       {/* Company selector */}
       <div style={{ marginBottom: 16 }}>
@@ -1193,6 +1197,25 @@ export function Budget() {
                 </div>
               )}
 
+              {Object.keys(coBud).length > 0 && (() => {
+                const pT = totals.produits.reduce((s, x) => s + x, 0)
+                const cT = totals.charges.reduce((s, x) => s + x, 0)
+                const rT = pT - cT
+                const Card = ({ label, val, color }: { label: string; val: number; color: string }) => (
+                  <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'10px 14px' }}>
+                    <div style={{ fontSize:10, letterSpacing:'0.05em', textTransform:'uppercase', color:'#64748b' }}>{label}</div>
+                    <div style={{ fontSize:20, fontWeight:800, marginTop:3, fontFamily:'monospace', color }}>{fmt(val)} €</div>
+                  </div>
+                )
+                return (
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:10, marginBottom:14 }}>
+                    <Card label="Produits budgétés" val={pT} color="#34d399" />
+                    <Card label="Charges budgétées" val={cT} color="#f87171" />
+                    <Card label="Résultat prévisionnel" val={rT} color={rT < 0 ? '#f87171' : '#5b9dff'} />
+                  </div>
+                )
+              })()}
+
               {accounts.length === 0 && Object.keys(coBud).length === 0 ? (
                 <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
                   <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
@@ -1214,12 +1237,11 @@ export function Budget() {
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                     <thead>
                       <tr>
-                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:200, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, top:0, background:'#0a0f1a', zIndex:8 }}>Compte</th>
-                        <th style={{ padding:'8px 8px', textAlign:'center', color:'#475569', fontWeight:600, width:60, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>Type</th>
+                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, width:150, minWidth:150, maxWidth:150, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, top:0, background:'#0a0f1a', zIndex:8 }}>Compte</th>
                         {monthOrder.map(ci => (
-                          <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:68, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>{MONTHS_SHORT[ci]}</th>
+                          <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:64, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>{MONTHS_SHORT[ci]}</th>
                         ))}
-                        <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>Total</th>
+                        <th style={{ padding:'8px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, right:0, background:'#0a0f1a', zIndex:7 }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1239,53 +1261,34 @@ export function Budget() {
                         return (
                           <Fragment key={acc}>
                           <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
-                            <td style={{ padding: indent ? '3px 12px 3px 30px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
-                              {indent && <span style={{ color:'#475569', marginRight:6, fontSize:11 }}>└</span>}
-                              <span
-                                onClick={ents.length > 0 ? () => setEcrModal({
-                                  title: `${acc} — ${bv.l}${hasEcrN ? '' : ' · réalisé exercice précédent'}`, entries: ents, cumN: Math.round(realN), cumN1: 0,
-                                  budChildren: children.length > 0
-                                    ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
-                                    : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
-                                  budSelMonths: exerciseMonths,
-                                }) : undefined}
-                                title={ents.length > 0 ? 'Voir les écritures réalisées' : undefined}
-                                style={{ cursor: ents.length > 0 ? 'pointer' : 'default' }}>
-                                <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
-                                <span>{bv.l}</span>
-                                {ents.length > 0 && (
-                                  <span style={{ marginLeft:6, fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>
-                                )}
-                              </span>
-                              {!hasChildren && (
-                                <button onClick={() => openFillModal(acc)}
-                                  title="Recopier un montant sur plusieurs mois"
-                                  style={{ marginLeft: 8, background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
-                                  ↻ Recopier
-                                </button>
-                              )}
-                              <button onClick={() => addChild(acc)}
-                                title="Ajouter un sous-compte (ex : OpenAI, Claude…)"
-                                style={{ marginLeft: 6, background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
-                                ＋ sous-compte
-                              </button>
-                              <button onClick={() => setNoteModal({ acc, text: bv.note ?? '' })}
-                                title={bv.note ? bv.note : 'Ajouter une hypothèse / un commentaire'}
-                                style={{ marginLeft: 6, background: bv.note ? 'rgba(245,158,11,0.12)' : 'transparent', border:`1px solid ${bv.note ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: bv.note ? '#f59e0b' : '#64748b', cursor:'pointer', fontSize: 10, padding:'1px 7px', borderRadius: 5 }}>
-                                {bv.note ? '💬 hypothèse' : '💬'}
-                              </button>
-                              {bv.note && (
-                                <span style={{ marginLeft:8, fontSize:10, color:'#f59e0b', fontStyle:'italic', opacity:0.85 }} title={bv.note}>
-                                  {bv.note.length > 60 ? bv.note.slice(0, 60) + '…' : bv.note}
+                            <td style={{ padding: indent ? '3px 8px 3px 22px' : '3px 12px', color:'#94a3b8', position:'sticky', left:0, background:'#080d1a', zIndex:1, width:150, minWidth:150, maxWidth:150, boxShadow:`inset 3px 0 0 ${isCharge ? 'rgba(248,113,113,0.35)' : 'rgba(52,211,153,0.35)'}` }}>
+                              <div style={{ position:'relative', display:'flex', alignItems:'center', overflow:'hidden' }}>
+                                {indent && <span style={{ color:'#475569', marginRight:4, fontSize:11, flexShrink:0 }}>└</span>}
+                                <span
+                                  onClick={ents.length > 0 ? () => setEcrModal({
+                                    title: `${acc} — ${bv.l}${hasEcrN ? '' : ' · réalisé exercice précédent'}`, entries: ents, cumN: Math.round(realN), cumN1: 0,
+                                    budChildren: children.length > 0
+                                      ? children.map((c: any) => ({ name: c.name || '(sans nom)', b: (c.b ?? Array(12).fill(0)) as number[] }))
+                                      : [{ name: 'Budget du compte', b: (bv.b ?? Array(12).fill(0)) as number[] }],
+                                    budSelMonths: exerciseMonths,
+                                  }) : undefined}
+                                  title={`${acc} — ${bv.l}${ents.length > 0 ? ' · voir les écritures réalisées' : ''}`}
+                                  style={{ cursor: ents.length > 0 ? 'pointer' : 'default', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }}>
+                                  <span style={{ fontFamily:'monospace', color:'#475569', marginRight:6 }}>{acc}</span>
+                                  <span>{bv.l}</span>
                                 </span>
-                              )}
-                            </td>
-                            <td style={{ padding:'3px 8px', textAlign:'center' }}>
-                              <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10,
-                                background: isCharge ? 'rgba(239,68,68,0.1)':'rgba(16,185,129,0.1)',
-                                color: isCharge ? '#ef4444':'#10b981' }}>
-                                {isCharge ? 'charge':'produit'}
-                              </span>
+                                <span className="bud-acts" style={{ position:'absolute', right:0, top:'50%', transform:'translateY(-50%)', display:'inline-flex', alignItems:'center', gap:4, background:'#080d1a', paddingLeft:8, boxShadow:'-12px 0 8px -4px #080d1a' }}>
+                                  {ents.length > 0 && <span title={`${ents.length} écritures réalisées`} style={{ fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
+                                  {!hasChildren && (
+                                    <button onClick={() => openFillModal(acc)} title="Recopier un montant sur plusieurs mois"
+                                      style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>↻</button>
+                                  )}
+                                  <button onClick={() => addChild(acc)} title="Ajouter un sous-compte (ex : OpenAI, Claude…)"
+                                    style={{ background:'rgba(139,92,246,0.1)', border:'1px solid rgba(139,92,246,0.3)', color:'#a78bfa', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>＋</button>
+                                  <button onClick={() => setNoteModal({ acc, text: bv.note ?? '' })} title={bv.note ? bv.note : 'Ajouter une hypothèse / un commentaire'}
+                                    style={{ background: bv.note ? 'rgba(245,158,11,0.12)' : 'transparent', border:`1px solid ${bv.note ? 'rgba(245,158,11,0.4)' : 'rgba(255,255,255,0.08)'}`, color: bv.note ? '#f59e0b' : '#64748b', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>💬</button>
+                                </span>
+                              </div>
                             </td>
                             {monthOrder.map(fi => (
                               <td key={fi} style={{ padding:'2px 2px' }}>
@@ -1300,25 +1303,26 @@ export function Budget() {
                                 )}
                               </td>
                             ))}
-                            <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600 }}>
+                            <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:600, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
                               {fmt(total)}
                             </td>
                           </tr>
                           {children.map((ch, ci) => (
                             <tr key={ci} style={{ borderBottom: ci === children.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none', background:'rgba(139,92,246,0.03)' }}>
-                              <td style={{ padding: indent ? '2px 12px 2px 44px' : '2px 12px 2px 28px', position:'sticky', left:0, background:'#080d1a', zIndex:1, whiteSpace:'nowrap' }}>
-                                <span style={{ color:'#a78bfa', marginRight:6, fontSize:11 }}>└</span>
-                                <input type="text" value={ch.name} placeholder="Sous-compte (ex : OpenAI)"
-                                  onChange={e => renameChild(acc, ci, e.target.value)}
-                                  style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', width:150 }} />
-                                <button onClick={() => openFillModal(acc, ci)} title="Recopier un montant sur plusieurs mois"
-                                  style={{ marginLeft:6, background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize:10, padding:'1px 7px', borderRadius:5 }}>
-                                  ↻ Recopier
-                                </button>
-                                <button onClick={() => removeChild(acc, ci)} title="Supprimer ce sous-compte"
-                                  style={{ marginLeft:6, background:'transparent', border:'none', color:'#64748b', cursor:'pointer', fontSize:11 }}>✕</button>
+                              <td style={{ padding: indent ? '2px 8px 2px 30px' : '2px 8px 2px 22px', position:'sticky', left:0, background:'#080d1a', zIndex:1, width:150, minWidth:150, maxWidth:150 }}>
+                                <div style={{ position:'relative', display:'flex', alignItems:'center', overflow:'hidden' }}>
+                                  <span style={{ color:'#a78bfa', marginRight:4, fontSize:11, flexShrink:0 }}>└</span>
+                                  <input type="text" value={ch.name} placeholder="Sous-compte"
+                                    onChange={e => renameChild(acc, ci, e.target.value)}
+                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', minWidth:0, flex:1 }} />
+                                  <span className="bud-acts" style={{ position:'absolute', right:0, top:'50%', transform:'translateY(-50%)', display:'inline-flex', alignItems:'center', gap:4, background:'#080d1a', paddingLeft:8, boxShadow:'-12px 0 8px -4px #080d1a' }}>
+                                    <button onClick={() => openFillModal(acc, ci)} title="Recopier un montant sur plusieurs mois"
+                                      style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.08)', color:'#64748b', cursor:'pointer', fontSize:10, padding:'1px 6px', borderRadius:5 }}>↻</button>
+                                    <button onClick={() => removeChild(acc, ci)} title="Supprimer ce sous-compte"
+                                      style={{ background:'transparent', border:'none', color:'#64748b', cursor:'pointer', fontSize:11 }}>✕</button>
+                                  </span>
+                                </div>
                               </td>
-                              <td />
                               {monthOrder.map(fi => (
                                 <td key={fi} style={{ padding:'2px 2px' }}>
                                   <input type="number" value={ch.b?.[fi] ?? 0}
@@ -1326,7 +1330,7 @@ export function Budget() {
                                     style={{ ...inputBase, color: isCharge ? '#fca5a5':'#6ee7b7' }} />
                                 </td>
                               ))}
-                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8', fontSize:10 }}>
+                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8', fontSize:10, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
                                 {fmt((ch.b ?? []).reduce((s: number, x: number) => s + (x||0), 0))}
                               </td>
                             </tr>
@@ -1346,21 +1350,18 @@ export function Budget() {
                             <Fragment key={g.root}>
                               <tr onClick={() => setGrpOpen(p => ({ ...p, [g.root]: !open }))}
                                 style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)', cursor:'pointer' }}>
-                                <td style={{ padding:'5px 12px', position:'sticky', left:0, background:'#0a1020', zIndex:1, whiteSpace:'nowrap' }}>
-                                  <span style={{ display:'inline-block', width:12, color:'#64748b', fontSize:9 }}>{open ? '▾' : '▸'}</span>
-                                  <span style={{ fontFamily:'monospace', color:'#94a3b8', fontWeight:700, marginRight:6 }}>{g.root}</span>
-                                  <span style={{ color:'#cbd5e1', fontWeight:600 }}>{label}</span>
-                                  <span style={{ marginLeft:8, fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 6px', borderRadius:10 }}>{g.entries.length} comptes</span>
-                                </td>
-                                <td style={{ padding:'5px 8px', textAlign:'center' }}>
-                                  <span style={{ fontSize:10, padding:'1px 5px', borderRadius:10, background: g.isCharge ? 'rgba(239,68,68,0.1)':'rgba(16,185,129,0.1)', color: g.isCharge ? '#ef4444':'#10b981' }}>
-                                    {g.isCharge ? 'charge':'produit'}
-                                  </span>
+                                <td style={{ padding:'5px 10px', position:'sticky', left:0, background:'#0a1020', zIndex:1, width:150, minWidth:150, maxWidth:150, boxShadow:`inset 3px 0 0 ${g.isCharge ? 'rgba(248,113,113,0.5)' : 'rgba(52,211,153,0.5)'}` }}>
+                                  <div style={{ display:'flex', alignItems:'center', overflow:'hidden', gap:2 }}>
+                                    <span style={{ width:12, color:'#64748b', fontSize:9, flexShrink:0 }}>{open ? '▾' : '▸'}</span>
+                                    <span style={{ fontFamily:'monospace', color:'#94a3b8', fontWeight:700, marginRight:4, flexShrink:0 }}>{g.root}</span>
+                                    <span style={{ color:'#cbd5e1', fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', minWidth:0 }} title={label}>{label}</span>
+                                    <span style={{ fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10, flexShrink:0 }} title={`${g.entries.length} comptes`}>{g.entries.length}</span>
+                                  </div>
                                 </td>
                                 {monthOrder.map(fi => (
                                   <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color:'#8b5cf6' }}>{g.b[fi] !== 0 ? fmt(g.b[fi]) : '—'}</td>
                                 ))}
-                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:700 }}>{fmt(g.total)}</td>
+                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color:'#8b5cf6', fontWeight:700, position:'sticky', right:0, background:'#0a1020', zIndex:2 }}>{fmt(g.total)}</td>
                               </tr>
                               {open && g.entries.map(e => renderAccountRow(e, true))}
                             </Fragment>
@@ -1377,15 +1378,15 @@ export function Budget() {
                       ].map(({ label, row, color, isCumul }) => {
                         // Cumul : le total = dernier mois de l'EXERCICE (Mar pour Avr→Mar), pas Déc.
                         const grandTotal = isCumul ? (row[monthOrder[11]] ?? 0) : row.reduce((s,x)=>s+x,0)
+                        const stickyBg = isCumul ? '#14162a' : '#0d121d'
                         return (
                         <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
-                          <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12 }}>{label}</td>
-                          <td />
+                          <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12, position:'sticky', left:0, background:stickyBg, zIndex:2, width:150, minWidth:150, maxWidth:150, whiteSpace:'nowrap' }}>{label}</td>
                           {monthOrder.map(ci => (
                             <td key={ci} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
                               color: row[ci]<0 ? '#ef4444' : color }}>{fmt(row[ci])}</td>
                           ))}
-                          <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700,
+                          <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, position:'sticky', right:0, background:stickyBg, zIndex:2,
                             color: grandTotal<0 ? '#ef4444':color }}>
                             {fmt(grandTotal)}
                           </td>
