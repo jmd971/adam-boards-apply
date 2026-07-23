@@ -594,21 +594,21 @@ export function Dashboard() {
 
       {/* KPIs — trend arrows sur les 4 cartes */}
       <div className="print-kpis" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(190px,1fr))', gap:12 }}>
-        <KpiCard label="Chiffre d'affaires" value={`${fmt(kpis?.ca ?? 0)} €`} color="var(--green)"
+        <KpiCard label="Chiffre d'affaires" icon="📈" value={`${fmt(kpis?.ca ?? 0)} €`} color="var(--green)"
           trend={kpis?.evoCa != null ? kpis.evoCa * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.ca)} € · Éc. ${kpis && kpis.ca >= budKpis.ca ? '+' : ''}${fmt((kpis?.ca ?? 0) - budKpis.ca)} €`
             : kpis?.caN1 ? `N-1 : ${fmt(kpis.caN1)} €` : undefined}
           tooltip={SIMPLE_TIPS.ca}
           onInfo={() => setActiveExpl('ca')} />
-        <KpiCard label="Marge brute" value={`${fmt(kpis?.marge ?? 0)} €`} color="var(--blue)"
+        <KpiCard label="Marge brute" icon="💰" value={`${fmt(kpis?.marge ?? 0)} €`} color="var(--blue)"
           trend={kpis?.evoMarge != null ? kpis.evoMarge * 100 : undefined}
           sub={budKpis
             ? `Budget ${fmt(budKpis.marge)} € · Éc. ${kpis && kpis.marge >= budKpis.marge ? '+' : ''}${fmt((kpis?.marge ?? 0) - budKpis.marge)} €`
             : kpis ? `${pct(kpis.txMarge)} du CA` : undefined}
           tooltip={SIMPLE_TIPS.marge}
           onInfo={() => setActiveExpl('marge')} />
-        <KpiCard label="EBE" value={`${fmt(kpis?.ebe ?? 0)} €`}
+        <KpiCard label="EBE" icon="⚙️" value={`${fmt(kpis?.ebe ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.txEbe > 0.10 ? 'var(--green)' : kpis.txEbe > 0.05 ? 'var(--amber)' : 'var(--red)'}
           trend={kpis?.evoEbe != null ? kpis.evoEbe * 100 : undefined}
           sub={budKpis
@@ -616,7 +616,7 @@ export function Dashboard() {
             : kpis ? `${pct(kpis.txEbe)} du CA` : undefined}
           tooltip={SIMPLE_TIPS.ebe}
           onInfo={() => setActiveExpl('ebe')} />
-        <KpiCard label="Résultat exploit." value={`${fmt(kpis?.re ?? 0)} €`}
+        <KpiCard label="Résultat exploit." icon="🎯" value={`${fmt(kpis?.re ?? 0)} €`}
           color={!kpis ? 'var(--blue)' : kpis.re >= 0 ? 'var(--blue)' : 'var(--red)'}
           trend={kpis?.evoRe != null ? kpis.evoRe * 100 : undefined}
           sub={budKpis
@@ -628,7 +628,7 @@ export function Dashboard() {
 
       {/* Alertes */}
       {alertes.length > 0 && (
-        <div className="print-alertes" style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'14px 16px', border:'1px solid var(--border-1)' }}>
+        <div className="print-alertes" style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'14px 16px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <SectionTitle tip={SIMPLE_TIPS.alertes} style={{ fontSize:11, letterSpacing:'0.8px', marginBottom:10 }}>
             🔔 Alertes — {lastLabel || 'Période sélectionnée'}
           </SectionTitle>
@@ -641,7 +641,7 @@ export function Dashboard() {
       {/* Graphiques */}
       <div className="print-charts">
 
-      <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+      <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
         <SectionTitle tip={SIMPLE_TIPS.evoCA}>📈 Évolution du CA — N vs N-1</SectionTitle>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
@@ -661,7 +661,7 @@ export function Dashboard() {
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr', gap:16 }}>
-        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <SectionTitle tip={SIMPLE_TIPS.mensuel}>📊 Marge · EBE · Résultat mensuels</SectionTitle>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }} barGap={2}>
@@ -678,7 +678,7 @@ export function Dashboard() {
           </ResponsiveContainer>
         </div>
 
-        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <SectionTitle tip={SIMPLE_TIPS.charges} style={{ marginBottom:10 }}>🥧 Répartition des charges</SectionTitle>
           {chargesData.length === 0 ? (
             <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:160, color:'var(--text-3)', fontSize:12 }}>Aucune charge détectée</div>
@@ -715,7 +715,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+      <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
         <SectionTitle tip={SIMPLE_TIPS.rexMensuel}>🎯 Résultat d'exploitation mensuel</SectionTitle>
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
@@ -734,7 +734,7 @@ export function Dashboard() {
       </div>
 
       {trendData && (trendData.hasN2 || (RAW?.m1?.length ?? 0) > 0) && (
-        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <SectionTitle tip={SIMPLE_TIPS.tendance}>
             {trendData.hasN2 ? '📅 Tendance 3 exercices' : '📅 Tendance N vs N-1'}
           </SectionTitle>
@@ -791,7 +791,7 @@ export function Dashboard() {
       )}
 
       {kpis && (budKpis ?? budDataKpis) && (
-        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <SectionTitle tip={SIMPLE_TIPS.objectifs}>
             🎯 Réalisation des objectifs
           </SectionTitle>
@@ -810,7 +810,7 @@ export function Dashboard() {
 
       {/* Évolution mensuelle cumulée : réalisé vs budget */}
       {cumulComparisonData.length > 0 && (
-        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <SectionTitle tip={SIMPLE_TIPS.realBudget}>
             📈 Évolution mensuelle — Réalisé vs Budget cumulé
           </SectionTitle>
@@ -834,7 +834,7 @@ export function Dashboard() {
       )}
 
       {forecastData.some(d => d.enc > 0 || d.dec > 0) && (
-        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)' }}>
+        <div style={{ background:'var(--bg-1)', borderRadius:'var(--radius-lg)', padding:'16px 20px', border:'1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <SectionTitle tip={SIMPLE_TIPS.treso}>
             💧 Trésorerie prévisionnelle — 12 mois
           </SectionTitle>

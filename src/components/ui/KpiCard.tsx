@@ -52,7 +52,7 @@ interface KpiCardProps {
   tooltip?: string  // texte affiché au survol
 }
 
-export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onInfo, tooltip }: KpiCardProps) {
+export function KpiCard({ label, value, color = 'var(--blue)', sub, trend, icon, onInfo, tooltip }: KpiCardProps) {
   const [showTip, setShowTip] = useState(false)
   return (
     <div
@@ -60,14 +60,17 @@ export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onI
       onMouseLeave={() => setShowTip(false)}
       style={{
         background: 'var(--bg-1)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '18px 20px',
+        borderRadius: 16,
+        padding: '14px 16px',
         border: '1px solid var(--border-1)',
+        boxShadow: '0 2px 5px rgba(20,30,60,0.05)',
         display: 'flex', flexDirection: 'column', gap: 6,
         position: 'relative', overflow: 'visible',
       }}>
-      {/* Accent bar top */}
-      <div style={{ position:'absolute', top:0, left:0, right:0, height:2, background: color, opacity: 0.6, borderRadius:'var(--radius-lg) var(--radius-lg) 0 0' }} />
+      {/* Puce à icône colorée */}
+      <div style={{ width:38, height:38, borderRadius:11, background:`color-mix(in srgb, ${color} 15%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, lineHeight:1, marginBottom:2 }}>
+        {icon || '📊'}
+      </div>
 
       {/* Info button */}
       {onInfo && (
@@ -75,36 +78,31 @@ export function KpiCard({ label, value, color = '#3b82f6', sub, trend, icon, onI
           onClick={onInfo}
           title="Voir l'explication"
           className="print-hide"
-          style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, width:22, height:22, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'#94a3b8', lineHeight:1, transition:'all .15s' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(59,130,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#93c5fd' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
+          style={{ position:'absolute', top:12, right:12, background:'var(--bg-2)', border:'1px solid var(--border-1)', borderRadius:6, width:22, height:22, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'var(--text-3)', lineHeight:1 }}
         >ℹ</button>
       )}
 
       {/* Label + trend */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', paddingRight: onInfo ? 28 : 0 }}>
-        <div style={{ fontSize:12, fontWeight:700, color:'var(--text-0)', textTransform:'uppercase', letterSpacing:'0.5px' }}>
-          {icon && <span style={{ marginRight: 5 }}>{icon}</span>}
-          {label}
-        </div>
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8 }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</div>
         {trend !== undefined && <TrendBadge trend={trend} />}
       </div>
 
       {/* Valeur */}
-      <div style={{ fontSize:26, fontWeight:800, color, letterSpacing:'-0.5px', fontFamily:'JetBrains Mono, monospace', lineHeight:1.1, whiteSpace:'nowrap' }}>
+      <div style={{ fontSize:24, fontWeight:800, color, letterSpacing:'-0.5px', fontFamily:'JetBrains Mono, monospace', lineHeight:1.1, whiteSpace:'nowrap' }}>
         {value}
       </div>
 
       {/* Sous-titre */}
-      {sub && <div style={{ fontSize:11, color:'var(--text-2)' }}>{sub}</div>}
+      {sub && <div style={{ fontSize:11, color:'var(--text-3)' }}>{sub}</div>}
 
       {/* Tooltip survol */}
       {tooltip && showTip && (
         <div style={{
           position:'absolute', top:'calc(100% + 8px)', left:'50%', transform:'translateX(-50%)',
-          background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8,
-          padding:'10px 14px', fontSize:11, color:'#94a3b8', lineHeight:1.6,
-          maxWidth:260, zIndex:200, boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
+          background:'var(--bg-1)', border:'1px solid var(--border-1)', borderRadius:8,
+          padding:'10px 14px', fontSize:11, color:'var(--text-2)', lineHeight:1.6,
+          maxWidth:260, zIndex:200, boxShadow:'0 8px 24px rgba(20,30,60,0.18)',
           pointerEvents:'none', whiteSpace:'normal',
         }}>
           {tooltip}
