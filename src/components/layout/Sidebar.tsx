@@ -74,8 +74,8 @@ export function Sidebar({ onTabChange }: SidebarProps) {
 
   return (
     <aside className="ab-light" style={{
-      width: 232, height:'100vh', background:'var(--bg-1)', borderRight:'1px solid var(--border-1)',
-      borderRight:'1px solid var(--border-0)',
+      width: 232, height:'100vh', background:'var(--bg-1)',
+      borderRight:'1px solid var(--border-1)',
       display:'flex', flexDirection:'column',
       overflowY:'auto', overflowX:'hidden',
     }}>
