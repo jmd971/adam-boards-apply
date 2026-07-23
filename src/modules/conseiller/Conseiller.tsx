@@ -80,7 +80,7 @@ export function Conseiller() {
   const empty = messages.length === 0
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 56px)', maxWidth:860, margin:'0 auto', padding:'16px 20px 0' }}>
+    <div className="ab-light" style={{ display:'flex', flexDirection:'column', height:'calc(100vh - 56px)', maxWidth:860, margin:'0 auto', padding:'16px 20px 0', background:'var(--bg-0)' }}>
       {/* En-tête */}
       <div style={{ marginBottom:12 }}>
         <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:'var(--text-0)' }}>Mon conseiller</h2>
@@ -115,9 +115,9 @@ export function Conseiller() {
           <div key={i} style={{ display:'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
             <div style={{
               maxWidth:'82%', borderRadius:12, padding:'11px 14px', fontSize:13, lineHeight:1.6, whiteSpace:'pre-wrap',
-              background: m.role === 'user' ? 'linear-gradient(135deg,#3b82f6,#8b5cf6)' : 'rgba(255,255,255,0.05)',
+              background: m.role === 'user' ? 'linear-gradient(135deg,#1e88c7,#8b5cf6)' : 'var(--bg-2)',
               color: m.role === 'user' ? '#fff' : 'var(--text-1)',
-              border: m.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.08)',
+              border: m.role === 'user' ? 'none' : '1px solid var(--border-1)',
             }}>
               {m.content}
             </div>
@@ -145,14 +145,14 @@ export function Conseiller() {
           onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}
           placeholder="Écrivez votre question…"
           rows={1}
-          style={{ flex:1, resize:'none', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:10, padding:'11px 14px', fontSize:13, color:'var(--text-0)', fontFamily:'inherit', lineHeight:1.5, maxHeight:120 }}
+          style={{ flex:1, resize:'none', background:'var(--bg-2)', border:'1px solid var(--border-1)', borderRadius:10, padding:'11px 14px', fontSize:13, color:'var(--text-0)', fontFamily:'inherit', lineHeight:1.5, maxHeight:120 }}
         />
         <button onClick={() => send(input)} disabled={loading || !input.trim()}
-          style={{ background: loading || !input.trim() ? '#475569' : 'linear-gradient(135deg,#3b82f6,#8b5cf6)', color:'#fff', border:'none', borderRadius:10, padding:'11px 18px', fontSize:13, fontWeight:700, cursor: loading || !input.trim() ? 'default' : 'pointer' }}>
+          style={{ background: loading || !input.trim() ? 'var(--text-2)' : 'linear-gradient(135deg,#1e88c7,#8b5cf6)', color:'#fff', border:'none', borderRadius:10, padding:'11px 18px', fontSize:13, fontWeight:700, cursor: loading || !input.trim() ? 'default' : 'pointer' }}>
           Envoyer
         </button>
         <a href={`mailto:${CONSEILLER_EMAIL}?subject=Demande%20-%20Mon%20conseiller%20ADAM`}
-          style={{ background:'rgba(255,255,255,0.06)', color:'var(--text-1)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:10, padding:'11px 14px', fontSize:12.5, fontWeight:600, cursor:'pointer', textDecoration:'none', whiteSpace:'nowrap' }}>
+          style={{ background:'var(--bg-2)', color:'var(--text-1)', border:'1px solid var(--border-1)', borderRadius:10, padding:'11px 14px', fontSize:12.5, fontWeight:600, cursor:'pointer', textDecoration:'none', whiteSpace:'nowrap' }}>
           Parler à mon conseiller
         </a>
       </div>

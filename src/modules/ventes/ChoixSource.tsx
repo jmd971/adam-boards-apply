@@ -46,7 +46,7 @@ export function ChoixSource({ onSelect }: Props) {
           <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.6, marginBottom:16 }}>
             Depuis votre FEC importé et/ou les factures saisies dans le module Saisie
           </div>
-          <div style={{ fontSize:10, color:'var(--text-3)', background:'rgba(255,255,255,0.05)', padding:'6px 12px', borderRadius:20 }}>
+          <div style={{ fontSize:10, color:'var(--text-3)', background:'var(--bg-2)', padding:'6px 12px', borderRadius:20 }}>
             Artisans · B2B · Professions libérales
           </div>
         </div>
@@ -64,7 +64,7 @@ export function ChoixSource({ onSelect }: Props) {
           <div style={{ fontSize:11, color:'var(--text-2)', lineHeight:1.6, marginBottom:16 }}>
             Importez un export de votre logiciel de caisse (SumUp, Square, Lightspeed…)
           </div>
-          <div style={{ fontSize:10, color:'var(--text-3)', background:'rgba(255,255,255,0.05)', padding:'6px 12px', borderRadius:20 }}>
+          <div style={{ fontSize:10, color:'var(--text-3)', background:'var(--bg-2)', padding:'6px 12px', borderRadius:20 }}>
             Salon · Boutique · Restaurant · Commerce
           </div>
         </div>

@@ -75,7 +75,7 @@ export function ArticlesView({ transactions }: Props) {
           style={{
             marginLeft: 'auto', padding: '6px 14px', borderRadius: 8,
             border: '1px solid var(--border-1)', background: 'rgba(59,130,246,0.12)',
-            color: '#93c5fd', fontSize: 11, fontWeight: 600,
+            color: '#1e88c7', fontSize: 11, fontWeight: 600,
             cursor: filtered.length ? 'pointer' : 'not-allowed',
             opacity: filtered.length ? 1 : 0.5,
           }}

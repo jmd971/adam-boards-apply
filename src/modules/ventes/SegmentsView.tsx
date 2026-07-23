@@ -224,7 +224,7 @@ export function SegmentsView({ clients }: Props) {
           </thead>
           <tbody>
             {filtered.map((c, i) => (
-              <tr key={c.key} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+              <tr key={c.key} style={{ borderBottom:'1px solid var(--border-1)', background: i % 2 === 0 ? 'transparent' : 'rgba(20,30,60,0.03)' }}>
                 <td style={{ padding:'9px 10px 9px 16px', color:'var(--text-0)', fontWeight:500, position:'sticky', left:0, background:'var(--bg-0)', zIndex:2 }}>
                   <div>{c.nom}</div>
                   {c.email && <div style={{ fontSize:9, color:'var(--text-3)', marginTop:1 }}>{c.email}</div>}

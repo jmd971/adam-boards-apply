@@ -76,12 +76,12 @@ export function Ventes() {
     flex:1, padding:'8px 16px', border:'none', cursor:'pointer',
     borderRadius:'var(--radius-sm)', fontSize:12, fontWeight:600,
     background: on ? 'rgba(59,130,246,0.18)' : 'transparent',
-    color:      on ? '#93c5fd' : 'var(--text-2)',
+    color:      on ? '#1e88c7' : 'var(--text-2)',
     boxShadow:  on ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'none',
   })
 
   return (
-    <>
+    <div className="ab-light" style={{ background:'var(--bg-0)', minHeight:'100%' }}>
       {/* Barre d'outils */}
       <div style={{
         display:'flex', alignItems:'center', gap:12, padding:'14px 24px 12px',
@@ -96,7 +96,7 @@ export function Ventes() {
         <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:10 }}>
           <span style={{
             fontSize:10, padding:'4px 10px', borderRadius:12,
-            background:'rgba(255,255,255,0.06)', color:'var(--text-2)',
+            background:'var(--bg-2)', color:'var(--text-2)',
             border:'1px solid var(--border-1)',
           }}>
             {sourceBadge.icon} {sourceBadge.label}
@@ -214,6 +214,6 @@ export function Ventes() {
           {subTab === 'scenarios' && <ScenariosView clients={clients} />}
         </>
       )}
-    </>
+    </div>
   )
 }

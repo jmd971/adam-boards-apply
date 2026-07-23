@@ -108,7 +108,7 @@ export function InactifsView({ clients }: Props) {
                 border: '1px solid',
                 borderColor: unit === u ? 'var(--blue)' : 'var(--border-1)',
                 background: unit === u ? 'rgba(59,130,246,0.15)' : 'transparent',
-                color: unit === u ? '#93c5fd' : 'var(--text-2)',
+                color: unit === u ? '#1e88c7' : 'var(--text-2)',
                 fontSize: 12, fontWeight: 600, cursor: 'pointer',
               }}
             >
@@ -205,7 +205,7 @@ export function InactifsView({ clients }: Props) {
                     key={c.key}
                     style={{
                       borderBottom: '1px solid var(--border-0)',
-                      background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
+                      background: i % 2 === 0 ? 'transparent' : 'rgba(20,30,60,0.03)',
                     }}
                   >
                     {/* Client */}

@@ -165,7 +165,7 @@ export function HistoriqueView({ transactions }: Props) {
                 key={t.commande_ref ?? `${t.client_key}-${i}`}
                 style={{
                   borderBottom: '1px solid var(--border-0)',
-                  background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.015)',
+                  background: i % 2 === 0 ? 'transparent' : 'rgba(20,30,60,0.03)',
                 }}
               >
                 <td style={{

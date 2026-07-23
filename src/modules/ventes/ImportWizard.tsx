@@ -211,7 +211,7 @@ export function ImportWizard({ onImport, onCancel }: Props) {
               </thead>
               <tbody>
                 {headers.map((h, i) => (
-                  <tr key={h} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)' }}>
+                  <tr key={h} style={{ borderBottom:'1px solid var(--border-1)', background: i % 2 === 0 ? 'transparent' : 'rgba(20,30,60,0.03)' }}>
                     <td style={{ padding:'8px 16px', fontSize:11, color:'var(--text-0)', fontFamily:'monospace' }}>{h}</td>
                     <td style={{ padding:'8px 16px' }}>
                       <select value={mapping[h] ?? ''} onChange={e => setMapping(m => ({ ...m, [h]: e.target.value as FieldKey | '' }))} style={selSt}>
@@ -268,7 +268,7 @@ export function ImportWizard({ onImport, onCancel }: Props) {
               </thead>
               <tbody>
                 {preview.map((t, i) => (
-                  <tr key={i} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                  <tr key={i} style={{ borderBottom:'1px solid var(--border-1)' }}>
                     <td style={{ padding:'7px 12px', color:'var(--text-0)' }}>{t.client_nom}</td>
                     <td style={{ padding:'7px 12px', fontFamily:'monospace', color:'var(--text-2)' }}>{t.date_achat}</td>
                     <td style={{ padding:'7px 12px', fontFamily:'monospace', color:'var(--green)', textAlign:'right' }}>{t.montant.toFixed(2)} €</td>
