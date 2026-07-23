@@ -4,6 +4,7 @@ import { useAppStore, useTenantId } from '@/store'
 import { Spinner } from '@/components/ui'
 import { useRapportData, type CompteLigne, type TiersDelai } from '@/hooks/useRapportData'
 import { currentFiscalYear, fiscalYearOf, monthLabel } from '@/lib/calc'
+import { AdamBoardsMark } from '@/components/Logo'
 import { RapportTheme1 } from './RapportTheme1'
 import { RapportMethode } from './RapportMethode'
 
@@ -12,19 +13,18 @@ const RAPPORT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-
 /** Plage de mois (YYYY-MM) de l'exercice courant, ou null = exercice complet à date. */
 type Period = { startM: string; endM: string } | null
 
-interface ActionTiers { client?: string; fournisseur?: string; poste?: string; constat: string; action: string }
+interface PlanAction { priorite: 'haute' | 'moyenne' | 'basse'; cible: string; constat: string; action: string; impact?: string }
 interface RapportIA {
-  synthese: string
-  produits: string
-  charges: string
-  immobilisations: string | null
-  clients_analyse: string
-  fournisseurs_analyse: string
-  actions_clients: ActionTiers[]
-  actions_fournisseurs: ActionTiers[]
-  actions_postes: ActionTiers[]
+  titre: string
+  essentiel: string[]
+  produits: string[]
+  charges: string[]
+  immobilisations?: string[] | null
+  delais_clients: string[]
+  delais_fournisseurs: string[]
   points_forts: string[]
   alertes: string[]
+  plan_action: PlanAction[]
 }
 
 // Séparateur de milliers visible : espace insécable normale (U+00A0), + avant le €.
@@ -96,6 +96,13 @@ export function Rapport() {
 
   const resVar = data.resultatN1 !== 0 ? ((data.resultatN - data.resultatN1) / Math.abs(data.resultatN1)) * 100 : null
 
+  // Métadonnées du document (en-tête + précautions d'usage)
+  const companyName = RAW?.companies?.[companyKey]?.name || companyKey
+  const genDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const rangeStart = period?.startM ?? availableMonths[0]
+  const rangeEnd   = period?.endM ?? availableMonths[availableMonths.length - 1]
+  const rangeLabel = (rangeStart && rangeEnd) ? `${monthLabel(rangeStart)} → ${monthLabel(rangeEnd)}` : ''
+
   return (
     <div style={{ padding:'24px 28px', maxWidth:1040, margin:'0 auto' }}>
       <div className="rapport-actions" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24, gap:16, flexWrap:'wrap' }}>
@@ -157,24 +164,52 @@ export function Rapport() {
       {/* Rapport IA */}
       {rapport && (
         <div className="rapport-print">
-          <Section titre="Synthèse" accent="#3b82f6" texte={rapport.synthese} grand />
-          <Section titre="Produits" accent="#10b981" texte={rapport.produits} />
-          <Section titre="Charges" accent="#ef4444" texte={rapport.charges} />
-          {rapport.immobilisations && <Section titre="Immobilisations & amortissements" accent="#8b5cf6" texte={rapport.immobilisations} />}
-          <Section titre="Délais clients" accent="#f59e0b" texte={rapport.clients_analyse} />
-          <Section titre="Délais fournisseurs" accent="#ec4899" texte={rapport.fournisseurs_analyse} />
+          {/* En-tête de document — logo + méta */}
+          <div className="rp-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:16, paddingBottom:14, marginBottom:18, borderBottom:'2px solid #28A9E1' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <AdamBoardsMark size={42} />
+              <div>
+                <div className="rp-brand" style={{ fontSize:20, fontWeight:800, color:'#28A9E1', letterSpacing:'0.5px' }}>Rapport d'activité</div>
+                <div style={{ fontSize:12, color:'var(--text-3)', marginTop:2 }}>{companyName} · Exercice {data.exerciceN} vs {data.exerciceN1} vs Budget</div>
+              </div>
+            </div>
+            <div style={{ textAlign:'right', fontSize:11, color:'var(--text-3)', lineHeight:1.6, whiteSpace:'nowrap' }}>
+              {!data.periodeComplete && <div>À même période · {data.nbMois} mois</div>}
+              <div>Généré le {genDate}</div>
+            </div>
+          </div>
 
-          <ActionTable titre="Actions clients" couleur="#f59e0b" col="Client" rows={(rapport.actions_clients ?? []).map(a => ({ nom: a.client ?? '', constat: a.constat, action: a.action }))} />
-          <ActionTable titre="Actions fournisseurs" couleur="#ec4899" col="Fournisseur" rows={(rapport.actions_fournisseurs ?? []).map(a => ({ nom: a.fournisseur ?? '', constat: a.constat, action: a.action }))} />
-          <ActionTable titre="Actions sur les postes" couleur="#3b82f6" col="Poste" rows={(rapport.actions_postes ?? []).map(a => ({ nom: a.poste ?? '', constat: a.constat, action: a.action }))} />
+          {rapport.titre && (
+            <div style={{ fontSize:18, fontWeight:800, color:'var(--text-0)', lineHeight:1.35, marginBottom:16 }}>{rapport.titre}</div>
+          )}
+
+          <Essentiel items={rapport.essentiel ?? []} />
+
+          <div className="rapport-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, margin:'20px 0' }}>
+            <BulletCard titre="Produits" accent="#10b981" items={rapport.produits ?? []} />
+            <BulletCard titre="Charges" accent="#ef4444" items={rapport.charges ?? []} />
+          </div>
+
+          {rapport.immobilisations && rapport.immobilisations.length > 0 && (
+            <BulletCard titre="Immobilisations & amortissements" accent="#8b5cf6" items={rapport.immobilisations} />
+          )}
+
+          <div className="rapport-grid" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, margin:'20px 0' }}>
+            <BulletCard titre="Délais clients" accent="#f59e0b" items={rapport.delais_clients ?? []} />
+            <BulletCard titre="Délais fournisseurs" accent="#ec4899" items={rapport.delais_fournisseurs ?? []} />
+          </div>
 
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, margin:'20px 0' }} className="rapport-grid">
             <ListBox titre="Points forts" couleur="#10b981" items={rapport.points_forts ?? []} puce="✓" />
             <ListBox titre="Points de vigilance" couleur="#ef4444" items={rapport.alertes ?? []} puce="!" />
           </div>
 
-          <div style={{ marginTop:24, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.08)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>
-            Rapport généré automatiquement par AdamBoards — à valider avec votre expert-comptable.
+          <PlanActionTable rows={rapport.plan_action ?? []} />
+
+          <div className="rp-footer" style={{ marginTop:24, paddingTop:14, borderTop:'1px solid #28A9E1', fontSize:10, color:'var(--text-3)', textAlign:'center', lineHeight:1.6 }}>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:6, marginBottom:4 }}><AdamBoardsMark size={14} /> <strong style={{ color:'#28A9E1' }}>AdamBoards</strong></span><br/>
+            Rapport généré automatiquement à partir de vos écritures — à valider avec votre expert-comptable.<br/>
+            Période analysée : {data.nbMois} mois{rangeLabel ? ` (${rangeLabel})` : ''}{!data.periodeComplete ? ', comparaison N-1 et budget restreints à la même période' : ''}.
           </div>
         </div>
       )}
@@ -188,11 +223,20 @@ export function Rapport() {
 
       <style>{`
         @media print {
+          html, body { background: #fff !important; }
           body * { visibility: hidden; }
           .rapport-print, .rapport-print * { visibility: visible; }
-          .rapport-print { position: absolute; left: 0; top: 0; width: 100%; }
-          .rapport-print *, .rapport-print { color: #1a1a1a !important; }
+          .rapport-print { position: absolute; left: 0; top: 0; width: 100%;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .rapport-print *, .rapport-print { color: #1a1a1a !important;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          /* Garde le bleu de marque sur le titre et le nom AdamBoards */
+          .rapport-print .rp-brand, .rapport-print .rp-footer strong { color: #28A9E1 !important; }
+          /* Ne pas couper un encadré entre deux pages */
+          .rapport-print .rp-avoid, .rapport-print table, .rapport-print tr { break-inside: avoid; page-break-inside: avoid; }
+          .rapport-print .rp-header { break-after: avoid; page-break-after: avoid; }
           .rapport-actions, .sidebar-wrapper { display: none !important; }
+          @page { margin: 14mm; }
         }
       `}</style>
     </div>
@@ -265,35 +309,72 @@ function Kpi({ label, value, sub, accent }: { label: string; value: string; sub?
   )
 }
 
-function Section({ titre, accent, texte, grand }: { titre: string; accent: string; texte: string; grand?: boolean }) {
+function Essentiel({ items }: { items: string[] }) {
+  if (!items?.length) return null
   return (
-    <div style={{ marginBottom:18 }}>
-      <div style={{ fontSize:11, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:8 }}>{titre}</div>
-      <p style={{ margin:0, fontSize: grand ? 15 : 13, color:'var(--text-1)', lineHeight:1.7 }}>{texte}</p>
+    <div className="rp-avoid" style={{ background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.3)', borderRadius:12, padding:'14px 16px', marginBottom:18 }}>
+      <div style={{ fontSize:11, fontWeight:800, color:'#60a5fa', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:10 }}>⚡ L'essentiel</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+            <span style={{ flex:'0 0 20px', height:20, borderRadius:6, background:'#3b82f6', color:'#04122e', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:1 }}>{i + 1}</span>
+            <span style={{ fontSize:13.5, color:'var(--text-1)', lineHeight:1.5 }}>{it}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-function ActionTable({ titre, couleur, col, rows }: { titre: string; couleur: string; col: string; rows: { nom: string; constat: string; action: string }[] }) {
-  if (!rows?.length) return null
+function BulletCard({ titre, accent, items }: { titre: string; accent: string; items: string[] }) {
+  if (!items?.length) return null
   return (
-    <div style={{ marginBottom:20 }}>
-      <div style={{ fontSize:11, fontWeight:800, color:couleur, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>{titre}</div>
-      <div style={{ border:`1px solid ${couleur}33`, borderRadius:10, overflow:'hidden' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+    <div className="rp-avoid" style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'14px 16px' }}>
+      <div style={{ fontSize:11, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.7px', marginBottom:10 }}>{titre}</div>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {items.map((it, i) => (
+          <div key={i} style={{ display:'flex', gap:9, alignItems:'flex-start' }}>
+            <span style={{ flexShrink:0, width:6, height:6, borderRadius:'50%', background:accent, marginTop:6 }} />
+            <span style={{ fontSize:13, color:'var(--text-1)', lineHeight:1.5 }}>{it}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PlanActionTable({ rows }: { rows: PlanAction[] }) {
+  if (!rows?.length) return null
+  const order: Record<string, number> = { haute: 0, moyenne: 1, basse: 2 }
+  const sorted = [...rows].sort((a, b) => (order[a.priorite] ?? 3) - (order[b.priorite] ?? 3))
+  const prioUI: Record<string, { label: string; color: string; bg: string }> = {
+    haute:   { label: 'Haute',   color: '#f87171', bg: 'rgba(239,68,68,0.15)' },
+    moyenne: { label: 'Moyenne', color: '#fbbf24', bg: 'rgba(245,158,11,0.15)' },
+    basse:   { label: 'Basse',   color: '#94a3b8', bg: 'rgba(148,163,184,0.15)' },
+  }
+  return (
+    <div className="rp-avoid" style={{ marginTop:20 }}>
+      <div style={{ fontSize:11, fontWeight:800, color:'#3b82f6', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Plan d'action priorisé</div>
+      <div style={{ border:'1px solid rgba(59,130,246,0.25)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed' }}>
           <thead>
-            <tr style={{ background:`${couleur}11` }}>
-              <th style={th}>{col}</th><th style={th}>Constat</th><th style={th}>Action recommandée</th>
+            <tr style={{ background:'rgba(59,130,246,0.08)' }}>
+              <th style={{ ...th, width:'9%' }}>Priorité</th><th style={{ ...th, width:'16%' }}>Cible</th><th style={{ ...th, width:'23%' }}>Constat</th><th style={{ ...th, width:'33%' }}>Action recommandée</th><th style={{ ...th, width:'19%' }}>Impact</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
-                <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{r.nom}</td>
-                <td style={td}>{r.constat}</td>
-                <td style={{ ...td, color:couleur, fontWeight:600 }}>{r.action}</td>
-              </tr>
-            ))}
+            {sorted.map((r, i) => {
+              const p = prioUI[r.priorite] ?? prioUI.basse
+              return (
+                <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)', verticalAlign:'top' }}>
+                  <td style={td}><span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:p.bg, color:p.color, whiteSpace:'nowrap' }}>{p.label}</span></td>
+                  <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{r.cible}</td>
+                  <td style={td}>{r.constat}</td>
+                  <td style={{ ...td, color:'#93c5fd' }}>{r.action}</td>
+                  <td style={{ ...td, color:'#34d399', fontWeight:700, overflowWrap:'anywhere' }}>{r.impact || '—'}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
@@ -366,7 +447,7 @@ function ComptesTable({ titre, lignes, inverse, noBudget }: { titre: string; lig
 
 function ListBox({ titre, couleur, items, puce }: { titre: string; couleur: string; items: string[]; puce: string }) {
   return (
-    <div style={{ background:`${couleur}11`, border:`1px solid ${couleur}33`, borderRadius:12, padding:'16px 18px' }}>
+    <div className="rp-avoid" style={{ background:`${couleur}11`, border:`1px solid ${couleur}33`, borderRadius:12, padding:'16px 18px' }}>
       <div style={{ fontSize:11, fontWeight:800, color:couleur, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>{titre}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
         {(items ?? []).length === 0 && <span style={{ fontSize:12, color:'var(--text-3)' }}>—</span>}
