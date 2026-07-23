@@ -41,7 +41,7 @@ function budgetDepensesFixes(budData: any, co: string): number {
   return Math.round(total)
 }
 
-const COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e', '#14b8a6']
+const COLORS = ['#1e88c7', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e', '#14b8a6']
 
 export function Objectifs() {
   const budData = useEffectiveBudData()
@@ -174,12 +174,12 @@ export function Objectifs() {
 
   // ── Styles partagés ──────────────────────────────────────────────────
   const cardSt: React.CSSProperties = {
-    background:'#0f172a', border:'1px solid rgba(255,255,255,0.07)', borderRadius:12, padding:18,
+    background:'var(--bg-1)', border:'1px solid var(--border-1)', borderRadius:12, padding:18, boxShadow:'0 2px 5px rgba(20,30,60,0.05)',
   }
   const thSt: React.CSSProperties = {
-    padding:'10px 14px', color:'#94a3b8', fontWeight:700, fontSize:10,
+    padding:'10px 14px', color:'var(--text-2)', fontWeight:700, fontSize:10,
     textTransform:'uppercase', letterSpacing:'0.5px',
-    borderBottom:'1px solid rgba(255,255,255,0.07)',
+    borderBottom:'1px solid var(--border-1)',
   }
   const tdSt: React.CSSProperties = {
     padding:'10px 14px', fontFamily:'monospace', fontSize:11.5,
@@ -187,13 +187,13 @@ export function Objectifs() {
   const cols = Math.min(selCo.length, 4)
 
   return (
-    <div style={{ padding:'20px 24px' }}>
+    <div className="ab-light" style={{ padding:'20px 24px', background:'var(--bg-0)', minHeight:'100%' }}>
       {/* Titre + formule */}
       <div style={{ marginBottom:24 }}>
         <h2 style={{ fontSize:18, fontWeight:700, color:'var(--text-0)', margin:0 }}>
           Objectifs de Ventes et Achats
         </h2>
-        <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>
+        <div style={{ fontSize:11, color:'var(--text-2)', marginTop:4 }}>
           Calcul : Objectif Ventes = Dépenses Budget / Taux de marge
         </div>
       </div>
@@ -205,20 +205,20 @@ export function Objectifs() {
           const color = COLORS[idx % COLORS.length]
           const realRatePct = Math.round(d.realRate * 100)
           const targetPct   = Math.round(d.ratePct)
-          const realColor   = d.realVentes === 0 ? '#94a3b8'
+          const realColor   = d.realVentes === 0 ? 'var(--text-2)'
                               : realRatePct >= targetPct ? '#10b981' : '#ef4444'
           return (
             <div key={co} style={cardSt}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6 }}>
                 <span style={{ fontSize:14, fontWeight:800, color }}>{co}</span>
-                <span style={{ fontSize:10, color:'#94a3b8' }}>{d.name}</span>
+                <span style={{ fontSize:10, color:'var(--text-2)' }}>{d.name}</span>
               </div>
-              <div style={{ fontSize:10, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+              <div style={{ fontSize:10, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
                 Taux de marge prévisionnel
               </div>
               <div style={{
-                background:'rgba(255,255,255,0.02)',
-                border:'1px solid rgba(255,255,255,0.05)',
+                background:'rgba(20,30,60,0.03)',
+                border:'1px solid var(--border-1)',
                 borderRadius:8, padding:'14px 8px',
                 display:'flex', alignItems:'center', justifyContent:'center',
                 marginBottom:10,
@@ -238,27 +238,27 @@ export function Objectifs() {
                 />
                 <span style={{ color, fontSize:40, fontWeight:700, fontFamily:'monospace', marginLeft:4 }}>%</span>
               </div>
-              <div style={{ fontSize:11, color:'#94a3b8' }}>
+              <div style={{ fontSize:11, color:'var(--text-2)' }}>
                 Taux réel N : <span style={{ color: realColor, fontWeight:700 }}>
                   {d.realVentes > 0 ? `${realRatePct}%` : '—'}
                 </span>
               </div>
 
               {/* ── Calcul Coûts horaires ── */}
-              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
-                <div style={{ fontSize:10, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
+              <div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid var(--border-1)' }}>
+                <div style={{ fontSize:10, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:8 }}>
                   ⏱ Calcul Coûts horaires
                 </div>
 
                 {/* Total Dépenses Budget (base des calculs) */}
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', fontSize:11, color:'#94a3b8', marginBottom:8 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', fontSize:11, color:'var(--text-2)', marginBottom:8 }}>
                   <span>Total Dépenses Budget</span>
-                  <span style={{ fontFamily:'monospace', color:'#cbd5e1', fontWeight:600 }}>{fmt(d.depenses)} €</span>
+                  <span style={{ fontFamily:'monospace', color:'var(--text-1)', fontWeight:600 }}>{fmt(d.depenses)} €</span>
                 </div>
 
                 {/* 1. Nombre de salariés */}
                 {([['Nombre de salariés','nbSal','ex : 3'],['Heures travaillées / mois','monthlyHours','ex : 450'],['Prix de vente horaire prév. (€)','salePrice','ex : 60']] as [string, 'nbSal'|'monthlyHours'|'salePrice', string][]).map(([lbl,key,ph])=>(
-                  <div key={key} style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'#94a3b8', marginBottom:6 }}>
+                  <div key={key} style={{ display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--text-2)', marginBottom:6 }}>
                     <span style={{ flex:1 }}>{lbl}</span>
                     <input type="number" step="any" min="0"
                       value={getH(co)[key]}
@@ -266,18 +266,18 @@ export function Objectifs() {
                       onBlur={() => saveHourly(co)}
                       onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
                       placeholder={ph}
-                      style={{ width:90, background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, color:'#cbd5e1', fontSize:12, padding:'4px 8px', outline:'none', textAlign:'right', fontFamily:'monospace' }} />
+                      style={{ width:90, background:'var(--bg-2)', border:'1px solid var(--border-1)', borderRadius:6, color:'var(--text-1)', fontSize:12, padding:'4px 8px', outline:'none', textAlign:'right', fontFamily:'monospace' }} />
                   </div>
                 ))}
 
                 {/* Résultats calculés */}
                 <div style={{ display:'grid', gap:6, marginTop:4 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:'rgba(239,68,68,0.06)', border:'1px solid rgba(239,68,68,0.15)', borderRadius:6 }}>
-                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="Total Dépenses Budget / (Nombre de salariés × Heures travaillées mensuelles × 12)">Coût horaire global</span>
-                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:'#fca5a5' }}>{d.nbSal > 0 && d.monthlyHours > 0 ? `${fmt(d.coutHoraireGlobal)} €/h` : '—'}</span>
+                    <span style={{ fontSize:10.5, color:'var(--text-2)' }} title="Total Dépenses Budget / (Nombre de salariés × Heures travaillées mensuelles × 12)">Coût horaire global</span>
+                    <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color:'var(--red)' }}>{d.nbSal > 0 && d.monthlyHours > 0 ? `${fmt(d.coutHoraireGlobal)} €/h` : '—'}</span>
                   </div>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', padding:'6px 10px', background:`${color}12`, border:`1px solid ${color}33`, borderRadius:6 }}>
-                    <span style={{ fontSize:10.5, color:'#94a3b8' }} title="(Total Dépenses Budget / 12) / Prix de vente horaire prévisionnel — base mensuelle, comparable aux heures travaillées/mois">Objectif Ventes (nb d'heures / mois)</span>
+                    <span style={{ fontSize:10.5, color:'var(--text-2)' }} title="(Total Dépenses Budget / 12) / Prix de vente horaire prévisionnel — base mensuelle, comparable aux heures travaillées/mois">Objectif Ventes (nb d'heures / mois)</span>
                     <span style={{ fontSize:14, fontWeight:700, fontFamily:'monospace', color }}>{d.salePrice > 0 ? `${fmt(d.objVentesHeures)} h/mois` : '—'}</span>
                   </div>
                 </div>
@@ -292,17 +292,17 @@ export function Objectifs() {
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
             <thead>
-              <tr style={{ background:'rgba(255,255,255,0.02)' }}>
+              <tr style={{ background:'rgba(20,30,60,0.03)' }}>
                 <th style={{ ...thSt, textAlign:'left' }}>Société</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Dépenses Budget</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Taux marge</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Obj. Ventes annuel</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Obj. Ventes / mois</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Obj. Achats annuel</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Obj. Achats / mois</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Réalisé Ventes</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Avancement</th>
-                <th style={{ ...thSt, textAlign:'right', color:'#3b82f6' }}>Écart</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Dépenses Budget</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Taux marge</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Obj. Ventes annuel</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Obj. Ventes / mois</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Obj. Achats annuel</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Obj. Achats / mois</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Réalisé Ventes</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Avancement</th>
+                <th style={{ ...thSt, textAlign:'right', color:'#1e88c7' }}>Écart</th>
               </tr>
             </thead>
             <tbody>
@@ -310,17 +310,17 @@ export function Objectifs() {
                 const d = perCo[co]; if (!d) return null
                 const color = COLORS[idx % COLORS.length]
                 return (
-                  <tr key={co} style={{ borderTop:'1px solid rgba(255,255,255,0.04)' }}>
+                  <tr key={co} style={{ borderTop:'1px solid var(--border-1)' }}>
                     <td style={{ ...tdSt, fontFamily:'inherit', fontWeight:600, color }}>{co} — {d.name}</td>
                     <td style={{ ...tdSt, textAlign:'right' }}>{fmt(d.depenses)}</td>
                     <td style={{ ...tdSt, textAlign:'right', color }}>{Math.round(d.ratePct)}%</td>
                     <td style={{ ...tdSt, textAlign:'right', color:'#10b981' }}>{fmt(d.objVentesAn)}</td>
-                    <td style={{ ...tdSt, textAlign:'right', color:'#64748b' }}>{fmt(d.objVentesMois)}</td>
+                    <td style={{ ...tdSt, textAlign:'right', color:'var(--text-3)' }}>{fmt(d.objVentesMois)}</td>
                     <td style={{ ...tdSt, textAlign:'right', color:'#f59e0b' }}>{fmt(d.objAchatsAn)}</td>
-                    <td style={{ ...tdSt, textAlign:'right', color:'#64748b' }}>{fmt(d.objAchatsMois)}</td>
-                    <td style={{ ...tdSt, textAlign:'right', color:'#3b82f6' }}>{fmt(d.realVentes)}</td>
+                    <td style={{ ...tdSt, textAlign:'right', color:'var(--text-3)' }}>{fmt(d.objAchatsMois)}</td>
+                    <td style={{ ...tdSt, textAlign:'right', color:'#1e88c7' }}>{fmt(d.realVentes)}</td>
                     <td style={{ ...tdSt, textAlign:'right', fontWeight:700,
-                                color: d.avancementV >= 1 ? '#10b981' : d.avancementV >= 0.75 ? '#f59e0b' : '#94a3b8' }}>
+                                color: d.avancementV >= 1 ? '#10b981' : d.avancementV >= 0.75 ? '#f59e0b' : 'var(--text-2)' }}>
                       {Math.round(d.avancementV * 100)}%
                     </td>
                     <td style={{ ...tdSt, textAlign:'right', color: d.ecart >= 0 ? '#10b981' : '#ef4444' }}>
@@ -330,17 +330,17 @@ export function Objectifs() {
                 )
               })}
               {/* TOTAL */}
-              <tr style={{ borderTop:'2px solid rgba(255,255,255,0.12)', background:'rgba(255,255,255,0.02)' }}>
+              <tr style={{ borderTop:'2px solid var(--border-1)', background:'rgba(20,30,60,0.03)' }}>
                 <td style={{ ...tdSt, fontFamily:'inherit', fontWeight:800 }}>TOTAL</td>
                 <td style={{ ...tdSt, textAlign:'right', fontWeight:800 }}>{fmt(tot.depenses)}</td>
                 <td></td>
                 <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'#10b981' }}>{fmt(tot.objVentesAn)}</td>
-                <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'#64748b' }}>{fmt(tot.objVentesMois)}</td>
+                <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'var(--text-3)' }}>{fmt(tot.objVentesMois)}</td>
                 <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'#f59e0b' }}>{fmt(tot.objAchatsAn)}</td>
-                <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'#64748b' }}>{fmt(tot.objAchatsMois)}</td>
-                <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'#3b82f6' }}>{fmt(tot.realVentes)}</td>
+                <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'var(--text-3)' }}>{fmt(tot.objAchatsMois)}</td>
+                <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color:'#1e88c7' }}>{fmt(tot.realVentes)}</td>
                 <td style={{ ...tdSt, textAlign:'right', fontWeight:800,
-                             color: totAvancement >= 1 ? '#10b981' : totAvancement >= 0.75 ? '#f59e0b' : '#94a3b8' }}>
+                             color: totAvancement >= 1 ? '#10b981' : totAvancement >= 0.75 ? '#f59e0b' : 'var(--text-2)' }}>
                   {Math.round(totAvancement * 100)}%
                 </td>
                 <td style={{ ...tdSt, textAlign:'right', fontWeight:800, color: totEcart >= 0 ? '#10b981' : '#ef4444' }}>
@@ -367,10 +367,10 @@ export function Objectifs() {
             const target  = Math.round(d.ratePct)
             const colorV  = '#10b981'
             const colorA  = pctA > 100 ? '#ef4444' : pctA > 90 ? '#f59e0b' : '#10b981'
-            const colorM  = d.realVentes === 0 ? '#94a3b8' : pctM >= target ? '#10b981' : '#ef4444'
+            const colorM  = d.realVentes === 0 ? 'var(--text-2)' : pctM >= target ? '#10b981' : '#ef4444'
 
             const Bar = ({ pct, color }: { pct:number; color:string }) => (
-              <div style={{ height:6, borderRadius:3, background:'rgba(255,255,255,0.05)', overflow:'hidden' }}>
+              <div style={{ height:6, borderRadius:3, background:'var(--bg-3)', overflow:'hidden' }}>
                 <div style={{ height:'100%', width:`${Math.min(100, Math.max(0, pct))}%`, background:color, borderRadius:3, transition:'width 0.5s' }} />
               </div>
             )
@@ -382,18 +382,18 @@ export function Objectifs() {
                 {/* Ventes */}
                 <div style={{ marginBottom:14 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:10.5, marginBottom:4 }}>
-                    <span style={{ color:'#94a3b8' }}>Ventes</span>
-                    <span style={{ color:'#cbd5e1', fontFamily:'monospace' }}>{fmt(d.realVentes)} / {fmt(d.objVentesAn)}</span>
+                    <span style={{ color:'var(--text-2)' }}>Ventes</span>
+                    <span style={{ color:'var(--text-1)', fontFamily:'monospace' }}>{fmt(d.realVentes)} / {fmt(d.objVentesAn)}</span>
                   </div>
                   <Bar pct={pctV} color={colorV} />
-                  <div style={{ textAlign:'right', fontSize:9.5, color:'#94a3b8', marginTop:2 }}>{pctV}%</div>
+                  <div style={{ textAlign:'right', fontSize:9.5, color:'var(--text-2)', marginTop:2 }}>{pctV}%</div>
                 </div>
 
                 {/* Achats */}
                 <div style={{ marginBottom:14 }}>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:10.5, marginBottom:4 }}>
-                    <span style={{ color:'#94a3b8' }}>Achats</span>
-                    <span style={{ color:'#cbd5e1', fontFamily:'monospace' }}>{fmt(d.realAchats)} / {fmt(d.objAchatsAn)}</span>
+                    <span style={{ color:'var(--text-2)' }}>Achats</span>
+                    <span style={{ color:'var(--text-1)', fontFamily:'monospace' }}>{fmt(d.realAchats)} / {fmt(d.objAchatsAn)}</span>
                   </div>
                   <Bar pct={pctA} color={colorA} />
                   <div style={{ textAlign:'right', fontSize:9.5, color: colorA, marginTop:2, fontWeight:600 }}>{pctA}%</div>
@@ -402,9 +402,9 @@ export function Objectifs() {
                 {/* Marge réelle */}
                 <div>
                   <div style={{ display:'flex', justifyContent:'space-between', fontSize:10.5, marginBottom:4 }}>
-                    <span style={{ color:'#94a3b8' }}>Marge réelle</span>
+                    <span style={{ color:'var(--text-2)' }}>Marge réelle</span>
                     <span style={{ color: colorM, fontFamily:'monospace', fontWeight:600 }}>
-                      {d.realVentes > 0 ? `${pctM}%` : '—'} <span style={{ color:'#64748b', fontWeight:400 }}>(obj: {target}%)</span>
+                      {d.realVentes > 0 ? `${pctM}%` : '—'} <span style={{ color:'var(--text-3)', fontWeight:400 }}>(obj: {target}%)</span>
                     </span>
                   </div>
                   <Bar pct={target > 0 ? (pctM / target) * 100 : 0} color={colorM} />

@@ -13,7 +13,7 @@ import {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+    <div style={{ background:'var(--bg-1)', border:'1px solid var(--border-1)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(20,30,60,0.18)' }}>
       <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:6 }}>{label}</div>
       {payload.map((p: any) => (
         <div key={p.name} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:3 }}>
@@ -59,7 +59,7 @@ export function Equilibre() {
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée. Importez un fichier FEC.</div>
 
   return (
-    <div ref={printRef} className="flex flex-col gap-4 module-equilibre">
+    <div ref={printRef} className="flex flex-col gap-4 module-equilibre ab-light" style={{ background:'var(--bg-0)', minHeight:'100%' }}>
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportPlCalcXlsx('Equilibre', 'Équilibre exploitation', EQ, plCalc, ventes)}
@@ -67,26 +67,26 @@ export function Equilibre() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 px-6 pt-4">
-        <KpiCard label="Ventes" value={`${fmt(ventes)} €`} color="#10b981" />
-        <KpiCard label="Achats" value={`${fmt(achats)} €`} color="#f97316" />
-        <KpiCard label="Marge brute" value={`${fmt(marge)} €`} color="#14b8a6" sub={`${pct(tauxMarge)} du CA`} />
-        <KpiCard label="Charges" value={`${fmt(charges)} €`} color="#ef4444" />
-        <KpiCard label="Résultat net" value={`${fmt(resultat)} €`} color={resultat >= 0 ? '#3b82f6' : '#ef4444'} />
+        <KpiCard label="Ventes" icon="📈" value={`${fmt(ventes)} €`} color="#10b981" />
+        <KpiCard label="Achats" icon="🛒" value={`${fmt(achats)} €`} color="#f97316" />
+        <KpiCard label="Marge brute" icon="💰" value={`${fmt(marge)} €`} color="#14b8a6" sub={`${pct(tauxMarge)} du CA`} />
+        <KpiCard label="Charges" icon="🧾" value={`${fmt(charges)} €`} color="#ef4444" />
+        <KpiCard label="Résultat net" icon="🎯" value={`${fmt(resultat)} €`} color={resultat >= 0 ? '#1e88c7' : '#ef4444'} />
       </div>
 
       {/* Graphique N vs N-1 */}
       <div className="px-6">
-        <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-1)', border: '1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-2)' }}>Ventes → Marge → Résultat (N vs N-1)</h3>
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={chartData} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(20,30,60,0.08)" />
               <XAxis dataKey="name" tick={{ fill: 'var(--text-2)', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 10 }} />
-              <Bar dataKey="N" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
-              <Bar dataKey="N-1" fill="#94a3b8" radius={[4, 4, 0, 0]} barSize={32} />
+              <Bar dataKey="N" fill="#1e88c7" radius={[4, 4, 0, 0]} barSize={32} />
+              <Bar dataKey="N-1" fill="var(--text-2)" radius={[4, 4, 0, 0]} barSize={32} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -103,7 +103,7 @@ export function Equilibre() {
           <span>−</span>
           <span style={{ color:'#ef4444' }}>Charges {fmt(charges)}</span>
           <span>=</span>
-          <span style={{ color: resultat >= 0 ? '#3b82f6' : '#ef4444', fontSize:16 }}>Résultat {fmt(resultat)}</span>
+          <span style={{ color: resultat >= 0 ? '#1e88c7' : '#ef4444', fontSize:16 }}>Résultat {fmt(resultat)}</span>
         </div>
       </div>
 
