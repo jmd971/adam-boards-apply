@@ -822,7 +822,7 @@ export function Saisie() {
     <div className="ab-light" style={{ padding:'16px 24px', background:'var(--bg-0)', minHeight:'100%' }}>
 
       {isReadOnly && (
-        <div style={{ padding:'8px 14px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', color:'#f59e0b', fontSize:11, fontWeight:600, marginBottom:16 }}>
+        <div style={{ padding:'8px 14px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', color:'#8a5a00', fontSize:11, fontWeight:600, marginBottom:16 }}>
           Mode consultation — vous ne pouvez pas ajouter de saisies.
         </div>
       )}
@@ -1120,7 +1120,7 @@ export function Saisie() {
                     <label style={{ fontSize:10, color:'var(--text-2)' }}>Échéances (date et montant modifiables)</label>
                     {echAmountsDirty && (
                       <button type="button" onClick={() => setEchAmountsDirty(false)}
-                        style={{ background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)',
+                        style={{ background:'rgba(99,102,241,0.15)', color:'#4f46e5', border:'1px solid rgba(99,102,241,0.3)',
                           borderRadius:6, padding:'3px 10px', fontSize:10, cursor:'pointer' }}>
                         Répartir équitablement
                       </button>

@@ -90,7 +90,7 @@ export function Conseiller() {
       </div>
 
       {/* Disclaimer permanent (garde-fou N3) */}
-      <div style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.30)', borderRadius:10, padding:'9px 13px', color:'#fcd34d', fontSize:11.5, lineHeight:1.5, marginBottom:12 }}>
+      <div style={{ background:'rgba(245,158,11,0.10)', border:'1px solid rgba(245,158,11,0.30)', borderRadius:10, padding:'9px 13px', color:'#8a5a00', fontSize:11.5, lineHeight:1.5, marginBottom:12 }}>
         Cet assistant analyse vos données de gestion ADAM. Il ne remplace pas un conseil fiscal,
         juridique ou comptable. Pour toute décision importante, parlez-en à votre conseiller.
       </div>
@@ -132,7 +132,7 @@ export function Conseiller() {
       </div>
 
       {error && (
-        <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:10, padding:'9px 13px', color:'#fca5a5', fontSize:12.5, margin:'10px 0 0' }}>
+        <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:10, padding:'9px 13px', color:'#c0392b', fontSize:12.5, margin:'10px 0 0' }}>
           ⚠️ {error}
         </div>
       )}
