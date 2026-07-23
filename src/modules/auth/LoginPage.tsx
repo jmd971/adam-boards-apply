@@ -86,7 +86,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Card */}
         <div className="rounded-2xl p-8"
-          style={{ background: 'var(--bg-1)', border: '1px solid var(--border-1)' }}>
+          style={{ background: 'var(--bg-1)', border: '1px solid var(--border-1)', boxShadow: '0 12px 32px rgba(20,30,60,0.10)' }}>
 
           {/* Tabs login / signup */}
           <div className="flex rounded-xl overflow-hidden mb-6"

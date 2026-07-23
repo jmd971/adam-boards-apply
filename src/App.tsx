@@ -80,9 +80,15 @@ function AppInner() {
       }
     })
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      if (event === 'SIGNED_IN') {
         setUser(session?.user ?? null)
         if (session?.user) resolveAuth(session.user.id)
+      } else if (event === 'TOKEN_REFRESHED') {
+        // Rafraîchissement de token en arrière-plan (Supabase, ~toutes les 50 min ou au focus) :
+        // on met seulement à jour l'utilisateur. NE PAS re-résoudre rôle/tenant, sinon un
+        // superadmin ayant sélectionné un client est renvoyé vers la liste
+        // (getUserRoleAndTenant renvoie tenantId=null pour un superadmin).
+        setUser(session?.user ?? null)
       } else if (event === 'SIGNED_OUT') {
         setUser(null)
         setTenant(null, null)

@@ -68,7 +68,7 @@ export function KpiCard({ label, value, color = 'var(--blue)', sub, trend, icon,
         position: 'relative', overflow: 'visible',
       }}>
       {/* Puce à icône colorée */}
-      <div style={{ width:38, height:38, borderRadius:11, background:`color-mix(in srgb, ${color} 15%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, lineHeight:1, marginBottom:2 }}>
+      <div style={{ width:38, height:38, borderRadius:11, background:`color-mix(in srgb, ${color} 20%, transparent)`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:18, lineHeight:1, marginBottom:2 }}>
         {icon || '📊'}
       </div>
 
