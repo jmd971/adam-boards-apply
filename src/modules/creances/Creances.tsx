@@ -10,7 +10,7 @@ const BUCKETS = [
   { label: '> 90 jours',  color: '#ef4444', bg: 'rgba(239,68,68,0.06)',  border: 'rgba(239,68,68,0.2)',  icon: '🔴', tag: 'Critique' },
   { label: '60 – 90 j',   color: '#f97316', bg: 'rgba(249,115,22,0.06)', border: 'rgba(249,115,22,0.18)', icon: '🟠', tag: 'Risque' },
   { label: '30 – 60 j',   color: '#f59e0b', bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.18)', icon: '🟡', tag: 'À surveiller' },
-  { label: '< 30 jours',  color: '#3b82f6', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.18)', icon: '🔵', tag: 'Courant' },
+  { label: '< 30 jours',  color: '#1e88c7', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.18)', icon: '🔵', tag: 'Courant' },
   { label: 'Non échu',    color: '#22c55e', bg: 'rgba(34,197,94,0.05)',   border: 'rgba(34,197,94,0.15)',  icon: '🟢', tag: 'OK' },
 ]
 
@@ -235,61 +235,61 @@ export function Creances() {
     ))
   }, [byBucket, search])
 
-  if (!RAW) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, color: '#64748b', fontSize: 13 }}>Aucune donnée.</div>
+  if (!RAW) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 256, color: 'var(--text-3)', fontSize: 13 }}>Aucune donnée.</div>
 
   const secTotals = byBucket.map(bk => bk.reduce((s, c) => s + c.total, 0))
   const nbTotal = allClients.length
   return (
     <>
-      <div style={{ padding: '20px 24px', maxWidth: 1280, margin: '0 auto' }}>
+      <div className="ab-light" style={{ padding: '20px 24px', maxWidth: 1280, margin: '0 auto', background:'var(--bg-0)', minHeight:'100%' }}>
 
         {/* ── Titre ── */}
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', margin: '0 0 4px' }}>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-0)', margin: '0 0 4px' }}>
             Créances clients
           </h2>
-          <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
+          <p style={{ fontSize: 12, color: 'var(--text-2)', margin: 0 }}>
             Balance âgée des comptes clients (41x, FEC + saisies) · {nbTotal} client{nbTotal > 1 ? 's' : ''} avec solde dû
           </p>
         </div>
 
         {/* ── KPIs principaux ── */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
-          <div style={{ background: '#0f172a', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)', gridColumn: 'span 1' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Total créances</div>
+          <div style={{ background: 'var(--bg-1)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border-1)', gridColumn: 'span 1' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Total créances</div>
             <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: '#f59e0b' }}>{fmt(totalCreances)} €</div>
-            <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>{nbTotal} client{nbTotal > 1 ? 's' : ''}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-1)', marginTop: 4 }}>{nbTotal} client{nbTotal > 1 ? 's' : ''}</div>
           </div>
-          <div style={{ background: '#0f172a', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>DSO (délai moyen)</div>
-            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: dso ? (dso > 60 ? '#ef4444' : dso > 30 ? '#f59e0b' : '#10b981') : '#94a3b8' }}>
+          <div style={{ background: 'var(--bg-1)', borderRadius: 12, padding: '14px 16px', border: '1px solid var(--border-1)' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>DSO (délai moyen)</div>
+            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: dso ? (dso > 60 ? '#ef4444' : dso > 30 ? '#f59e0b' : '#10b981') : 'var(--text-2)' }}>
               {dso !== null ? `${dso} j` : '—'}
             </div>
-            <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>Objectif : &lt; 45 jours</div>
+            <div style={{ fontSize: 10, color: 'var(--text-1)', marginTop: 4 }}>Objectif : &lt; 45 jours</div>
           </div>
-          <div style={{ background: '#0f172a', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.15)' }}>
+          <div style={{ background: 'var(--bg-1)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(239,68,68,0.15)' }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Échu (&gt; 30 j)</div>
             <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: '#ef4444' }}>{fmt(secTotals[0] + secTotals[1] + secTotals[2])} €</div>
-            <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-1)', marginTop: 4 }}>
               {totalCreances > 0 ? `${Math.round((secTotals[0] + secTotals[1] + secTotals[2]) / totalCreances * 100)}% du total` : '—'}
             </div>
           </div>
-          <div style={{ background: '#0f172a', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(59,130,246,0.15)' }}>
-            <div style={{ fontSize: 9, fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Courant (&lt; 30 j)</div>
-            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: '#3b82f6' }}>{fmt(secTotals[3])} €</div>
-            <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>{byBucket[3].length} client{byBucket[3].length > 1 ? 's' : ''}</div>
+          <div style={{ background: 'var(--bg-1)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(59,130,246,0.15)' }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: '#1e88c7', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Courant (&lt; 30 j)</div>
+            <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: '#1e88c7' }}>{fmt(secTotals[3])} €</div>
+            <div style={{ fontSize: 10, color: 'var(--text-1)', marginTop: 4 }}>{byBucket[3].length} client{byBucket[3].length > 1 ? 's' : ''}</div>
           </div>
-          <div style={{ background: '#0f172a', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(34,197,94,0.15)' }}>
+          <div style={{ background: 'var(--bg-1)', borderRadius: 12, padding: '14px 16px', border: '1px solid rgba(34,197,94,0.15)' }}>
             <div style={{ fontSize: 9, fontWeight: 700, color: '#22c55e', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 6 }}>Non échu</div>
             <div style={{ fontSize: 24, fontWeight: 800, fontFamily: 'monospace', color: '#22c55e' }}>{fmt(secTotals[4])} €</div>
-            <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>{byBucket[4].length} client{byBucket[4].length > 1 ? 's' : ''}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-1)', marginTop: 4 }}>{byBucket[4].length} client{byBucket[4].length > 1 ? 's' : ''}</div>
           </div>
         </div>
 
         {/* ── Balance âgée résumé ── */}
         <div style={{
-          background: '#0f172a', borderRadius: 12, padding: '16px 20px', marginBottom: 20,
-          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--bg-1)', borderRadius: 12, padding: '16px 20px', marginBottom: 20,
+          border: '1px solid var(--border-1)',
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>
             Répartition par ancienneté
@@ -328,8 +328,8 @@ export function Creances() {
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                     padding: '10px 8px', borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
-                    background: isActive ? bk.bg : 'rgba(255,255,255,0.02)',
-                    border: `1px solid ${isActive ? bk.color + '60' : 'rgba(255,255,255,0.04)'}`,
+                    background: isActive ? bk.bg : 'rgba(20,30,60,0.03)',
+                    border: `1px solid ${isActive ? bk.color + '60' : 'var(--bg-2)'}`,
                   }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: bk.color }} />
@@ -338,7 +338,7 @@ export function Creances() {
                   <div style={{ fontSize: 16, fontWeight: 800, fontFamily: 'monospace', color: bk.color }}>
                     {fmt(secTotals[i])} €
                   </div>
-                  <div style={{ fontSize: 9, color: '#94a3b8' }}>
+                  <div style={{ fontSize: 9, color: 'var(--text-2)' }}>
                     {byBucket[i].length} client{byBucket[i].length > 1 ? 's' : ''}
                     {totalCreances > 0 ? ` · ${Math.round(secTotals[i] / totalCreances * 100)}%` : ''}
                   </div>
@@ -351,13 +351,13 @@ export function Creances() {
         {/* ── Toolbar ── */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
           {/* View mode */}
-          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-1)' }}>
             {([['buckets', 'Par délai'], ['clients', 'Par client']] as const).map(([mode, label]) => (
               <button key={mode} onClick={() => setViewMode(mode)}
                 style={{
                   padding: '6px 14px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
                   background: viewMode === mode ? 'rgba(59,130,246,0.2)' : 'transparent',
-                  color: viewMode === mode ? '#93c5fd' : '#94a3b8',
+                  color: viewMode === mode ? '#1e88c7' : 'var(--text-2)',
                 }}>
                 {label}
               </button>
@@ -378,8 +378,8 @@ export function Creances() {
           <input value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher un client..."
             style={{
-              padding: '7px 12px', borderRadius: 8, background: '#0f172a',
-              border: '1px solid rgba(255,255,255,0.1)', color: '#cbd5e1', fontSize: 12,
+              padding: '7px 12px', borderRadius: 8, background: 'var(--bg-1)',
+              border: '1px solid var(--border-1)', color: 'var(--text-1)', fontSize: 12,
               outline: 'none', width: 220, marginLeft: 'auto',
             }} />
         </div>
@@ -425,7 +425,7 @@ export function Creances() {
                       <div style={{ fontSize: 22, fontWeight: 800, fontFamily: 'monospace', color: bk.color }}>
                         {fmt(secTotals[bi])} €
                       </div>
-                      <div style={{ fontSize: 10, color: '#94a3b8' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text-2)' }}>
                         {clients.length} client{clients.length > 1 ? 's' : ''}
                         {totalCreances > 0 ? ` · ${Math.round(secTotals[bi] / totalCreances * 100)}%` : ''}
                       </div>
@@ -433,7 +433,7 @@ export function Creances() {
                   </div>
 
                   {/* Client list */}
-                  <div style={{ background: '#080d1a' }}>
+                  <div style={{ background: 'var(--bg-2)' }}>
                     {clients.map((c, ci) => {
                       const key = c.account
                       const isExpanded = expanded[key]
@@ -449,9 +449,9 @@ export function Creances() {
                               gridTemplateColumns: '1fr 100px 120px 90px 100px 80px',
                               alignItems: 'center',
                               padding: '12px 20px',
-                              borderBottom: '1px solid rgba(255,255,255,0.03)',
+                              borderBottom: '1px solid var(--border-1)',
                               cursor: c.entries.length > 0 ? 'pointer' : 'default',
-                              background: isExpanded ? 'rgba(255,255,255,0.02)' : ci % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.008)',
+                              background: isExpanded ? 'rgba(20,30,60,0.03)' : ci % 2 === 0 ? 'transparent' : 'rgba(20,30,60,0.03)',
                               transition: 'background 0.1s',
                             }}
                           >
@@ -459,7 +459,7 @@ export function Creances() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                               {c.entries.length > 0 && (
                                 <span style={{
-                                  fontSize: 10, color: '#94a3b8', transition: 'transform 0.15s',
+                                  fontSize: 10, color: 'var(--text-2)', transition: 'transform 0.15s',
                                   transform: isExpanded ? 'rotate(90deg)' : 'none',
                                   flexShrink: 0,
                                 }}>
@@ -467,11 +467,11 @@ export function Creances() {
                                 </span>
                               )}
                               <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
                                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
                                   <RelancesBadge account={c.account} />
                                 </div>
-                                <div style={{ fontSize: 10, color: '#334155', fontFamily: 'monospace' }}>{c.account}</div>
+                                <div style={{ fontSize: 10, color: 'var(--text-1)', fontFamily: 'monospace' }}>{c.account}</div>
                               </div>
                             </div>
 
@@ -484,10 +484,10 @@ export function Creances() {
 
                             {/* Barre % */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                              <div style={{ height: 6, width: 60, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                              <div style={{ height: 6, width: 60, borderRadius: 3, background: 'var(--bg-2)', overflow: 'hidden' }}>
                                 <div style={{ height: '100%', background: bk.color, width: `${Math.min(100, pct * 2)}%`, opacity: 0.7, borderRadius: 3 }} />
                               </div>
-                              <span style={{ fontSize: 11, color: '#64748b', minWidth: 40, textAlign: 'right', fontFamily: 'monospace' }}>
+                              <span style={{ fontSize: 11, color: 'var(--text-3)', minWidth: 40, textAlign: 'right', fontFamily: 'monospace' }}>
                                 {pct.toFixed(1)}%
                               </span>
                             </div>
@@ -497,24 +497,24 @@ export function Creances() {
                               {c.oldestDays > 0 ? (
                                 <span style={{
                                   fontSize: 12, fontWeight: 700, fontFamily: 'monospace',
-                                  color: c.oldestDays > 90 ? '#ef4444' : c.oldestDays > 60 ? '#f97316' : c.oldestDays > 30 ? '#f59e0b' : '#3b82f6',
+                                  color: c.oldestDays > 90 ? '#ef4444' : c.oldestDays > 60 ? '#f97316' : c.oldestDays > 30 ? '#f59e0b' : '#1e88c7',
                                 }}>
                                   {c.oldestDays} j
                                 </span>
                               ) : (
-                                <span style={{ fontSize: 11, color: '#334155' }}>—</span>
+                                <span style={{ fontSize: 11, color: 'var(--text-1)' }}>—</span>
                               )}
                             </div>
 
                             {/* Date + ancienne */}
-                            <div style={{ textAlign: 'right', fontSize: 11, fontFamily: 'monospace', color: '#64748b' }}>
+                            <div style={{ textAlign: 'right', fontSize: 11, fontFamily: 'monospace', color: 'var(--text-3)' }}>
                               {formatDate(c.oldest)}
                             </div>
 
                             {/* Nb factures */}
                             <div style={{ textAlign: 'right' }}>
                               {c.nbInvoices > 0 ? (
-                                <span style={{ fontSize: 11, color: '#64748b' }}>
+                                <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
                                   {c.nbInvoices} fact.
                                 </span>
                               ) : (
@@ -527,8 +527,8 @@ export function Creances() {
                           {isExpanded && c.invoices.length > 0 && (
                             <div style={{
                               padding: '0 20px 12px 48px',
-                              background: 'rgba(255,255,255,0.015)',
-                              borderBottom: '1px solid rgba(255,255,255,0.04)',
+                              background: 'rgba(20,30,60,0.03)',
+                              borderBottom: '1px solid var(--border-1)',
                             }}>
                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                                 <thead>
@@ -537,8 +537,8 @@ export function Creances() {
                                       <th key={h} style={{
                                         padding: '6px 8px',
                                         textAlign: h === 'Libellé' || h === 'Pièce' ? 'left' : 'right',
-                                        fontSize: 9, fontWeight: 600, color: '#334155', textTransform: 'uppercase',
-                                        letterSpacing: '0.4px', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                        fontSize: 9, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase',
+                                        letterSpacing: '0.4px', borderBottom: '1px solid var(--border-1)',
                                       }}>
                                         {h}
                                       </th>
@@ -549,14 +549,14 @@ export function Creances() {
                                   {c.invoices.map((inv, ii) => {
                                     const invBk = BUCKETS[inv.bucket]
                                     return (
-                                      <tr key={ii} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                        <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
+                                      <tr key={ii} style={{ borderBottom: '1px solid var(--border-1)' }}>
+                                        <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-2)', fontSize: 10 }}>
                                           {formatDate(inv.date)}
                                         </td>
-                                        <td style={{ padding: '5px 8px', color: '#cbd5e1', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        <td style={{ padding: '5px 8px', color: 'var(--text-1)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                           {inv.label || '—'}
                                         </td>
-                                        <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
+                                        <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: 'var(--text-2)', fontSize: 10 }}>
                                           {inv.piece || '—'}
                                         </td>
                                         <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: inv.debit > 0 ? 600 : 400, color: inv.debit > 0 ? '#ef4444' : '#1e293b' }}>
@@ -580,8 +580,8 @@ export function Creances() {
                                   })}
                                 </tbody>
                                 <tfoot>
-                                  <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                                    <td colSpan={3} style={{ padding: '6px 8px', fontSize: 10, fontWeight: 600, color: '#64748b' }}>
+                                  <tr style={{ borderTop: '1px solid var(--border-1)' }}>
+                                    <td colSpan={3} style={{ padding: '6px 8px', fontSize: 10, fontWeight: 600, color: 'var(--text-3)' }}>
                                       Solde client
                                     </td>
                                     <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444', fontSize: 11 }}>
@@ -603,7 +603,7 @@ export function Creances() {
                                   onClick={(e) => { e.stopPropagation(); setModal({ title: `${c.name} — Écritures`, entries: c.entries, cumN: c.total, cumN1: 0 }) }}
                                   style={{
                                     padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                                    background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#93c5fd',
+                                    background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#1e88c7',
                                   }}>
                                   Voir toutes les écritures ({c.entries.length})
                                 </button>
@@ -623,18 +623,18 @@ export function Creances() {
 
         {/* ── Vue par client (tableau unique) ── */}
         {viewMode === 'clients' && (
-          <div style={{ borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+          <div style={{ borderRadius: 12, border: '1px solid var(--border-1)', overflow: 'hidden' }}>
             {/* Column headers */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: '1fr 100px 120px 80px 90px 90px 70px',
               padding: '10px 20px',
-              background: '#0a0f1a',
-              borderBottom: '1px solid rgba(255,255,255,0.06)',
+              background: 'var(--bg-1)',
+              borderBottom: '1px solid var(--border-1)',
             }}>
               {['Client', 'Montant dû', '% total', 'Délai', 'Ancienneté', 'Fact. + anc.', 'Détail'].map((h, i) => (
                 <div key={h} style={{
-                  fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.4px',
+                  fontSize: 9, fontWeight: 700, color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.4px',
                   textAlign: i === 0 ? 'left' : 'right',
                 }}>
                   {h}
@@ -643,9 +643,9 @@ export function Creances() {
             </div>
 
             {/* Client rows */}
-            <div style={{ background: '#080d1a' }}>
+            <div style={{ background: 'var(--bg-2)' }}>
               {filteredClients.length === 0 ? (
-                <div style={{ padding: 32, textAlign: 'center', color: '#334155', fontSize: 12 }}>
+                <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-1)', fontSize: 12 }}>
                   {search ? `Aucun résultat pour "${search}"` : 'Aucune créance client.'}
                 </div>
               ) : filteredClients.map((c, ci) => {
@@ -663,23 +663,23 @@ export function Creances() {
                         gridTemplateColumns: '1fr 100px 120px 80px 90px 90px 70px',
                         alignItems: 'center',
                         padding: '10px 20px',
-                        borderBottom: '1px solid rgba(255,255,255,0.03)',
+                        borderBottom: '1px solid var(--border-1)',
                         cursor: c.entries.length > 0 ? 'pointer' : 'default',
-                        background: isExpanded ? 'rgba(255,255,255,0.02)' : ci % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.008)',
+                        background: isExpanded ? 'rgba(20,30,60,0.03)' : ci % 2 === 0 ? 'transparent' : 'rgba(20,30,60,0.03)',
                       }}
                     >
                       {/* Client */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                         <span style={{ width: 8, height: 8, borderRadius: '50%', background: bk.color, flexShrink: 0 }} />
                         {c.entries.length > 0 && (
-                          <span style={{ fontSize: 9, color: '#94a3b8', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>▶</span>
+                          <span style={{ fontSize: 9, color: 'var(--text-2)', transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }}>▶</span>
                         )}
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: 6 }}>
                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
                             <RelancesBadge account={c.account} />
                           </div>
-                          <div style={{ fontSize: 9, color: '#334155', fontFamily: 'monospace' }}>{c.account}</div>
+                          <div style={{ fontSize: 9, color: 'var(--text-1)', fontFamily: 'monospace' }}>{c.account}</div>
                         </div>
                       </div>
 
@@ -690,10 +690,10 @@ export function Creances() {
 
                       {/* % barre */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                        <div style={{ height: 6, width: 60, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div style={{ height: 6, width: 60, borderRadius: 3, background: 'var(--bg-2)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', background: bk.color, width: `${Math.min(100, pctVal * 2)}%`, opacity: 0.7, borderRadius: 3 }} />
                         </div>
-                        <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace', minWidth: 36, textAlign: 'right' }}>{pctVal.toFixed(1)}%</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'monospace', minWidth: 36, textAlign: 'right' }}>{pctVal.toFixed(1)}%</span>
                       </div>
 
                       {/* Délai badge */}
@@ -712,14 +712,14 @@ export function Creances() {
                       </div>
 
                       {/* Date */}
-                      <div style={{ textAlign: 'right', fontSize: 10, fontFamily: 'monospace', color: '#64748b' }}>
+                      <div style={{ textAlign: 'right', fontSize: 10, fontFamily: 'monospace', color: 'var(--text-3)' }}>
                         {formatDate(c.oldest)}
                       </div>
 
                       {/* Detail */}
                       <div style={{ textAlign: 'right' }}>
                         {c.entries.length > 0 ? (
-                          <span style={{ fontSize: 10, color: '#94a3b8' }}>{c.nbInvoices} fact.</span>
+                          <span style={{ fontSize: 10, color: 'var(--text-2)' }}>{c.nbInvoices} fact.</span>
                         ) : '—'}
                       </div>
                     </div>
@@ -728,8 +728,8 @@ export function Creances() {
                     {isExpanded && c.invoices.length > 0 && (
                       <div style={{
                         padding: '0 20px 12px 48px',
-                        background: 'rgba(255,255,255,0.015)',
-                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        background: 'rgba(20,30,60,0.03)',
+                        borderBottom: '1px solid var(--border-1)',
                       }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
                           <thead>
@@ -738,8 +738,8 @@ export function Creances() {
                                 <th key={h} style={{
                                   padding: '6px 8px',
                                   textAlign: h === 'Libellé' || h === 'Pièce' ? 'left' : 'right',
-                                  fontSize: 9, fontWeight: 600, color: '#334155', textTransform: 'uppercase',
-                                  letterSpacing: '0.4px', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                                  fontSize: 9, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase',
+                                  letterSpacing: '0.4px', borderBottom: '1px solid var(--border-1)',
                                 }}>
                                   {h}
                                 </th>
@@ -750,14 +750,14 @@ export function Creances() {
                             {c.invoices.map((inv, ii) => {
                               const invBk = BUCKETS[inv.bucket]
                               return (
-                                <tr key={ii} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
-                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
+                                <tr key={ii} style={{ borderBottom: '1px solid var(--border-1)' }}>
+                                  <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-2)', fontSize: 10 }}>
                                     {formatDate(inv.date)}
                                   </td>
-                                  <td style={{ padding: '5px 8px', color: '#cbd5e1', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <td style={{ padding: '5px 8px', color: 'var(--text-1)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {inv.label || '—'}
                                   </td>
-                                  <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
+                                  <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: 'var(--text-2)', fontSize: 10 }}>
                                     {inv.piece || '—'}
                                   </td>
                                   <td style={{ padding: '5px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: inv.debit > 0 ? 600 : 400, color: inv.debit > 0 ? '#ef4444' : '#1e293b' }}>
@@ -781,8 +781,8 @@ export function Creances() {
                             })}
                           </tbody>
                           <tfoot>
-                            <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                              <td colSpan={3} style={{ padding: '6px 8px', fontSize: 10, fontWeight: 600, color: '#64748b' }}>Solde</td>
+                            <tr style={{ borderTop: '1px solid var(--border-1)' }}>
+                              <td colSpan={3} style={{ padding: '6px 8px', fontSize: 10, fontWeight: 600, color: 'var(--text-3)' }}>Solde</td>
                               <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444', fontSize: 11 }}>
                                 {fmt(c.invoices.reduce((s, inv) => s + inv.debit, 0))}
                               </td>
@@ -800,7 +800,7 @@ export function Creances() {
                             onClick={(e) => { e.stopPropagation(); setModal({ title: `${c.name} — Écritures`, entries: c.entries, cumN: c.total, cumN1: 0 }) }}
                             style={{
                               padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                              background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#93c5fd',
+                              background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', color: '#1e88c7',
                             }}>
                             Voir toutes les écritures ({c.entries.length})
                           </button>
@@ -818,15 +818,15 @@ export function Creances() {
         {/* ── Empty state ── */}
         {allClients.length === 0 && (
           <div style={{
-            padding: 40, textAlign: 'center', color: '#94a3b8', fontSize: 12,
-            background: '#0f172a', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)',
+            padding: 40, textAlign: 'center', color: 'var(--text-2)', fontSize: 12,
+            background: 'var(--bg-1)', borderRadius: 12, border: '1px solid var(--border-1)',
           }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
             Aucune créance client détectée dans ce FEC.
           </div>
         )}
 
-        <div style={{ marginTop: 14, fontSize: 10, color: '#334155' }}>
+        <div style={{ marginTop: 14, fontSize: 10, color: 'var(--text-1)' }}>
           Comptes 41x (hors 419). Solde = factures (débit) − paiements (crédit). Cliquez sur un client pour voir le détail des factures.
         </div>
       </div>

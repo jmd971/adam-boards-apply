@@ -29,7 +29,7 @@ export const RELANCE_TYPE_LABELS: Record<Relance['type'], string> = {
 }
 
 export const RELANCE_STATUS_LABELS: Record<Relance['status'], { label: string; color: string }> = {
-  envoyee:   { label: 'Envoyée',           color: '#3b82f6' },
+  envoyee:   { label: 'Envoyée',           color: '#1e88c7' },
   attente:   { label: 'En attente',        color: '#f59e0b' },
   resolue:   { label: 'Résolue',           color: '#10b981' },
   partielle: { label: 'Paiement partiel',  color: '#8b5cf6' },
@@ -121,8 +121,8 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
 
   const inputSt: React.CSSProperties = {
     padding: '5px 8px', borderRadius: 6, fontSize: 11, fontFamily: 'inherit',
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#cbd5e1', outline: 'none',
+    background: 'var(--bg-2)', border: '1px solid var(--border-1)',
+    color: 'var(--text-1)', outline: 'none',
   }
 
   return (
@@ -140,35 +140,35 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
       </div>
 
       {showForm && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: 6, alignItems: 'end', padding: '8px 4px', marginBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr 1fr 1fr', gap: 6, alignItems: 'end', padding: '8px 4px', marginBottom: 8, borderBottom: '1px solid var(--border-1)' }}>
           <div>
-            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Date</label>
+            <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Date</label>
             <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputSt} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Type</label>
+            <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Type</label>
             <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value as Relance['type'] }))} style={{ ...inputSt, width: '100%' }}>
               {Object.entries(RELANCE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Montant (€)</label>
+            <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Montant (€)</label>
             <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} placeholder="optionnel" style={{ ...inputSt, width: '100%', fontFamily: 'monospace' }} />
           </div>
           <div>
-            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Statut</label>
+            <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Statut</label>
             <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as Relance['status'] }))} style={{ ...inputSt, width: '100%' }}>
               {Object.entries(RELANCE_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
             </select>
           </div>
           <div style={{ gridColumn: '1 / -1' }}>
-            <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Notes</label>
+            <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Notes</label>
             <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Promesse de paiement, refus, etc." style={{ ...inputSt, width: '100%' }} />
           </div>
           <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button onClick={() => { setShowForm(false); reset() }} style={{
               padding: '5px 12px', borderRadius: 6, fontSize: 10, fontWeight: 500, cursor: 'pointer',
-              background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8',
+              background: 'transparent', border: '1px solid var(--border-1)', color: 'var(--text-2)',
             }}>Annuler</button>
             <button onClick={handleSubmit} disabled={busy} style={{
               padding: '5px 14px', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: busy ? 'wait' : 'pointer',
@@ -179,7 +179,7 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
       )}
 
       {list.length === 0 ? (
-        <div style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic', padding: '4px 0' }}>
+        <div style={{ fontSize: 11, color: 'var(--text-2)', fontStyle: 'italic', padding: '4px 0' }}>
           Aucune relance enregistrée.
         </div>
       ) : (
@@ -187,7 +187,7 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
           <thead>
             <tr>
               {['Date', 'Type', 'Montant', 'Statut', 'Notes', ''].map(h => (
-                <th key={h} style={{ padding: '4px 6px', textAlign: h === 'Montant' ? 'right' : 'left', fontSize: 9, color: '#334155', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <th key={h} style={{ padding: '4px 6px', textAlign: h === 'Montant' ? 'right' : 'left', fontSize: 9, color: 'var(--text-1)', fontWeight: 600, textTransform: 'uppercase', borderBottom: '1px solid var(--border-1)' }}>
                   {h}
                 </th>
               ))}
@@ -197,12 +197,12 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
             {list.map(r => {
               const stat = RELANCE_STATUS_LABELS[r.status]
               return (
-                <tr key={r.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                  <td style={{ padding: '5px 6px', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
+                <tr key={r.id} style={{ borderBottom: '1px solid var(--border-1)' }}>
+                  <td style={{ padding: '5px 6px', fontFamily: 'monospace', color: 'var(--text-2)', fontSize: 10 }}>
                     {r.date_relance.split('-').reverse().join('/')}
                   </td>
-                  <td style={{ padding: '5px 6px', color: '#cbd5e1' }}>{RELANCE_TYPE_LABELS[r.type]}</td>
-                  <td style={{ padding: '5px 6px', textAlign: 'right', fontFamily: 'monospace', color: '#cbd5e1' }}>
+                  <td style={{ padding: '5px 6px', color: 'var(--text-1)' }}>{RELANCE_TYPE_LABELS[r.type]}</td>
+                  <td style={{ padding: '5px 6px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-1)' }}>
                     {r.amount != null ? `${fmt(r.amount)} €` : '—'}
                   </td>
                   <td style={{ padding: '5px 6px' }}>
@@ -212,18 +212,18 @@ export function RelancesPanel({ account, clientLabel, companyKey, outstanding }:
                       </span>
                     ) : (
                       <select value={r.status} onChange={e => handleStatusChange(r.id, e.target.value as Relance['status'])}
-                        style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 4, color: stat.color, fontSize: 10, fontWeight: 600, padding: '1px 4px', cursor: 'pointer', fontFamily: 'inherit' }}>
+                        style={{ background: 'transparent', border: '1px solid var(--border-1)', borderRadius: 4, color: stat.color, fontSize: 10, fontWeight: 600, padding: '1px 4px', cursor: 'pointer', fontFamily: 'inherit' }}>
                         {Object.entries(RELANCE_STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                       </select>
                     )}
                   </td>
-                  <td style={{ padding: '5px 6px', color: '#94a3b8', fontSize: 10, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.notes ?? undefined}>
+                  <td style={{ padding: '5px 6px', color: 'var(--text-2)', fontSize: 10, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={r.notes ?? undefined}>
                     {r.notes || '—'}
                   </td>
                   <td style={{ padding: '5px 6px', textAlign: 'right' }}>
                     {!isReadOnly && (
                       <button onClick={() => handleDelete(r.id)} title="Supprimer"
-                        style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 12, padding: 0 }}>×</button>
+                        style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, padding: 0 }}>×</button>
                     )}
                   </td>
                 </tr>

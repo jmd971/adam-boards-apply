@@ -103,7 +103,7 @@ export function Tva() {
   const Row = ({ label, vals, color, bold, cumul }: { label:string; vals:number[]; color:string; bold?:boolean; cumul?:boolean }) => {
     const tot = cumul ? (vals[vals.length-1] ?? 0) : vals.reduce((s,v)=>s+v,0)
     return (
-      <tr style={{ borderBottom:'1px solid var(--border-0)', background: bold ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+      <tr style={{ borderBottom:'1px solid var(--border-0)', background: bold ? 'rgba(20,30,60,0.03)' : 'transparent' }}>
         <td style={{ padding:'8px 12px', color, fontWeight:bold?700:500, fontSize:bold?12:11.5, borderLeft:bold?`3px solid ${color}`:'3px solid transparent', whiteSpace:'nowrap' }}>{label}</td>
         {vals.map((v,i)=>(
           <td key={i} style={{ padding:'8px 6px', textAlign:'right', fontFamily:'monospace', fontSize:bold?12:11, fontWeight:bold?700:400, color: v<0?'var(--red)':v===0?'var(--text-3)':color }}>{v!==0?fmt(v):'—'}</td>
@@ -114,7 +114,7 @@ export function Tva() {
   }
 
   return (
-    <div style={{ padding:'16px 24px' }}>
+    <div className="ab-light" style={{ padding:'16px 24px', background:'var(--bg-0)', minHeight:'100%' }}>
       <div style={{ marginBottom:14 }}>
         <h2 style={{ fontSize:18, fontWeight:700, color:'var(--text-0)', margin:0 }}>TVA — estimation</h2>
         <div style={{ fontSize:11, color:'var(--text-2)', marginTop:4, lineHeight:1.6 }}>
@@ -125,9 +125,9 @@ export function Tva() {
       </div>
 
       <div className="treso-kpi-grid" style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:12, marginBottom:20 }}>
-        <KpiCard label="TVA collectée"  value={`${fmt(totCol)} €`} color="var(--green)" tooltip="TVA estimée sur vos ventes (comptes 7x × taux paramétré)." />
-        <KpiCard label="TVA déductible" value={`${fmt(totDed)} €`} color="var(--amber)" tooltip="TVA estimée sur vos achats et charges (comptes 6x × taux paramétré)." />
-        <KpiCard label="TVA nette à payer" value={`${fmt(totNet)} €`} color={totNet>=0?'var(--red)':'var(--green)'} tooltip="Collectée − déductible. Positif = à reverser à l'État ; négatif = crédit de TVA." />
+        <KpiCard label="TVA collectée"  icon="📥" value={`${fmt(totCol)} €`} color="var(--green)" tooltip="TVA estimée sur vos ventes (comptes 7x × taux paramétré)." />
+        <KpiCard label="TVA déductible" icon="📤" value={`${fmt(totDed)} €`} color="var(--amber)" tooltip="TVA estimée sur vos achats et charges (comptes 6x × taux paramétré)." />
+        <KpiCard label="TVA nette à payer" icon="💶" value={`${fmt(totNet)} €`} color={totNet>=0?'var(--red)':'var(--green)'} tooltip="Collectée − déductible. Positif = à reverser à l'État ; négatif = crédit de TVA." />
       </div>
 
       <div style={{ overflowX:'auto', borderRadius:'var(--radius-lg)', border:'1px solid var(--border-1)' }}>
