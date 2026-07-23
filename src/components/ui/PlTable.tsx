@@ -145,11 +145,11 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
     rows.push(
       <tr key={row.id}
         onClick={hasAccs ? () => toggle(row.id) : undefined}
-        style={{ background: row.bg || (row.bold ? 'rgba(255,255,255,0.025)' : 'transparent'), cursor: hasAccs ? 'pointer' : 'default', borderBottom: '1px solid var(--border-0)' }}
+        style={{ background: row.bg || (row.bold ? 'rgba(20,30,60,0.04)' : 'transparent'), cursor: hasAccs ? 'pointer' : 'default', borderBottom: '1px solid var(--border-0)' }}
       >
         <td style={{
           position:'sticky', left:0, zIndex:2,
-          background: row.bg || (row.bold ? '#111827' : 'var(--bg-0)'),
+          background: row.bg || (row.bold ? 'var(--bg-2)' : 'var(--bg-0)'),
           padding: `${row.bold ? 10 : 7}px 14px ${row.bold ? 10 : 7}px ${14 + (row.indent || 0) * 18}px`,
           fontSize: row.bold ? 13 : 12, fontWeight: row.bold ? 700 : 400,
           color: row.color || (row.bold ? 'var(--text-0)' : 'var(--text-1)'),
@@ -244,13 +244,13 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           rows.push(
             <tr key={`${row.id}__${acc}`}
               onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S, acc)}
-              style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
+              style={{ background:'rgba(20,30,60,0.05)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
               <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
                 <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
                 <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
                 <span>{lbl}</span>
-                {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
+                {ents.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(20,30,60,0.06)', padding:'1px 5px', borderRadius:10 }}>{ents.length} éc.</span>}
               </td>
               {showMonths && selectedMs.map(m => (
                 <td key={m} style={{ padding:'5px 8px', textAlign:'right', fontFamily:'monospace', fontSize:10, color:'var(--text-3)' }}>—</td>
@@ -362,13 +362,13 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           rows.push(
             <tr key={`${row.id}__${acc}`}
               onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, valN1, acc)}
-              style={{ background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
+              style={{ background:'rgba(20,30,60,0.05)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
               <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
                 <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
                 <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
                 <span>{lbl}</span>
-                {allEnts.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10 }}>{allEnts.length} éc.</span>}
+                {allEnts.length > 0 && <span style={{ marginLeft:6, fontSize:9, color:'var(--text-3)', background:'rgba(20,30,60,0.06)', padding:'1px 5px', borderRadius:10 }}>{allEnts.length} éc.</span>}
               </td>
               {showMonths && selectedMs.map((m, _mi) => {
                 let mv = 0
@@ -487,7 +487,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
           return (
             <tfoot>
               <tr style={{ background:'rgba(139,92,246,0.07)', borderTop:'2px solid rgba(139,92,246,0.3)' }}>
-                <td style={{ position:'sticky', left:0, zIndex:2, background:'#160e2b', padding:'10px 14px', fontSize:13, fontWeight:700, color:'#8b5cf6', borderLeft:'3px solid #8b5cf6', whiteSpace:'nowrap' }}>
+                <td style={{ position:'sticky', left:0, zIndex:2, background:'#f3f0fc', padding:'10px 14px', fontSize:13, fontWeight:700, color:'#8b5cf6', borderLeft:'3px solid #8b5cf6', whiteSpace:'nowrap' }}>
                   📊 Résultat cumulé
                 </td>
                 {showMonths && cumulMs.map((v, i) => (

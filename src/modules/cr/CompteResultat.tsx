@@ -15,7 +15,7 @@ const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','O
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+    <div style={{ background:'var(--bg-1)', border:'1px solid var(--border-1)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(20,30,60,0.18)' }}>
       <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:6 }}>{label}</div>
       {payload.map((p: any) => (
         <div key={p.name} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:3 }}>
@@ -100,7 +100,7 @@ export function CompteResultat() {
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée. Importez un fichier FEC.</div>
 
   return (
-    <div ref={printRef} className="module-cr">
+    <div ref={printRef} className="module-cr ab-light" style={{ background:'var(--bg-0)', minHeight:'100%' }}>
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportPlCalcXlsx('CompteResultat', 'CR', CR, plCalc, caTotal)}
@@ -108,21 +108,21 @@ export function CompteResultat() {
       />
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-6 pt-4">
-        <KpiCard label="Total Produits" value={`${fmt(totalProduits)} €`} color="#10b981" />
-        <KpiCard label="Total Charges" value={`${fmt(totalCharges)} €`} color="#ef4444" />
-        <KpiCard label="Résultat Net" value={`${fmt(rnet)} €`} color={rnet >= 0 ? '#10b981' : '#ef4444'}
+        <KpiCard label="Total Produits" icon="💰" value={`${fmt(totalProduits)} €`} color="#10b981" />
+        <KpiCard label="Total Charges" icon="🧾" value={`${fmt(totalCharges)} €`} color="#ef4444" />
+        <KpiCard label="Résultat Net" icon="🎯" value={`${fmt(rnet)} €`} color={rnet >= 0 ? '#10b981' : '#ef4444'}
           sub={rnetN1 !== 0 ? `N-1 : ${fmt(rnetN1)} €` : undefined} />
-        <KpiCard label="Taux de marge nette" value={pct(txMarge)} color={txMarge >= 0.05 ? '#10b981' : '#f97316'} />
+        <KpiCard label="Taux de marge nette" icon="📊" value={pct(txMarge)} color={txMarge >= 0.05 ? '#10b981' : '#f97316'} />
       </div>
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 px-6 pt-4">
         {/* Bar chart N vs N-1 */}
-        <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-1)', border: '1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-2)' }}>Comparaison N / N-1</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={compareData} barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(20,30,60,0.08)" />
               <XAxis dataKey="name" tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
               <Tooltip content={<CustomTooltip />} />
@@ -134,16 +134,16 @@ export function CompteResultat() {
         </div>
 
         {/* Line chart monthly result */}
-        <div className="rounded-xl p-4" style={{ background: 'var(--card-bg, #111827)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-xl p-4" style={{ background: 'var(--bg-1)', border: '1px solid var(--border-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
           <h3 className="text-xs font-semibold mb-3" style={{ color: 'var(--text-2)' }}>Évolution mensuelle du Résultat Net</h3>
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={monthlyResult}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(20,30,60,0.08)" />
               <XAxis dataKey="month" tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: 'var(--text-2)', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeDasharray="3 3" />
+              <ReferenceLine y={0} stroke="rgba(20,30,60,0.22)" strokeDasharray="3 3" />
               <Line type="monotone" dataKey="Résultat N" stroke="#10b981" strokeWidth={2} dot={{ r: 3 }} />
               <Line type="monotone" dataKey="Résultat N-1" stroke="#6366f1" strokeWidth={1.5} strokeDasharray="5 5" dot={{ r: 2 }} />
             </LineChart>
