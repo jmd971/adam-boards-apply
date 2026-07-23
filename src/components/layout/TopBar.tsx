@@ -56,8 +56,8 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
       <button onClick={() => setFilters({ [k]: !on })} style={{
         padding:'5px 11px', borderRadius:'var(--radius-sm)', fontSize:11.5, fontWeight:600,
         border:'none', cursor:'pointer', transition:'all 0.12s',
-        background: on ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.04)',
-        color:      on ? '#93c5fd' : 'var(--text-2)',
+        background: on ? 'rgba(59,130,246,0.18)' : 'var(--bg-2)',
+        color:      on ? '#1e88c7' : 'var(--text-2)',
         boxShadow:  on ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'inset 0 0 0 1px var(--border-1)',
       }}>
         {label}
@@ -66,10 +66,10 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
   }
 
   return (
-    <header className="topbar-inner" style={{
+    <header className="topbar-inner ab-light" style={{
       minHeight:54, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'space-between',
       padding:'0 24px', gap:16,
-      background:'rgba(6,11,20,0.96)', backdropFilter:'blur(20px)',
+      background:'rgba(255,255,255,0.85)', backdropFilter:'blur(20px)',
       borderBottom:'1px solid var(--border-0)', position:'sticky', top:0, zIndex:10,
     }}>
 
@@ -77,14 +77,14 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
       <button onClick={onMenuClick} className="mobile-menu-btn" style={{
         display:'none', alignItems:'center', justifyContent:'center',
         width:36, height:36, minHeight:36, borderRadius:'var(--radius-sm)',
-        background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)',
+        background:'var(--bg-2)', border:'1px solid var(--border-1)',
         color:'var(--text-1)', cursor:'pointer', flexShrink:0, fontSize:16,
       }}>☰</button>
       {/* Toggle sidebar desktop */}
       <button onClick={onSidebarToggle} className="desktop-sidebar-btn" style={{
         alignItems:'center', justifyContent:'center',
         width:32, height:32, minHeight:32, borderRadius:'var(--radius-sm)',
-        background:'rgba(255,255,255,0.04)', border:'1px solid var(--border-1)',
+        background:'var(--bg-2)', border:'1px solid var(--border-1)',
         color:'var(--text-2)', cursor:'pointer', flexShrink:0, fontSize:13,
         transition:'background 0.15s',
       }} title={sidebarCollapsed ? 'Afficher le menu' : 'Masquer le menu'}>
@@ -119,7 +119,7 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
                     // Tag basé sur l'appartenance aux sets RAW (classés par exercice fiscal
                     // dans buildRAW) — fiable pour les exercices décalés (oct→sep) comme civils.
                     const tag = RAW?.mn?.includes(m) ? ' ·N' : RAW?.m1?.includes(m) ? ' ·N-1' : RAW?.m2?.includes(m) ? ' ·N-2' : ''
-                    return <option key={m} value={m} style={{ background:'#0d1424' }}>
+                    return <option key={m} value={m} style={{ background:'var(--bg-1)' }}>
                       {monthLabel(m)}{tag}
                     </option>
                   })}
@@ -130,7 +130,7 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
                     // Tag basé sur l'appartenance aux sets RAW (classés par exercice fiscal
                     // dans buildRAW) — fiable pour les exercices décalés (oct→sep) comme civils.
                     const tag = RAW?.mn?.includes(m) ? ' ·N' : RAW?.m1?.includes(m) ? ' ·N-1' : RAW?.m2?.includes(m) ? ' ·N-2' : ''
-                    return <option key={m} value={m} style={{ background:'#0d1424' }}>
+                    return <option key={m} value={m} style={{ background:'var(--bg-1)' }}>
                       {monthLabel(m)}{tag}
                     </option>
                   })}
@@ -170,7 +170,7 @@ export function TopBar({ allMonths, onMenuClick, onSidebarToggle, sidebarCollaps
             {budVersions.map(v => (
               <option key={`${v.company_key}|||${v.version_name}`}
                       value={`${v.company_key}|||${v.version_name}`}
-                      style={{ background:'#0d1424' }}>
+                      style={{ background:'var(--bg-1)' }}>
                 {v.company_key} — {v.version_name}
               </option>
             ))}

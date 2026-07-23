@@ -73,8 +73,8 @@ export function Sidebar({ onTabChange }: SidebarProps) {
   const selCo = filters.selCo
 
   return (
-    <aside style={{
-      width: 232, height:'100vh', background:'var(--bg-1)',
+    <aside className="ab-light" style={{
+      width: 232, height:'100vh', background:'var(--bg-1)', borderRight:'1px solid var(--border-1)',
       borderRight:'1px solid var(--border-0)',
       display:'flex', flexDirection:'column',
       overflowY:'auto', overflowX:'hidden',
@@ -85,7 +85,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
           onClick={() => switchTenant(null, null, 'superadmin')}
           style={{
             padding: '10px 16px', border: 'none', borderBottom: '1px solid var(--border-0)',
-            background: 'rgba(59,130,246,0.08)', color: '#93c5fd',
+            background: 'rgba(59,130,246,0.08)', color: '#1e88c7',
             fontSize: 12, fontWeight: 600, cursor: 'pointer', textAlign: 'left',
             display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
             transition: 'background 0.15s',
@@ -99,14 +99,14 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       {/* Logo */}
       <div style={{ padding:'18px 16px 12px', borderBottom:'1px solid var(--border-0)', flexShrink:0 }}>
         <AdamBoardsInline markSize={34} fontSize={15} />
-        <div style={{ fontSize:9, color:'#94a3b8', letterSpacing:'1.5px', textTransform:'uppercase', marginTop:6 }}>Tableau de bord financier</div>
-        {tenantName && <div style={{ fontSize:9, color:'#3b82f6', marginTop:2, fontWeight:600 }}>{tenantName}</div>}
+        <div style={{ fontSize:9, color:'var(--text-2)', letterSpacing:'1.5px', textTransform:'uppercase', marginTop:6 }}>Tableau de bord financier</div>
+        {tenantName && <div style={{ fontSize:9, color:'#1e88c7', marginTop:2, fontWeight:600 }}>{tenantName}</div>}
       </div>
 
       {/* Sélecteur sociétés */}
       {companies.length > 0 && (
         <div style={{ padding:'10px 12px', borderBottom:'1px solid var(--border-0)', flexShrink:0 }}>
-          <div style={{ fontSize:9, fontWeight:700, color:'#94a3b8', letterSpacing:'1px', textTransform:'uppercase', marginBottom:6 }}>
+          <div style={{ fontSize:9, fontWeight:700, color:'var(--text-2)', letterSpacing:'1px', textTransform:'uppercase', marginBottom:6 }}>
             {user?.email?.split('@')[0] ?? 'Compte'}
           </div>
           <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
@@ -122,9 +122,9 @@ export function Sidebar({ onTabChange }: SidebarProps) {
                 }} style={{
                   padding:'4px 10px', borderRadius:20, fontSize:10, fontWeight:700,
                   cursor:'pointer', border:'none', transition:'all 0.15s',
-                  background: isSelected ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.04)',
-                  color:      isSelected ? '#93c5fd' : '#64748b',
-                  boxShadow:  isSelected ? 'inset 0 0 0 1px rgba(59,130,246,0.4)' : 'inset 0 0 0 1px rgba(255,255,255,0.06)',
+                  background: isSelected ? 'rgba(59,130,246,0.2)' : 'var(--bg-2)',
+                  color:      isSelected ? '#1e88c7' : 'var(--text-3)',
+                  boxShadow:  isSelected ? 'inset 0 0 0 1px rgba(59,130,246,0.4)' : 'inset 0 0 0 1px var(--bg-2)',
                 }}>
                   {name}
                 </button>
@@ -144,7 +144,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
           const items = NAV.filter(n => n.group === g.key && canAccessTab(role, n.id) && (n.id !== 'tva' || anyVat))
           return (
             <div key={g.key}>
-              <div style={{ padding:'12px 16px 4px', fontSize:9, fontWeight:700, letterSpacing:'1.2px', color:'#334155', textTransform:'uppercase' }}>
+              <div style={{ padding:'12px 16px 4px', fontSize:9, fontWeight:700, letterSpacing:'1.2px', color:'var(--text-1)', textTransform:'uppercase' }}>
                 {g.label}
               </div>
               {items.map(item => {
@@ -155,12 +155,12 @@ export function Sidebar({ onTabChange }: SidebarProps) {
                       width:'100%', display:'flex', alignItems:'center', gap:10,
                       padding:'9px 16px', border:'none', cursor:'pointer',
                       background: active ? 'rgba(59,130,246,0.12)' : 'transparent',
-                      borderLeft: active ? '3px solid #3b82f6' : '3px solid transparent',
-                      color: active ? '#f1f5f9' : '#94a3b8',
+                      borderLeft: active ? '3px solid #1e88c7' : '3px solid transparent',
+                      color: active ? 'var(--text-0)' : 'var(--text-2)',
                       fontSize: 13, fontWeight: active ? 600 : 400,
                       textAlign:'left', transition:'all 0.12s',
                     }}
-                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.03)' }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,30,60,0.03)' }}
                     onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
                   >
                     <span style={{ fontSize:15, flexShrink:0 }}>{item.icon}</span>
@@ -172,7 +172,7 @@ export function Sidebar({ onTabChange }: SidebarProps) {
                         background: '#ef4444', color: '#fff',
                       }}>{pendingCount}</span>
                     )}
-                    {active && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:'#3b82f6', flexShrink:0 }} />}
+                    {active && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:'#1e88c7', flexShrink:0 }} />}
                   </button>
                 )
               })}
@@ -185,13 +185,13 @@ export function Sidebar({ onTabChange }: SidebarProps) {
       {user && (
         <div style={{ padding:'10px 12px', borderTop:'1px solid var(--border-0)', flexShrink:0 }}>
           <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:4 }}>
-            <div style={{ fontSize:10, color:'#94a3b8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{user.email}</div>
+            <div style={{ fontSize:10, color:'var(--text-2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{user.email}</div>
             <span style={{ fontSize:9, fontWeight:700, padding:'2px 6px', borderRadius:10, background:`${roleColor(role)}20`, color:roleColor(role), whiteSpace:'nowrap' }}>
               {roleLabel(role)}
             </span>
           </div>
           {RAW?.mn?.length ? (
-            <div style={{ fontSize:9, color:'#334155' }}>
+            <div style={{ fontSize:9, color:'var(--text-1)' }}>
               N: {RAW.mn[0]} → {RAW.mn[RAW.mn.length-1]}
               {RAW.m1?.length ? `
 N-1: ${RAW.m1[0]} → ${RAW.m1[RAW.m1.length-1]}` : ''}

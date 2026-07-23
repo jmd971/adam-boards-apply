@@ -120,9 +120,9 @@ function AppInner() {
   )
 
   if (dataLoading) return (
-    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, background:'#080d1a', color:'#f1f5f9' }}>
+    <div style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, background:'#f6f7fb', color:'#111726' }}>
       <Spinner size={36} />
-      <div style={{ fontSize:13, color:'#94a3b8' }}>Connexion à la base de données...</div>
+      <div style={{ fontSize:13, color:'#697488' }}>Connexion à la base de données...</div>
     </div>
   )
 
@@ -176,7 +176,7 @@ function AppInner() {
   }
 
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#080d1a', color:'#f1f5f9', fontFamily:'Outfit, Inter, sans-serif' }}>
+    <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#f6f7fb', color:'#3c4557', fontFamily:'Outfit, Inter, sans-serif' }}>
       {/* Thème CLAIR (migration progressive) : appliqué par écran via className="ab-light".
           Redéfinit les tokens en clair → tout ce qui utilise var(--…) bascule automatiquement. */}
       <style>{`
