@@ -8,14 +8,14 @@ import { sb } from '@/lib/supabase'
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
 
 // Palette « Option A » — lisibilité : montants en blanc, couleur = structure.
-const C_NUM    = '#e8edf5'   // montants détaillés (blanc cassé, contraste max)
-const C_AGG    = '#f1f5f9'   // agrégats (parents / groupes) — blanc franc
-const C_ZERO   = '#3a4658'   // zéro « — » (discret)
-const C_TOTAL  = '#8fc0ff'   // total annuel (bleu)
-const C_CHG    = '#ff8b8b'   // charges (bandes / pied)
-const C_PRD    = '#45d38a'   // produits (bandes / pied)
-const C_NEG    = '#ff6b6b'   // valeur négative
-const C_CUMUL  = '#b9a6ff'   // résultat cumulé
+const C_NUM    = '#111726'   // montants détaillés (blanc cassé, contraste max)
+const C_AGG    = '#111726'   // agrégats (parents / groupes) — blanc franc
+const C_ZERO   = '#98a1b3'   // zéro « — » (discret)
+const C_TOTAL  = '#1e88c7'   // total annuel (bleu)
+const C_CHG    = '#e0524f'   // charges (bandes / pied)
+const C_PRD    = '#17a05c'   // produits (bandes / pied)
+const C_NEG    = '#e0524f'   // valeur négative
+const C_CUMUL  = '#6b5fd0'   // résultat cumulé
 
 // Cellule de budget : montant formaté en LECTURE, champ de saisie au CLIC.
 // Commit sur blur / Entrée ; Échap annule. Fini le mur de champs illisibles.
@@ -200,7 +200,7 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
     { label: "Chiffre d'affaires", base: baseCa,      sim: simCa,      color: '#10b981', accent: 'rgba(16,185,129,0.1)' },
     { label: 'Marge globale',      base: baseMarge,    sim: simMarge,   color: '#8b5cf6', accent: 'rgba(139,92,246,0.1)' },
     { label: 'EBE',                base: baseEbe,      sim: simEbe,     color: '#f59e0b', accent: 'rgba(245,158,11,0.1)' },
-    { label: "Résultat d'expl.",   base: baseRe,       sim: simRe,      color: '#3b82f6', accent: 'rgba(59,130,246,0.1)' },
+    { label: "Résultat d'expl.",   base: baseRe,       sim: simRe,      color: '#1e88c7', accent: 'rgba(59,130,246,0.1)' },
     { label: 'Résultat net',       base: baseRnet,     sim: simRnet,    color: simRnet >= 0 ? '#10b981' : '#ef4444', accent: simRnet >= 0 ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)' },
     { label: 'Total charges',      base: baseCharges,  sim: simCharges, color: '#ef4444', accent: 'rgba(239,68,68,0.1)' },
   ]
@@ -210,7 +210,7 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
 
   return (
     <div style={{
-      background: '#0f172a', borderRadius: 12, padding: '20px 24px', marginBottom: 16,
+      background: '#ffffff', borderRadius: 12, padding: '20px 24px', marginBottom: 16,
       border: '1px solid rgba(139,92,246,0.25)',
     }}>
       {/* Header */}
@@ -219,7 +219,7 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
           <div style={{ fontSize: 13, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
             Simulation What-if
           </div>
-          <span style={{ fontSize: 10, color: '#475569', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 10 }}>
+          <span style={{ fontSize: 10, color: '#475569', background: '#f2f5f9', padding: '2px 8px', borderRadius: 10 }}>
             Basé sur les données réelles du budget
           </span>
         </div>
@@ -227,15 +227,15 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
           <button onClick={() => setShowMonthly(v => !v)} style={{
             padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
             background: showMonthly ? 'rgba(59,130,246,0.15)' : 'transparent',
-            border: `1px solid ${showMonthly ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
-            color: showMonthly ? '#93c5fd' : '#64748b',
+            border: `1px solid ${showMonthly ? 'rgba(59,130,246,0.3)' : '#e0e4ec'}`,
+            color: showMonthly ? '#1266a0' : '#64748b',
           }}>
             Détail mensuel
           </button>
           {isDirty && (
             <button onClick={reset} style={{
               padding: '4px 12px', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-              background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#64748b',
+              background: 'transparent', border: '1px solid #e0e4ec', color: '#64748b',
             }}>
               Réinitialiser
             </button>
@@ -253,9 +253,9 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
               title={p.desc}
               style={{
                 padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                background: isActive ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${isActive ? 'rgba(139,92,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
-                color: isActive ? '#a78bfa' : '#64748b',
+                background: isActive ? 'rgba(139,92,246,0.15)' : '#f7f9fc',
+                border: `1px solid ${isActive ? 'rgba(139,92,246,0.4)' : '#e6e9f0'}`,
+                color: isActive ? '#6b5fd0' : '#64748b',
                 transition: 'all 0.15s',
               }}>
               {p.icon} {p.name}
@@ -270,7 +270,7 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
           <div key={s.label} style={{
             display: 'flex', alignItems: 'center', gap: 10,
             padding: '6px 10px', borderRadius: 8,
-            background: s.value !== 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+            background: s.value !== 0 ? '#fbfcfe' : 'transparent',
           }}>
             <span style={{ fontSize: 11, color: '#94a3b8', minWidth: 140 }}>
               {s.label}
@@ -306,7 +306,7 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
           return (
             <div key={k.label} style={{
               padding: '12px 14px', borderRadius: 10,
-              background: k.accent, border: '1px solid rgba(255,255,255,0.06)',
+              background: k.accent, border: '1px solid #eceef4',
             }}>
               <div style={{ fontSize: 9, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
                 {k.label}
@@ -332,14 +332,14 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 8, color: '#475569', minWidth: 30 }}>Base</span>
-                    <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{ width: `${baseW}%`, height: '100%', background: 'rgba(255,255,255,0.15)', borderRadius: 2 }} />
+                    <div style={{ flex: 1, height: 4, background: '#eceef4', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ width: `${baseW}%`, height: '100%', background: '#d5dae4', borderRadius: 2 }} />
                     </div>
                     <span style={{ fontSize: 8, color: '#334155', fontFamily: 'monospace', minWidth: 60, textAlign: 'right' }}>{fmt(k.base)}</span>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 8, color: k.color, minWidth: 30 }}>Sim.</span>
-                    <div style={{ flex: 1, height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' }}>
+                    <div style={{ flex: 1, height: 4, background: '#eceef4', borderRadius: 2, overflow: 'hidden' }}>
                       <div style={{ width: `${simW}%`, height: '100%', background: k.color, borderRadius: 2, opacity: 0.7 }} />
                     </div>
                     <span style={{ fontSize: 8, color: '#334155', fontFamily: 'monospace', minWidth: 60, textAlign: 'right' }}>{fmt(k.sim)}</span>
@@ -374,7 +374,7 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
           </div>
           <div style={{ fontSize: 11, color: '#94a3b8' }}>
             Taux résultat/CA :
-            <span style={{ fontFamily: 'monospace', fontWeight: 700, marginLeft: 6, color: '#3b82f6' }}>
+            <span style={{ fontFamily: 'monospace', fontWeight: 700, marginLeft: 6, color: '#1e88c7' }}>
               {baseCa > 0 ? pct(baseRe / baseCa) : '—'}
             </span>
             <span style={{ color: '#475569', margin: '0 6px' }}>→</span>
@@ -387,15 +387,15 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
 
       {/* Monthly simulation table */}
       {showMonthly && isDirty && (
-        <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #eceef4' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10 }}>
             <thead>
-              <tr style={{ background: '#080d1a' }}>
-                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', left: 0, background: '#080d1a', zIndex: 2 }}>Indicateur</th>
+              <tr style={{ background: '#ffffff' }}>
+                <th style={{ padding: '6px 10px', textAlign: 'left', color: '#475569', fontWeight: 600, borderBottom: '1px solid #eceef4', position: 'sticky', left: 0, background: '#ffffff', zIndex: 2 }}>Indicateur</th>
                 {monthOrder.map(ci => (
-                  <th key={ci} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>{MONTHS_SHORT[ci]}</th>
+                  <th key={ci} style={{ padding: '6px 4px', textAlign: 'right', color: '#475569', fontWeight: 600, minWidth: 62, borderBottom: '1px solid #eceef4' }}>{MONTHS_SHORT[ci]}</th>
                 ))}
-                <th style={{ padding: '6px 10px', textAlign: 'right', color: '#3b82f6', fontWeight: 700, minWidth: 80, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>Total</th>
+                <th style={{ padding: '6px 10px', textAlign: 'right', color: '#1e88c7', fontWeight: 700, minWidth: 80, borderBottom: '1px solid #eceef4' }}>Total</th>
               </tr>
             </thead>
             <tbody>
@@ -404,10 +404,10 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
                 { key: 'achat',  label: 'Achats simulés', color: '#ef4444' },
                 { key: 'marge',  label: 'Marge',         color: '#8b5cf6' },
                 { key: 'serv',   label: 'Services ext.',  color: '#f97316' },
-                { key: 'pers',   label: 'Personnel',      color: '#a78bfa' },
+                { key: 'pers',   label: 'Personnel',      color: '#6b5fd0' },
                 { key: 'ebe',    label: 'EBE',            color: '#f59e0b' },
                 { key: 'amort',  label: 'Amortissements', color: '#64748b' },
-                { key: 're',     label: "Résultat d'expl.", color: '#3b82f6' },
+                { key: 're',     label: "Résultat d'expl.", color: '#1e88c7' },
                 { key: 'rnet',   label: 'Résultat net',   color: '#10b981' },
               ].map(({ key, label, color }) => {
                 const rowTotal = simMonthly.reduce((s, m) => s + (m[key as keyof typeof m] ?? 0), 0)
@@ -415,12 +415,12 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
                 const isBold = ['ebe', 're', 'rnet', 'marge'].includes(key)
                 return (
                   <tr key={key} style={{
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
-                    background: isBold ? 'rgba(255,255,255,0.02)' : 'transparent',
+                    borderBottom: '1px solid #f7f9fc',
+                    background: isBold ? '#fbfcfe' : 'transparent',
                   }}>
                     <td style={{
                       padding: '4px 10px', color, fontWeight: isBold ? 700 : 400, fontSize: isBold ? 11 : 10,
-                      position: 'sticky', left: 0, background: isBold ? '#0c1120' : '#0a0f1a', zIndex: 1,
+                      position: 'sticky', left: 0, background: isBold ? '#eef0f6' : '#ffffff', zIndex: 1,
                     }}>
                       {label}
                     </td>
@@ -964,16 +964,16 @@ export function Budget() {
   )
 
   const inputSt: React.CSSProperties = {
-    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 8, color: '#cbd5e1', padding: '6px 10px', fontSize: 12, outline: 'none',
+    background: '#ffffff', border: '1px solid #e0e4ec',
+    borderRadius: 8, color: '#3c4557', padding: '6px 10px', fontSize: 12, outline: 'none',
   }
 
   return (
-    <div style={{ padding: '16px 24px' }}>
+    <div className="ab-light" style={{ background:'var(--bg-0)', minHeight:'100%', padding: '16px 24px' }}>
       <style>{`
-        .bud-cell:hover{ background:rgba(255,255,255,0.05); border-color:rgba(255,255,255,0.1) !important; }
-        .bud-kebab:hover{ background:rgba(255,255,255,0.1) !important; color:#e2e8f0 !important; }
-        .bud-mi:hover{ background:rgba(255,255,255,0.07); }
+        .bud-cell:hover{ background:#f2f5f9; border-color:#e0e4ec !important; }
+        .bud-kebab:hover{ background:#e0e4ec !important; color:#e2e8f0 !important; }
+        .bud-mi:hover{ background:#ebeef4; }
       `}</style>
 
       {/* Company selector */}
@@ -995,7 +995,7 @@ export function Budget() {
 
         {/* Top panel: version bar */}
         <div style={{
-          background: '#0a0f1a', borderRadius: 10, border: '1px solid rgba(255,255,255,0.08)',
+          background: '#ffffff', borderRadius: 10, border: '1px solid #e6e9f0',
           padding: '10px 14px',
           display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
         }}>
@@ -1024,13 +1024,13 @@ export function Budget() {
             <div key={v.version_name} style={{
               display: 'flex', alignItems: 'center', gap: 4,
               padding: '6px 10px', borderRadius: 7,
-              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
-              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.06)'}`,
+              background: selVersion === v.version_name ? 'rgba(59,130,246,0.15)' : '#f7f9fc',
+              border: `1px solid ${selVersion === v.version_name ? 'rgba(59,130,246,0.3)' : '#eceef4'}`,
               cursor: 'pointer',
             }}
               onClick={() => setSelVersion(v.version_name)}
             >
-              <span style={{ fontSize: 12, color: selVersion === v.version_name ? '#93c5fd' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, color: selVersion === v.version_name ? '#1266a0' : '#94a3b8', fontWeight: selVersion === v.version_name ? 600 : 400, whiteSpace: 'nowrap' }}>
                 {v.version_name}
               </span>
               <button
@@ -1055,7 +1055,7 @@ export function Budget() {
               onClick={handleCreateVersion}
               disabled={creating || !newVersionName.trim()}
               style={{ padding: '6px 10px', borderRadius: 7, fontSize: 11, fontWeight: 600, cursor: 'pointer',
-                background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#93c5fd',
+                background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)', color: '#1266a0',
                 whiteSpace: 'nowrap', opacity: creating || !newVersionName.trim() ? 0.5 : 1 }}
             >
               {creating ? 'Création...' : '+ Nouvelle version'}
@@ -1096,12 +1096,12 @@ export function Budget() {
                   style={{ ...inputSt, width: 200 }}
                 />
 
-                <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)' }}>
+                <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid #e0e4ec' }}>
                   {(['all','charge','produit'] as const).map(f => (
                     <button key={f} onClick={() => setFilter(f)}
                       style={{ padding:'6px 10px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
                         background: filter===f ? 'rgba(59,130,246,0.2)' : 'transparent',
-                        color: filter===f ? '#93c5fd' : '#475569' }}>
+                        color: filter===f ? '#1266a0' : '#475569' }}>
                       {f==='all' ? 'Tous' : f==='charge' ? '📤 Charges' : '📥 Produits'}
                     </button>
                   ))}
@@ -1116,27 +1116,27 @@ export function Budget() {
                   )}
                   {Object.keys(coBud).length > 0 && (
                     <button onClick={handleGenerate}
-                      style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#475569', fontSize:12, cursor:'pointer' }}>
+                      style={{ padding:'6px 14px', borderRadius:8, background:'transparent', border:'1px solid #e0e4ec', color:'#475569', fontSize:12, cursor:'pointer' }}>
                       🔄 Régénérer
                     </button>
                   )}
                   <button onClick={() => setShowAddAccount(v => !v)}
                     style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
                       background: showAddAccount ? 'rgba(16,185,129,0.2)' : 'transparent',
-                      border: `1px solid ${showAddAccount ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                      color: showAddAccount ? '#6ee7b7' : '#94a3b8' }}>
+                      border: `1px solid ${showAddAccount ? 'rgba(16,185,129,0.3)' : '#e0e4ec'}`,
+                      color: showAddAccount ? '#0f7a45' : '#94a3b8' }}>
                     {showAddAccount ? '× Annuler' : '+ Ajouter un compte'}
                   </button>
                   <button onClick={handleSave} disabled={saving}
-                    style={{ padding:'6px 14px', borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', fontSize:12, cursor:'pointer', fontWeight:600 }}>
+                    style={{ padding:'6px 14px', borderRadius:8, background:'rgba(59,130,246,0.2)', border:'1px solid rgba(59,130,246,0.3)', color:'#1266a0', fontSize:12, cursor:'pointer', fontWeight:600 }}>
                     {saving ? 'Sauvegarde...' : '💾 Sauvegarder'}
                   </button>
                   {Object.keys(coBud).length > 0 && (
                     <button onClick={() => setShowWhatIf(v => !v)}
                       style={{ padding:'6px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
                         background: showWhatIf ? 'rgba(139,92,246,0.2)' : 'transparent',
-                        border: `1px solid ${showWhatIf ? 'rgba(139,92,246,0.3)' : 'rgba(255,255,255,0.1)'}`,
-                        color: showWhatIf ? '#a78bfa' : '#475569' }}>
+                        border: `1px solid ${showWhatIf ? 'rgba(139,92,246,0.3)' : '#e0e4ec'}`,
+                        color: showWhatIf ? '#6b5fd0' : '#475569' }}>
                       Scénarios What-if
                     </button>
                   )}
@@ -1177,7 +1177,7 @@ export function Budget() {
                     <label style={{ fontSize:10, color:'#94a3b8', fontWeight:600, textTransform:'uppercase', letterSpacing:'0.5px' }}>
                       Type
                     </label>
-                    <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid rgba(255,255,255,0.1)' }}>
+                    <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:'1px solid #e0e4ec' }}>
                       <button type="button" onClick={() => setNewAccType('c')}
                         style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
                           background: newAccType === 'c' ? 'rgba(239,68,68,0.2)' : 'transparent',
@@ -1187,14 +1187,14 @@ export function Budget() {
                       <button type="button" onClick={() => setNewAccType('p')}
                         style={{ padding:'6px 12px', fontSize:11, fontWeight:600, border:'none', cursor:'pointer',
                           background: newAccType === 'p' ? 'rgba(16,185,129,0.2)' : 'transparent',
-                          color: newAccType === 'p' ? '#6ee7b7' : '#94a3b8' }}>
+                          color: newAccType === 'p' ? '#0f7a45' : '#94a3b8' }}>
                         📥 Produit
                       </button>
                     </div>
                   </div>
                   <button onClick={handleAddAccount}
                     style={{ padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
-                      background:'rgba(16,185,129,0.25)', border:'1px solid rgba(16,185,129,0.4)', color:'#6ee7b7' }}>
+                      background:'rgba(16,185,129,0.25)', border:'1px solid rgba(16,185,129,0.4)', color:'#0f7a45' }}>
                     Ajouter
                   </button>
                 </div>
@@ -1223,17 +1223,17 @@ export function Budget() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 18 }}>📊</span>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9' }}>Comparaison de versions</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#111726' }}>Comparaison de versions</div>
                         <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
-                          <span style={{ color: '#93c5fd' }}>{selVersion}</span>
+                          <span style={{ color: '#1266a0' }}>{selVersion}</span>
                           <span style={{ margin: '0 6px' }}>vs</span>
-                          <span style={{ color: '#a78bfa' }}>{compareVersion}</span>
+                          <span style={{ color: '#6b5fd0' }}>{compareVersion}</span>
                         </div>
                       </div>
                     </div>
                     <button
                       onClick={() => setCompareVersion('')}
-                      style={{ background: 'none', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', cursor: 'pointer', fontSize: 10, padding: '4px 8px', borderRadius: 6 }}
+                      style={{ background: 'none', border: '1px solid #e0e4ec', color: '#94a3b8', cursor: 'pointer', fontSize: 10, padding: '4px 8px', borderRadius: 6 }}
                     >
                       Fermer
                     </button>
@@ -1246,18 +1246,18 @@ export function Budget() {
                       return (
                         <div key={cat} style={{
                           padding: '10px 12px', borderRadius: 8,
-                          background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.05)',
+                          background: 'rgba(15,23,42,0.6)', border: '1px solid #f2f5f9',
                         }}>
                           <div style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 6 }}>{label}</div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginBottom: 2 }}>
                             <span>{selVersion}</span>
-                            <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(curT)}</span>
+                            <span style={{ fontFamily: 'monospace', color: '#3c4557' }}>{fmt(curT)}</span>
                           </div>
                           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#94a3b8', marginBottom: 6 }}>
                             <span>{compareVersion}</span>
-                            <span style={{ fontFamily: 'monospace', color: '#cbd5e1' }}>{fmt(cmpT)}</span>
+                            <span style={{ fontFamily: 'monospace', color: '#3c4557' }}>{fmt(cmpT)}</span>
                           </div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 6, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 6, borderTop: '1px solid #f2f5f9' }}>
                             <span style={{ fontSize: 10, color: '#64748b' }}>Écart</span>
                             <div style={{ textAlign: 'right' }}>
                               <div style={{ fontSize: 12, fontWeight: 700, fontFamily: 'monospace', color: goodForBusiness ? '#10b981' : '#ef4444' }}>
@@ -1282,7 +1282,7 @@ export function Budget() {
                 const cT = totals.charges.reduce((s, x) => s + x, 0)
                 const rT = pT - cT
                 const Card = ({ label, val, color }: { label: string; val: number; color: string }) => (
-                  <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.06)', borderRadius:10, padding:'10px 14px' }}>
+                  <div style={{ background:'#ffffff', border:'1px solid #eceef4', borderRadius:10, padding:'10px 14px' }}>
                     <div style={{ fontSize:10, letterSpacing:'0.05em', textTransform:'uppercase', color:'#64748b' }}>{label}</div>
                     <div style={{ fontSize:20, fontWeight:800, marginTop:3, fontFamily:'monospace', color }}>{fmt(val)} €</div>
                   </div>
@@ -1297,9 +1297,9 @@ export function Budget() {
               })()}
 
               {accounts.length === 0 && Object.keys(coBud).length === 0 ? (
-                <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
+                <div style={{ padding:32, borderRadius:12, background:'#ffffff', border:'1px solid #eceef4', textAlign:'center' }}>
                   <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
-                  <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucun budget défini</div>
+                  <div style={{ fontSize:14, fontWeight:700, color:'#111726', marginBottom:8 }}>Aucun budget défini</div>
                   <div style={{ fontSize:12, color:'#475569', marginBottom:20 }}>
                     Cliquez sur <strong style={{ color:'#f59e0b' }}>⚡ Générer depuis FEC N-1</strong> pour pré-remplir automatiquement<br/>
                     le budget à partir des données de l'exercice précédent.
@@ -1310,23 +1310,23 @@ export function Budget() {
                   </button>
                 </div>
               ) : (
-                <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 240px)', overflowY:'auto', borderRadius:12, border:'1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 240px)', overflowY:'auto', borderRadius:12, border:'1px solid #eceef4' }}>
                   {/* maxHeight + overflow:auto → le scroll vertical se fait DANS ce conteneur,
                       condition nécessaire pour que les th sticky (top:0) restent visibles.
                       Sticky posé sur les th (pas le tr) : sticky sur <tr> n'est pas fiable sous Chrome. */}
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
                     <thead>
                       <tr>
-                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:280, whiteSpace:'nowrap', borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', left:0, top:0, background:'#0a0f1a', zIndex:8 }}>Compte</th>
+                        <th style={{ padding:'8px 12px', textAlign:'left', color:'#475569', fontWeight:600, minWidth:280, whiteSpace:'nowrap', borderBottom:'1px solid #e6e9f0', position:'sticky', left:0, top:0, background:'#ffffff', zIndex:8 }}>Compte</th>
                         {monthOrder.map(ci => (
-                          <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:64, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, background:'#0a0f1a', zIndex:6 }}>{MONTHS_SHORT[ci]}</th>
+                          <th key={ci} style={{ padding:'8px 4px', textAlign:'right', color:'#475569', fontWeight:600, minWidth:64, borderBottom:'1px solid #e6e9f0', position:'sticky', top:0, background:'#ffffff', zIndex:6 }}>{MONTHS_SHORT[ci]}</th>
                         ))}
-                        <th style={{ padding:'8px 10px', textAlign:'right', color:C_TOTAL, fontWeight:700, minWidth:85, borderBottom:'1px solid rgba(255,255,255,0.08)', position:'sticky', top:0, right:0, background:'#0a0f1a', zIndex:7 }}>Total</th>
+                        <th style={{ padding:'8px 10px', textAlign:'right', color:C_TOTAL, fontWeight:700, minWidth:85, borderBottom:'1px solid #e6e9f0', position:'sticky', top:0, right:0, background:'#ffffff', zIndex:7 }}>Total</th>
                       </tr>
                     </thead>
                     <tbody>
                       {(() => {
-                        const inputBase: React.CSSProperties = { width:66, padding:'3px 4px', textAlign:'right', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, fontSize:11, fontFamily:'monospace', outline:'none' }
+                        const inputBase: React.CSSProperties = { width:66, padding:'3px 4px', textAlign:'right', background:'#ffffff', border:'1px solid #eceef4', borderRadius:4, fontSize:11, fontFamily:'monospace', outline:'none' }
                         // Rendu d'une ligne de compte (réutilisé : ligne plate ou sous-ligne d'un groupe)
                         const renderAccountRow = ([acc, v]: [string, any], indent = false) => {
                         const bv = v as any
@@ -1336,15 +1336,15 @@ export function Budget() {
                         const isCharge = bv.t === 'c'
                         return (
                           <Fragment key={acc}>
-                          <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid rgba(255,255,255,0.025)' }}>
-                            <td style={{ padding: indent ? '3px 10px 3px 20px' : '3px 12px', position:'sticky', left:0, background:'#080d1a', zIndex:1, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${isCharge ? 'rgba(248,113,113,0.35)' : 'rgba(52,211,153,0.35)'}` }}>
+                          <tr style={{ borderBottom: hasChildren ? 'none' : '1px solid #f7f9fc' }}>
+                            <td style={{ padding: indent ? '3px 10px 3px 20px' : '3px 12px', position:'sticky', left:0, background:'#ffffff', zIndex:1, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${isCharge ? 'rgba(248,113,113,0.35)' : 'rgba(52,211,153,0.35)'}` }}>
                               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                                 {indent && <span style={{ color:'#475569', fontSize:11, flexShrink:0 }}>└</span>}
                                 <span style={{ fontFamily:'monospace', color:'#5a6b85', flexShrink:0 }}>{acc}</span>
-                                <span style={{ color:'#cbd5e1' }}>{bv.l}</span>
+                                <span style={{ color:'#3c4557' }}>{bv.l}</span>
                                 {bv.note && <span title={bv.note} style={{ fontSize:9.5, color:'#f5a524', background:'rgba(245,165,36,0.12)', border:'1px solid rgba(245,165,36,0.35)', borderRadius:6, padding:'1px 6px', flexShrink:0 }}>💬 Hypothèse</span>}
                                 <button className="bud-kebab" onClick={e => openMenu(e, acc)} title="Actions"
-                                  style={{ marginLeft:'auto', flexShrink:0, width:24, height:22, borderRadius:6, border:'1px solid rgba(255,255,255,0.1)', background: (menu?.acc === acc && menu?.ci == null) ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.03)', color:'#94a3b8', cursor:'pointer', fontSize:15, lineHeight:1, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>⋯</button>
+                                  style={{ marginLeft:'auto', flexShrink:0, width:24, height:22, borderRadius:6, border:'1px solid #e0e4ec', background: (menu?.acc === acc && menu?.ci == null) ? 'rgba(59,130,246,0.18)' : '#f7f9fc', color:'#94a3b8', cursor:'pointer', fontSize:15, lineHeight:1, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>⋯</button>
                               </div>
                             </td>
                             {monthOrder.map(fi => (
@@ -1359,20 +1359,20 @@ export function Budget() {
                                 )}
                               </td>
                             ))}
-                            <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color: total < 0 ? C_NEG : C_TOTAL, fontWeight:700, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
+                            <td style={{ padding:'3px 10px', textAlign:'right', fontFamily:'monospace', color: total < 0 ? C_NEG : C_TOTAL, fontWeight:700, position:'sticky', right:0, background:'#ffffff', zIndex:2 }}>
                               {fmt(total)}
                             </td>
                           </tr>
                           {children.map((ch, ci) => (
-                            <tr key={ci} style={{ borderBottom: ci === children.length - 1 ? '1px solid rgba(255,255,255,0.025)' : 'none', background:'rgba(139,92,246,0.03)' }}>
-                              <td style={{ padding: indent ? '2px 10px 2px 26px' : '2px 10px 2px 20px', position:'sticky', left:0, background:'#080d1a', zIndex:1, minWidth:280, whiteSpace:'nowrap' }}>
+                            <tr key={ci} style={{ borderBottom: ci === children.length - 1 ? '1px solid #f7f9fc' : 'none', background:'rgba(139,92,246,0.03)' }}>
+                              <td style={{ padding: indent ? '2px 10px 2px 26px' : '2px 10px 2px 20px', position:'sticky', left:0, background:'#ffffff', zIndex:1, minWidth:280, whiteSpace:'nowrap' }}>
                                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                                  <span style={{ color:'#a78bfa', fontSize:11, flexShrink:0 }}>└</span>
+                                  <span style={{ color:'#6b5fd0', fontSize:11, flexShrink:0 }}>└</span>
                                   <input type="text" value={ch.name} placeholder="Nom du sous-compte (ex : OpenAI)"
                                     onChange={e => renameChild(acc, ci, e.target.value)}
-                                    style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:4, color:'#cbd5e1', fontSize:11, padding:'2px 6px', outline:'none', width:220 }} />
+                                    style={{ background:'#ffffff', border:'1px solid #eceef4', borderRadius:4, color:'#3c4557', fontSize:11, padding:'2px 6px', outline:'none', width:220 }} />
                                   <button className="bud-kebab" onClick={e => openMenu(e, acc, ci)} title="Actions"
-                                    style={{ marginLeft:'auto', flexShrink:0, width:24, height:22, borderRadius:6, border:'1px solid rgba(255,255,255,0.1)', background: (menu?.acc === acc && menu?.ci === ci) ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.03)', color:'#94a3b8', cursor:'pointer', fontSize:15, lineHeight:1, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>⋯</button>
+                                    style={{ marginLeft:'auto', flexShrink:0, width:24, height:22, borderRadius:6, border:'1px solid #e0e4ec', background: (menu?.acc === acc && menu?.ci === ci) ? 'rgba(59,130,246,0.18)' : '#f7f9fc', color:'#94a3b8', cursor:'pointer', fontSize:15, lineHeight:1, display:'inline-flex', alignItems:'center', justifyContent:'center' }}>⋯</button>
                                 </div>
                               </td>
                               {monthOrder.map(fi => (
@@ -1381,7 +1381,7 @@ export function Budget() {
                                     onCommit={v => handleChildCell(acc, ci, fi, v)} />
                                 </td>
                               ))}
-                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:C_TOTAL, fontSize:10, fontWeight:600, position:'sticky', right:0, background:'#080d1a', zIndex:2 }}>
+                              <td style={{ padding:'2px 10px', textAlign:'right', fontFamily:'monospace', color:C_TOTAL, fontSize:10, fontWeight:600, position:'sticky', right:0, background:'#ffffff', zIndex:2 }}>
                                 {fmt((ch.b ?? []).reduce((s: number, x: number) => s + (x||0), 0))}
                               </td>
                             </tr>
@@ -1400,19 +1400,19 @@ export function Budget() {
                           return (
                             <Fragment key={g.root}>
                               <tr onClick={() => setGrpOpen(p => ({ ...p, [g.root]: !open }))}
-                                style={{ borderBottom:'1px solid rgba(255,255,255,0.06)', background:'rgba(255,255,255,0.02)', cursor:'pointer' }}>
-                                <td style={{ padding:'5px 10px', position:'sticky', left:0, background:'#0a1020', zIndex:1, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${g.isCharge ? 'rgba(248,113,113,0.5)' : 'rgba(52,211,153,0.5)'}` }}>
+                                style={{ borderBottom:'1px solid #eceef4', background:'#fbfcfe', cursor:'pointer' }}>
+                                <td style={{ padding:'5px 10px', position:'sticky', left:0, background:'#ffffff', zIndex:1, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${g.isCharge ? 'rgba(248,113,113,0.5)' : 'rgba(52,211,153,0.5)'}` }}>
                                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                                     <span style={{ width:12, color:'#64748b', fontSize:9, flexShrink:0 }}>{open ? '▾' : '▸'}</span>
                                     <span style={{ fontFamily:'monospace', color:'#94a3b8', fontWeight:700, flexShrink:0 }}>{g.root}</span>
-                                    <span style={{ color:'#cbd5e1', fontWeight:600 }}>{label}</span>
-                                    <span style={{ fontSize:9, color:'#64748b', background:'rgba(255,255,255,0.06)', padding:'1px 5px', borderRadius:10, flexShrink:0 }} title={`${g.entries.length} comptes`}>{g.entries.length}</span>
+                                    <span style={{ color:'#3c4557', fontWeight:600 }}>{label}</span>
+                                    <span style={{ fontSize:9, color:'#64748b', background:'#eceef4', padding:'1px 5px', borderRadius:10, flexShrink:0 }} title={`${g.entries.length} comptes`}>{g.entries.length}</span>
                                   </div>
                                 </td>
                                 {monthOrder.map(fi => (
                                   <td key={fi} style={{ padding:'5px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:600, color: g.b[fi] === 0 ? C_ZERO : (g.b[fi] < 0 ? C_NEG : C_AGG) }}>{g.b[fi] !== 0 ? fmt(g.b[fi]) : '—'}</td>
                                 ))}
-                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color: g.total < 0 ? C_NEG : C_TOTAL, fontWeight:700, position:'sticky', right:0, background:'#0a1020', zIndex:2 }}>{fmt(g.total)}</td>
+                                <td style={{ padding:'5px 10px', textAlign:'right', fontFamily:'monospace', color: g.total < 0 ? C_NEG : C_TOTAL, fontWeight:700, position:'sticky', right:0, background:'#ffffff', zIndex:2 }}>{fmt(g.total)}</td>
                               </tr>
                               {open && g.entries.map((e: [string, any]) => renderAccountRow(e, true))}
                             </Fragment>
@@ -1423,10 +1423,10 @@ export function Budget() {
                           if (!gs.length) return null
                           const sub = Array.from({ length: 12 }, (_, i) => gs.reduce((s: number, g: any) => s + (g.b[i] || 0), 0))
                           const subTotal = sub.reduce((s, x) => s + x, 0)
-                          const bg = '#0e1526'
+                          const bg = '#f2f5f9'
                           return (
                             <Fragment key={label}>
-                              <tr style={{ background: bg, borderTop: '2px solid rgba(255,255,255,0.1)' }}>
+                              <tr style={{ background: bg, borderTop: '2px solid #e0e4ec' }}>
                                 <td style={{ padding:'6px 10px', position:'sticky', left:0, background:bg, zIndex:2, minWidth:280, whiteSpace:'nowrap', boxShadow:`inset 3px 0 0 ${color}`, fontWeight:800, letterSpacing:'0.05em', color, fontSize:11, textTransform:'uppercase' }}>{label}</td>
                                 {monthOrder.map(fi => (
                                   <td key={fi} style={{ padding:'6px 6px', textAlign:'right', fontFamily:'monospace', fontSize:11, fontWeight:700, color: sub[fi] === 0 ? C_ZERO : color }}>{sub[fi] === 0 ? '—' : fmt(sub[fi])}</td>
@@ -1454,9 +1454,9 @@ export function Budget() {
                       ].map(({ label, row, color, isCumul }) => {
                         // Cumul : le total = dernier mois de l'EXERCICE (Mar pour Avr→Mar), pas Déc.
                         const grandTotal = isCumul ? (row[monthOrder[11]] ?? 0) : row.reduce((s,x)=>s+x,0)
-                        const stickyBg = isCumul ? '#14162a' : '#0d121d'
+                        const stickyBg = isCumul ? '#eef0f6' : '#f7f9fc'
                         return (
-                        <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : 'rgba(255,255,255,0.025)', borderTop:'2px solid rgba(255,255,255,0.08)' }}>
+                        <tr key={label} style={{ background: isCumul ? 'rgba(139,92,246,0.07)' : '#f7f9fc', borderTop:'2px solid #e6e9f0' }}>
                           <td style={{ padding:'7px 12px', fontWeight:700, color, fontSize:12, position:'sticky', left:0, background:stickyBg, zIndex:2, minWidth:280, whiteSpace:'nowrap' }}>{label}</td>
                           {monthOrder.map(ci => (
                             <td key={ci} style={{ padding:'7px 4px', textAlign:'right', fontFamily:'monospace', fontWeight:600,
@@ -1475,9 +1475,9 @@ export function Budget() {
               )}
             </>
           ) : (
-            <div style={{ padding:32, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)', textAlign:'center' }}>
+            <div style={{ padding:32, borderRadius:12, background:'#ffffff', border:'1px solid #eceef4', textAlign:'center' }}>
               <div style={{ fontSize:32, marginBottom:12 }}>💰</div>
-              <div style={{ fontSize:14, fontWeight:700, color:'#f1f5f9', marginBottom:8 }}>Aucune version sélectionnée</div>
+              <div style={{ fontSize:14, fontWeight:700, color:'#111726', marginBottom:8 }}>Aucune version sélectionnée</div>
               <div style={{ fontSize:12, color:'#475569' }}>
                 Créez une nouvelle version dans le panneau de gauche.
               </div>
@@ -1495,7 +1495,7 @@ export function Budget() {
         const close = () => setMenu(null)
         const Item = ({ icon, label, extra, danger, onClick }: { icon: string; label: string; extra?: string; danger?: boolean; onClick: () => void }) => (
           <div className="bud-mi" onClick={() => { onClick(); close() }}
-            style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:7, fontSize:13, color: danger ? '#ff9d9d' : '#cbd5e1', cursor:'pointer' }}>
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:7, fontSize:13, color: danger ? '#ff9d9d' : '#3c4557', cursor:'pointer' }}>
             <span style={{ width:18, textAlign:'center' }}>{icon}</span>
             <span>{label}</span>
             {extra && <span style={{ marginLeft:'auto', fontSize:11, color:'#64748b' }}>{extra}</span>}
@@ -1504,7 +1504,7 @@ export function Budget() {
         return (
           <>
             <div onClick={close} style={{ position:'fixed', inset:0, zIndex:200 }} />
-            <div style={{ position:'fixed', top:menu.y, left:menu.x, zIndex:201, background:'#0d1424', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:6, minWidth:238, boxShadow:'0 14px 44px rgba(0,0,0,0.55)' }}>
+            <div style={{ position:'fixed', top:menu.y, left:menu.x, zIndex:201, background:'#ffffff', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:6, minWidth:238, boxShadow:'0 14px 44px rgba(0,0,0,0.55)' }}>
               {!isChild && ents.length > 0 && <Item icon="📄" label="Voir les écritures réalisées" extra={`${ents.length} éc.`} onClick={() => openEcritures(menu.acc)} />}
               {!isChild && <Item icon="＋" label="Ajouter un sous-compte" onClick={() => addChild(menu.acc)} />}
               {(isChild || !hasChildren) && <Item icon="↻" label="Recopier un montant…" onClick={() => openFillModal(menu.acc, isChild ? menu.ci : undefined)} />}
@@ -1530,12 +1530,12 @@ export function Budget() {
             }}>
             <div onClick={e => e.stopPropagation()}
               style={{
-                background:'#0a0f1a', borderRadius: 14, padding: '22px 26px',
+                background:'#ffffff', borderRadius: 14, padding: '22px 26px',
                 minWidth: 520, maxWidth: 600,
-                border:'1px solid rgba(255,255,255,0.1)',
+                border:'1px solid #e0e4ec',
                 boxShadow:'0 20px 60px rgba(0,0,0,0.5)',
               }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color:'#f1f5f9', marginBottom: 4 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color:'#111726', marginBottom: 4 }}>
                 Recopier un montant sur plusieurs mois
               </div>
               <div style={{ fontSize: 11, color:'#64748b', fontFamily:'monospace', marginBottom: 18 }}>
@@ -1563,8 +1563,8 @@ export function Budget() {
                       style={{
                         padding:'5px 14px', fontSize: 11, fontWeight: 600, borderRadius: 6,
                         background: fillModal.count === n ? 'rgba(59,130,246,0.25)' : 'transparent',
-                        border:`1px solid ${fillModal.count === n ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                        color: fillModal.count === n ? '#93c5fd' : '#94a3b8', cursor:'pointer',
+                        border:`1px solid ${fillModal.count === n ? 'rgba(59,130,246,0.4)' : '#e0e4ec'}`,
+                        color: fillModal.count === n ? '#1266a0' : '#94a3b8', cursor:'pointer',
                       }}>{n}</button>
                   ))}
                   <input type="number" min={1} max={12}
@@ -1588,8 +1588,8 @@ export function Budget() {
                       style={{
                         padding:'5px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6,
                         background: fillModal.freq === f.v ? 'rgba(59,130,246,0.25)' : 'transparent',
-                        border:`1px solid ${fillModal.freq === f.v ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.1)'}`,
-                        color: fillModal.freq === f.v ? '#93c5fd' : '#94a3b8', cursor:'pointer',
+                        border:`1px solid ${fillModal.freq === f.v ? 'rgba(59,130,246,0.4)' : '#e0e4ec'}`,
+                        color: fillModal.freq === f.v ? '#1266a0' : '#94a3b8', cursor:'pointer',
                       }}>{f.label}</button>
                   ))}
                 </div>
@@ -1602,7 +1602,7 @@ export function Budget() {
                 <div style={{ fontSize: 10, color:'#64748b', fontWeight: 600, textTransform:'uppercase', letterSpacing:'0.5px', marginBottom: 8 }}>
                   Aperçu — {positions.length} mois impacté{positions.length > 1 ? 's' : ''}
                   {num > 0 && <span style={{ color:'#94a3b8', marginLeft: 8, textTransform: 'none', letterSpacing: 0 }}>
-                    · Total : <span style={{ color:'#93c5fd', fontFamily:'monospace' }}>{fmt(num * positions.length)} €</span>
+                    · Total : <span style={{ color:'#1266a0', fontFamily:'monospace' }}>{fmt(num * positions.length)} €</span>
                   </span>}
                 </div>
                 <div style={{ display:'flex', flexWrap:'wrap', gap: 4 }}>
@@ -1611,8 +1611,8 @@ export function Budget() {
                     return (
                       <span key={ci} style={{
                         fontSize: 10, padding: '3px 8px', borderRadius: 6, fontFamily:'monospace',
-                        background: active ? 'rgba(59,130,246,0.3)' : 'rgba(255,255,255,0.04)',
-                        color: active ? '#93c5fd' : '#475569',
+                        background: active ? 'rgba(59,130,246,0.3)' : '#ffffff',
+                        color: active ? '#1266a0' : '#475569',
                         fontWeight: active ? 700 : 400,
                       }}>
                         {MONTHS_SHORT[ci]}{active && num > 0 ? ` · ${fmt(num)}` : ''}
@@ -1635,7 +1635,7 @@ export function Budget() {
                 <button onClick={() => setFillModal(null)}
                   style={{
                     padding:'6px 14px', borderRadius: 8, background:'transparent',
-                    border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8',
+                    border:'1px solid #e0e4ec', color:'#94a3b8',
                     fontSize: 12, cursor:'pointer',
                   }}>
                   Annuler
@@ -1645,7 +1645,7 @@ export function Budget() {
                   style={{
                     padding:'6px 14px', borderRadius: 8,
                     background:'rgba(59,130,246,0.25)',
-                    border:'1px solid rgba(59,130,246,0.4)', color:'#93c5fd',
+                    border:'1px solid rgba(59,130,246,0.4)', color:'#1266a0',
                     fontSize: 12, fontWeight: 700, cursor: positions.length === 0 ? 'not-allowed' : 'pointer',
                     opacity: positions.length === 0 ? 0.5 : 1,
                   }}>
@@ -1663,8 +1663,8 @@ export function Budget() {
         <div onClick={() => setNoteModal(null)}
           style={{ position:'fixed', inset: 0, background:'rgba(0,0,0,0.6)', display:'flex', alignItems:'center', justifyContent:'center', zIndex: 100 }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background:'#0a0f1a', borderRadius: 14, padding: '22px 26px', minWidth: 480, maxWidth: 560, border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color:'#f1f5f9', marginBottom: 4 }}>
+            style={{ background:'#ffffff', borderRadius: 14, padding: '22px 26px', minWidth: 480, maxWidth: 560, border:'1px solid #e0e4ec', boxShadow:'0 20px 60px rgba(0,0,0,0.5)' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color:'#111726', marginBottom: 4 }}>
               Hypothèse / commentaire
             </div>
             <div style={{ fontSize: 11, color:'#64748b', fontFamily:'monospace', marginBottom: 16 }}>
@@ -1674,10 +1674,10 @@ export function Budget() {
               onChange={e => setNoteModal(m => m && { ...m, text: e.target.value })}
               placeholder="Ex : Loyer +3% indexation · CA +10% vs N-1 · prestation ponctuelle non reconduite…"
               rows={5}
-              style={{ width:'100%', boxSizing:'border-box', background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, color:'#cbd5e1', fontSize:12, padding:'10px 12px', outline:'none', resize:'vertical', fontFamily:'inherit', lineHeight:1.6 }} />
+              style={{ width:'100%', boxSizing:'border-box', background:'#ffffff', border:'1px solid #e0e4ec', borderRadius:8, color:'#3c4557', fontSize:12, padding:'10px 12px', outline:'none', resize:'vertical', fontFamily:'inherit', lineHeight:1.6 }} />
             <div style={{ display:'flex', justifyContent:'flex-end', gap:10, marginTop:18 }}>
               <button onClick={() => setNoteModal(null)}
-                style={{ padding:'6px 14px', borderRadius: 8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize: 12, cursor:'pointer' }}>
+                style={{ padding:'6px 14px', borderRadius: 8, background:'transparent', border:'1px solid #e0e4ec', color:'#94a3b8', fontSize: 12, cursor:'pointer' }}>
                 Annuler
               </button>
               <button onClick={saveNote}
