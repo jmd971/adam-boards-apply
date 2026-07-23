@@ -95,7 +95,7 @@ function labelFor(acc: string, fromData?: string): string {
 // ── Account categorization ────────────────────────────────────────────────
 
 const CAT_DEFS: { id:string; label:string; color:string; side:'actif'|'passif'; test:(a:string)=>boolean }[] = [
-  { id:'immo',      label:'Actif immobilisé',           color:'#3b82f6', side:'actif',
+  { id:'immo',      label:'Actif immobilisé',           color:'#1e88c7', side:'actif',
     test: a => /^2[0-9]/.test(a) },
   { id:'stocks',    label:'Stocks & en-cours',          color:'#06b6d4', side:'actif',
     test: a => /^3/.test(a) },
@@ -187,7 +187,7 @@ function BilanSection({
   onOpenModal: (m: ModalState) => void
 }) {
   return (
-    <div style={{ borderRadius:12, border:`1px solid ${sideColor}25`, overflow:'hidden', display:'flex', flexDirection:'column' }}>
+    <div style={{ borderRadius:12, border:`1px solid ${sideColor}25`, overflow:'hidden', display:'flex', flexDirection:'column', background:'var(--bg-1)', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
 
       {/* Column header */}
       <div style={{ display:'flex', alignItems:'center', padding:'8px 14px', background:`${sideColor}18`, borderBottom:`2px solid ${sideColor}35`, flexShrink:0 }}>
@@ -231,7 +231,7 @@ function BilanSection({
                 onClick={() => onOpenModal({ title:`${acc.acc} — ${acc.label}`, entries:acc.entries, cumN:acc.valueN, cumN1:acc.valueN1 })}
                 style={{ display:'flex', alignItems:'center', padding:'5px 14px 5px 32px',
                   cursor:'pointer',
-                  background:'rgba(0,0,0,0.18)', borderBottom:'1px solid var(--border-0)' }}
+                  background:'rgba(20,30,60,0.05)', borderBottom:'1px solid var(--border-0)' }}
               >
                 <span style={{ fontSize:9, color:'var(--blue)', marginRight:4, flexShrink:0 }}>▸</span>
                 <span style={{ fontFamily:'monospace', fontSize:10, color:'var(--text-3)', marginRight:6, flexShrink:0 }}>{acc.acc}</span>
@@ -305,7 +305,7 @@ export function Bilan() {
   const toggle = (id: string) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
   return (
-    <div ref={printRef} className="module-bilan" style={{ padding:'20px 24px' }}>
+    <div ref={printRef} className="module-bilan ab-light" style={{ padding:'20px 24px', background:'var(--bg-0)', minHeight:'100%' }}>
       <ExportBar
         onPdf={() => printModule(printRef, 'module-print')}
         onExcel={() => exportBilanXlsx('Bilan', n)}
@@ -313,15 +313,15 @@ export function Bilan() {
       />
 
       <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:24, marginTop:12 }}>
-        <KpiCard label="Total Actif"        value={`${fmt(n.totalActif)} €`} color="#3b82f6" />
-        <KpiCard label="Capitaux propres"   value={`${fmt(n.capitaux)} €`}   color="#10b981" />
-        <KpiCard label="Dettes financières" value={`${fmt(n.detteFin)} €`}   color="#f97316" />
-        <KpiCard label="Trésorerie"         value={`${fmt(n.tresoActif)} €`} color="#14b8a6" />
+        <KpiCard label="Total Actif"        icon="🏦" value={`${fmt(n.totalActif)} €`} color="#1e88c7" />
+        <KpiCard label="Capitaux propres"   icon="💼" value={`${fmt(n.capitaux)} €`}   color="#10b981" />
+        <KpiCard label="Dettes financières" icon="💳" value={`${fmt(n.detteFin)} €`}   color="#f97316" />
+        <KpiCard label="Trésorerie"         icon="💧" value={`${fmt(n.tresoActif)} €`} color="#14b8a6" />
       </div>
 
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
         <BilanSection
-          title="Actif" sideColor="#3b82f6"
+          title="Actif" sideColor="#1e88c7"
           categories={detail.actif}
           totalN={detail.totalActifN} totalN1={detail.totalActifN1}
           expanded={expanded} toggle={toggle}

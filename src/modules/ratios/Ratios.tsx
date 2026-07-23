@@ -122,25 +122,25 @@ interface RatioCardProps {
   onInfo?: () => void
 }
 
-function RatioCard({ label, value, icon, sub, color = '#3b82f6', status, onInfo }: RatioCardProps) {
+function RatioCard({ label, value, icon, sub, color = '#1e88c7', status, onInfo }: RatioCardProps) {
   const statusColor = status === 'good' ? '#10b981' : status === 'bad' ? '#ef4444' : status === 'warn' ? '#f59e0b' : color
   return (
-    <div style={{ background:'#0f172a', borderRadius:12, padding:'16px', border:'1px solid rgba(255,255,255,0.06)', position:'relative' }}>
+    <div style={{ background:'var(--bg-1)', borderRadius:12, padding:'16px', border:'1px solid var(--border-1)', position:'relative', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
       {/* Info button */}
       {onInfo && (
         <button
           onClick={onInfo}
           title="Voir l'explication"
           className="print-hide"
-          style={{ position:'absolute', top:10, right:10, background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:6, width:22, height:22, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'#94a3b8', lineHeight:1, transition:'all .15s' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(59,130,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#93c5fd' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'; (e.currentTarget as HTMLButtonElement).style.color = '#94a3b8' }}
+          style={{ position:'absolute', top:10, right:10, background:'var(--bg-2)', border:'1px solid var(--border-1)', borderRadius:6, width:22, height:22, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, color:'var(--text-2)', lineHeight:1, transition:'all .15s' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(59,130,246,0.15)'; (e.currentTarget as HTMLButtonElement).style.color = '#1e88c7' }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--text-2)' }}
         >ℹ</button>
       )}
       <div style={{ fontSize:20, marginBottom:8 }}>{icon}</div>
-      <div style={{ fontSize:11, color:'#94a3b8', fontWeight:600, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</div>
+      <div style={{ fontSize:11, color:'var(--text-2)', fontWeight:600, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</div>
       <div style={{ fontSize:22, fontWeight:700, fontFamily:'monospace', color:statusColor, marginBottom:4 }}>{value}</div>
-      {sub && <div style={{ fontSize:10, color:'#334155' }}>{sub}</div>}
+      {sub && <div style={{ fontSize:10, color:'var(--text-3)' }}>{sub}</div>}
     </div>
   )
 }
@@ -203,7 +203,7 @@ export function Ratios() {
 
   const ratios: (RatioCardProps & { explKey: string })[] = [
     { label:"Chiffre d'affaires",    value:`${fmt(ca)} €`,           icon:'💰', sub:`${fmt(caMensuel)} €/mois`,                              color:'#10b981', explKey:'ca'     },
-    { label:'Taux de valeur ajoutée',value:pct(tauxVA),              icon:'⚙️',  sub:`VA = ${fmt(va)} € · ${thSub('txVA')}`,                  color:'#3b82f6', explKey:'txVA',  status: ev('txVA', tauxVA * 100)    },
+    { label:'Taux de valeur ajoutée',value:pct(tauxVA),              icon:'⚙️',  sub:`VA = ${fmt(va)} € · ${thSub('txVA')}`,                  color:'#1e88c7', explKey:'txVA',  status: ev('txVA', tauxVA * 100)    },
     { label:"Taux d'EBE",           value:pct(tauxEBE),              icon:'📊', sub:`EBE = ${fmt(ebe)} € · ${thSub('txEbe')}`,                color:'#f59e0b', explKey:'txEbe', status: ev('txEbe', tauxEBE * 100)  },
     { label:'Résultat exploitation', value:`${fmt(re)} €`,           icon:'🎯', sub:thSub('txRnet'),                                          color: re >= 0 ? '#10b981' : '#ef4444', explKey:'re', status: ev('txRnet', ca > 0 ? (re / ca) * 100 : 0) },
     { label:'Rentabilité nette',     value:pct(tauxRnet),            icon:'📈', sub:`RN = ${fmt(rnet)} € · ${thSub('txRnet')}`,              color: rnet >= 0 ? '#10b981' : '#ef4444', explKey:'rnet', status: ev('txRnet', tauxRnet * 100) },
@@ -226,14 +226,14 @@ export function Ratios() {
 
   const inputSt: React.CSSProperties = {
     width: 58, padding: '3px 5px', borderRadius: 5, fontSize: 11, fontFamily: 'monospace',
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#cbd5e1', textAlign: 'right', outline: 'none',
+    background: 'var(--bg-2)', border: '1px solid var(--border-1)',
+    color: 'var(--text-1)', textAlign: 'right', outline: 'none',
   }
 
   const currentExpl = activeExpl ? EXPLANATIONS[activeExpl] : null
 
   return (
-    <div ref={printRef} className="module-ratios" style={{ padding:'20px 24px' }}>
+    <div ref={printRef} className="module-ratios ab-light" style={{ padding:'20px 24px', background:'var(--bg-0)', minHeight:'100%' }}>
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom: 4 }}>
         <ExportBar
           onPdf={() => printModule(printRef, 'module-print')}
@@ -242,8 +242,8 @@ export function Ratios() {
         />
         <button onClick={() => setShowConfig(v => !v)} className="print-hide" style={{
           padding:'7px 14px', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
-          background: showConfig ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
-          border:'1px solid var(--border-1)', color: showConfig ? '#93c5fd' : 'var(--text-1)',
+          background: showConfig ? 'rgba(59,130,246,0.15)' : 'var(--bg-2)',
+          border:'1px solid var(--border-1)', color: showConfig ? '#1e88c7' : 'var(--text-1)',
         }}>
           Seuils
         </button>
@@ -252,35 +252,35 @@ export function Ratios() {
       {/* Threshold config */}
       {showConfig && (
         <div className="print-hide" style={{
-          background:'#0f172a', borderRadius:12, padding:'14px 16px', marginBottom:12,
-          border:'1px solid rgba(255,255,255,0.06)',
+          background:'var(--bg-1)', borderRadius:12, padding:'14px 16px', marginBottom:12,
+          border:'1px solid var(--border-1)',
         }}>
-          <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
+          <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>
             Seuils d'alerte personnalisés
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(270px,1fr))', gap:6 }}>
             {draft.map(t => (
-              <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:6, background:'rgba(255,255,255,0.02)' }}>
-                <span style={{ flex:1, fontSize:11, color:'#94a3b8' }}>{t.label}</span>
+              <div key={t.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 8px', borderRadius:6, background:'rgba(20,30,60,0.03)' }}>
+                <span style={{ flex:1, fontSize:11, color:'var(--text-2)' }}>{t.label}</span>
                 <span style={{ fontSize:9, color:'#f59e0b' }}>W</span>
                 <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.warn} onChange={e => updateTh(t.id, 'warn', e.target.value)} style={inputSt} />
                 <span style={{ fontSize:9, color:'#ef4444' }}>C</span>
                 <input type="number" step={t.unit === 'x' ? '0.1' : '1'} value={t.bad} onChange={e => updateTh(t.id, 'bad', e.target.value)} style={inputSt} />
-                <span style={{ fontSize:9, color:'#94a3b8', minWidth:28 }}>{t.unit}</span>
+                <span style={{ fontSize:9, color:'var(--text-2)', minWidth:28 }}>{t.unit}</span>
               </div>
             ))}
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:10 }}>
             <button onClick={applyThresholds} disabled={!draftDirty} style={{
               padding:'7px 20px', borderRadius:8, fontSize:12, fontWeight:600, cursor: draftDirty ? 'pointer' : 'not-allowed',
-              background: draftDirty ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'rgba(255,255,255,0.05)',
-              border:'none', color: draftDirty ? '#fff' : '#94a3b8', opacity: draftDirty ? 1 : 0.5,
+              background: draftDirty ? 'linear-gradient(135deg,#1e88c7,#6366f1)' : 'var(--bg-2)',
+              border:'none', color: draftDirty ? '#fff' : 'var(--text-2)', opacity: draftDirty ? 1 : 0.5,
             }}>Valider</button>
             <button onClick={resetDraft} disabled={!draftDirty} style={{
               padding:'7px 16px', borderRadius:8, fontSize:12, fontWeight:500, cursor: draftDirty ? 'pointer' : 'not-allowed',
-              background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color: draftDirty ? '#94a3b8' : '#334155',
+              background:'transparent', border:'1px solid var(--border-1)', color: draftDirty ? 'var(--text-2)' : 'var(--text-3)',
             }}>Annuler</button>
-            <span style={{ fontSize:10, color:'#334155' }}>W = alerte (orange) · C = critique (rouge)</span>
+            <span style={{ fontSize:10, color:'var(--text-3)' }}>W = alerte (orange) · C = critique (rouge)</span>
           </div>
         </div>
       )}
@@ -294,13 +294,13 @@ export function Ratios() {
         ))}
       </div>
 
-      <div style={{ marginTop:24, padding:16, borderRadius:12, background:'#0f172a', border:'1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>Légende</div>
-        <div style={{ display:'flex', gap:16, fontSize:11, color:'#94a3b8' }}>
+      <div style={{ marginTop:24, padding:16, borderRadius:12, background:'var(--bg-1)', border:'1px solid var(--border-1)' }}>
+        <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>Légende</div>
+        <div style={{ display:'flex', gap:16, fontSize:11, color:'var(--text-2)' }}>
           <span><span style={{ color:'#10b981' }}>●</span> Bon</span>
           <span><span style={{ color:'#f59e0b' }}>●</span> À surveiller</span>
           <span><span style={{ color:'#ef4444' }}>●</span> Attention</span>
-          <span style={{ marginLeft:8, color:'#334155' }}>ℹ Cliquez sur l'icône d'info pour l'explication du ratio</span>
+          <span style={{ marginLeft:8, color:'var(--text-3)' }}>ℹ Cliquez sur l'icône d'info pour l'explication du ratio</span>
         </div>
       </div>
 
