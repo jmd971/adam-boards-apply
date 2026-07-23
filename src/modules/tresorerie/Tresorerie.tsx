@@ -463,7 +463,7 @@ export function Tresorerie() {
     flex:1, padding:'8px 16px', border:'none', cursor:'pointer', borderRadius:'var(--radius-sm)',
     fontSize:12, fontWeight:600,
     background: on ? 'rgba(59,130,246,0.18)' : 'transparent',
-    color:      on ? '#93c5fd' : 'var(--text-2)',
+    color:      on ? '#1e88c7' : 'var(--text-2)',
     boxShadow:  on ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'none',
   })
 
@@ -478,7 +478,7 @@ export function Tresorerie() {
     return (
       <React.Fragment>
         <tr onClick={()=>accList.length&&setExpanded(p=>({...p,[k]:!p[k]}))}
-          style={{borderBottom:'1px solid rgba(255,255,255,0.04)',cursor:accList.length?'pointer':'default',background:isOpen?'rgba(255,255,255,0.02)':'transparent'}}>
+          style={{borderBottom:'1px solid rgba(20,30,60,0.04)',cursor:accList.length?'pointer':'default',background:isOpen?'rgba(20,30,60,0.02)':'transparent'}}>
           <td style={{padding:'8px 12px 8px 24px',color,fontWeight:500,fontSize:11.5,whiteSpace:'nowrap',position:'sticky',left:0,background:'var(--bg-0)',zIndex:2}}>
             {accList.length>0 && <span style={{display:'inline-block',width:14,marginRight:4,fontSize:9,color:'var(--text-3)'}}>{isOpen?'▾':'▸'}</span>}
             {label}
@@ -495,12 +495,12 @@ export function Tresorerie() {
           const ents=(a.moves && a.moves.length) ? a.moves : mergeEntries(RAW!,selCo,'pn',acc)
           return (
             <tr key={acc} onClick={()=>setModal({title:`${acc} — ${a.label}`,entries:ents,cumN:tot,cumN1:0})}
-              style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:'pointer'}}>
+              style={{borderBottom:'1px solid rgba(20,30,60,0.02)',background:'rgba(20,30,60,0.05)',cursor:'pointer'}}>
               <td style={{padding:'5px 12px 5px 44px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',position:'sticky',left:0,background:'rgba(6,11,20,0.95)',zIndex:2}}>
                 <span style={{color:'var(--blue)',marginRight:4,fontSize:9}}>▸</span>
                 <span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6}}>{acc}</span>
                 <span>{a.label}</span>
-                {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--text-3)',background:'rgba(255,255,255,0.06)',padding:'1px 5px',borderRadius:10}}>{ents.length} éc.</span>}
+                {ents.length>0&&<span style={{marginLeft:6,fontSize:9,color:'var(--text-3)',background:'rgba(20,30,60,0.06)',padding:'1px 5px',borderRadius:10}}>{ents.length} éc.</span>}
               </td>
               {a.vals.map((v:number,i:number)=>(
                 <td key={i} style={{padding:'5px 6px',textAlign:'right',fontFamily:'monospace',fontSize:10,color:v===0?'var(--text-3)':'var(--text-2)'}}>{v!==0?fmt(v):'—'}</td>
@@ -516,8 +516,8 @@ export function Tresorerie() {
   const Tot = ({label,vals,color,top=false}:{label:string;vals:number[];color:string;top?:boolean}) => {
     const t=vals.reduce((s:number,v:number)=>s+v,0)
     return (
-      <tr style={{background:'rgba(255,255,255,0.025)',borderTop:top?`2px solid ${color}30`:'1px solid rgba(255,255,255,0.06)'}}>
-        <td style={{padding:'9px 12px',fontWeight:800,fontSize:12,color,position:'sticky',left:0,background:'#0d1424',zIndex:2}}>{label}</td>
+      <tr style={{background:'rgba(20,30,60,0.025)',borderTop:top?`2px solid ${color}30`:'1px solid rgba(20,30,60,0.06)'}}>
+        <td style={{padding:'9px 12px',fontWeight:800,fontSize:12,color,position:'sticky',left:0,background:'#ffffff',zIndex:2}}>{label}</td>
         {vals.map((v:number,i:number)=>(
           <td key={i} style={{padding:'9px 6px',textAlign:'right',fontFamily:'monospace',fontWeight:700,fontSize:12,color:v<0?'var(--red)':v===0?'var(--text-3)':color}}>{v!==0?fmt(v):'—'}</td>
         ))}
@@ -541,7 +541,7 @@ export function Tresorerie() {
   const inputSt: React.CSSProperties = {background:'var(--bg-0)',border:'1px solid var(--border-1)',borderRadius:6,color:'var(--text-0)',padding:'4px 8px',fontSize:11,width:70,outline:'none',textAlign:'right',fontFamily:'monospace'}
 
   return (
-    <>
+    <div className="ab-light" style={{background:'var(--bg-0)',minHeight:'100%'}}>
       {/* Comptes bancaires — placé AU-DESSUS de la barre sticky des onglets
           pour éviter que le titre soit masqué quand la page défile. */}
       <div style={{padding:'16px 24px 0'}}>
@@ -572,7 +572,7 @@ export function Tresorerie() {
                     {showHelp?'▾':'▸'} Comment ça marche ?
                   </button>
                   <button onClick={saveParams} disabled={savingParams}
-                    style={{fontSize:10,fontWeight:700,color:'#93c5fd',background:'rgba(59,130,246,0.15)',border:'1px solid rgba(59,130,246,0.3)',cursor:savingParams?'default':'pointer',padding:'3px 12px',borderRadius:5}}>
+                    style={{fontSize:10,fontWeight:700,color:'#1e88c7',background:'rgba(59,130,246,0.15)',border:'1px solid rgba(59,130,246,0.3)',cursor:savingParams?'default':'pointer',padding:'3px 12px',borderRadius:5}}>
                     {savingParams?'Enregistrement…':'💾 Enregistrer'}
                   </button>
                 </div>
@@ -658,7 +658,7 @@ export function Tresorerie() {
                   return (
                     <React.Fragment key={key}>
                       <tr onClick={canExpand?()=>setPrevRowOpen(p=>({...p,[key]:!p[key]})):undefined}
-                        style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':isOpen?'rgba(255,255,255,0.02)':'transparent',cursor:canExpand?'pointer':'default'}}>
+                        style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(20,30,60,0.015)':isOpen?'rgba(20,30,60,0.02)':'transparent',cursor:canExpand?'pointer':'default'}}>
                         <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent'}}>
                           {canExpand&&<span style={{display:'inline-block',width:14,marginRight:4,fontSize:9,color:'var(--text-3)'}}>{isOpen?'▾':'▸'}</span>}
                           {lbl}
@@ -679,7 +679,7 @@ export function Tresorerie() {
                         return (
                           <tr key={acc}
                             onClick={ents.length>0?()=>setModal({title:`${a.label} — échéances prévues`,entries:ents,cumN:dTot,cumN1:0}):undefined}
-                            style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)',cursor:ents.length>0?'pointer':'default'}}>
+                            style={{borderBottom:'1px solid rgba(20,30,60,0.02)',background:'rgba(20,30,60,0.05)',cursor:ents.length>0?'pointer':'default'}}>
                             <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:220}}>
                               {!acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{acc}</span>}
                               {a.label}
@@ -733,7 +733,7 @@ export function Tresorerie() {
                       return (
                         <React.Fragment key={key}>
                           <tr onClick={canExpand?()=>setDayRowOpen(p=>({...p,[key]:!p[key]})):undefined}
-                            style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(255,255,255,0.015)':isOpen?'rgba(255,255,255,0.02)':'transparent',cursor:canExpand?'pointer':'default'}}>
+                            style={{borderBottom:'1px solid var(--border-0)',background:bold?'rgba(20,30,60,0.015)':isOpen?'rgba(20,30,60,0.02)':'transparent',cursor:canExpand?'pointer':'default'}}>
                             <td style={{padding:'8px 12px',color:col,fontWeight:bold?700:400,fontSize:bold?12:11,borderLeft:bold?`3px solid ${col}`:'3px solid transparent',whiteSpace:'nowrap',position:'sticky',left:0,background:'var(--bg-0)',zIndex:1}}>
                               {canExpand&&<span style={{display:'inline-block',width:14,marginRight:4,fontSize:9,color:'var(--text-3)'}}>{isOpen?'▾':'▸'}</span>}
                               {lbl}
@@ -749,7 +749,7 @@ export function Tresorerie() {
                             </td></tr>
                           )}
                           {isOpen&&detail.map((dd:any)=>(
-                            <tr key={dd.acc} style={{borderBottom:'1px solid rgba(255,255,255,0.02)',background:'rgba(0,0,0,0.15)'}}>
+                            <tr key={dd.acc} style={{borderBottom:'1px solid rgba(20,30,60,0.02)',background:'rgba(20,30,60,0.05)'}}>
                               <td style={{padding:'5px 12px 5px 34px',fontSize:10,color:'var(--text-2)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:240,position:'sticky',left:0,background:'var(--bg-0)',zIndex:1}}>
                                 {!dd.acc.startsWith('__')&&<span style={{fontFamily:'monospace',color:'var(--text-3)',marginRight:6,fontSize:9}}>{dd.acc}</span>}
                                 {dd.label}
@@ -781,10 +781,10 @@ export function Tresorerie() {
       {view==='realise' && (
         <div style={{padding:'16px 24px'}}>
           <div className="treso-kpi-grid" style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(150px,1fr))',gap:12,marginBottom:20}}>
-            <KpiCard label="Encaissements N"     value={`${fmt(gE)} €`}      color="var(--green)"/>
-            <KpiCard label="Décaissements N"     value={`${fmt(gD)} €`}      color="var(--red)"/>
-            <KpiCard label="Flux net"             value={`${fmt(gE-gD)} €`}  color={(gE-gD)>=0?'var(--green)':'var(--red)'}/>
-            <KpiCard label="Cumul fin période"   value={`${fmt(treso?.cu[treso.cu.length-1]??0)} €`} color="var(--purple)"/>
+            <KpiCard label="Encaissements N"     icon="💵" value={`${fmt(gE)} €`}      color="var(--green)"/>
+            <KpiCard label="Décaissements N"     icon="💸" value={`${fmt(gD)} €`}      color="var(--red)"/>
+            <KpiCard label="Flux net"             icon="🔀" value={`${fmt(gE-gD)} €`}  color={(gE-gD)>=0?'var(--green)':'var(--red)'}/>
+            <KpiCard label="Cumul fin période"   icon="🏦" value={`${fmt(treso?.cu[treso.cu.length-1]??0)} €`} color="var(--purple)"/>
           </div>
           <div style={{marginBottom:10,fontSize:11,color:'var(--text-3)'}}>💡 Cliquez <span style={{color:'var(--blue)'}}>▸</span> sur une catégorie pour voir les comptes, puis sur un compte pour voir les écritures.</div>
           {treso && (
@@ -799,13 +799,13 @@ export function Tresorerie() {
                 </thead>
                 <tbody>
                   <Sec label="📥 Encaissements" color="var(--green)" onToggle={()=>setSecOpen(s=>({...s,enc:!s.enc}))} isOpen={secOpen.enc}/>
-                  {secOpen.enc&&treso.encCats.map(cat=><Cat key={cat} label={cat} vals={treso.eB[cat]} color="#34d399" accMap={treso.eA[cat]} k={`e_${cat}`}/>)}
+                  {secOpen.enc&&treso.encCats.map(cat=><Cat key={cat} label={cat} vals={treso.eB[cat]} color="#17a05c" accMap={treso.eA[cat]} k={`e_${cat}`}/>)}
                   {secOpen.enc&&treso.encCats.length===0&&(
                     <tr><td colSpan={99} style={{padding:'10px 24px',color:'var(--text-3)',fontSize:11,fontStyle:'italic'}}>Aucun encaissement sur la période.</td></tr>
                   )}
                   <Tot label="TOTAL ENCAISSEMENTS" vals={treso.tE} color="var(--green)" top/>
                   <Sec label="📤 Décaissements" color="var(--red)" onToggle={()=>setSecOpen(s=>({...s,dec:!s.dec}))} isOpen={secOpen.dec}/>
-                  {secOpen.dec&&treso.decCats.map(cat=><Cat key={cat} label={cat} vals={treso.dB[cat]} color="#fca5a5" accMap={treso.dA[cat]} k={`d_${cat}`}/>)}
+                  {secOpen.dec&&treso.decCats.map(cat=><Cat key={cat} label={cat} vals={treso.dB[cat]} color="#e0524f" accMap={treso.dA[cat]} k={`d_${cat}`}/>)}
                   {secOpen.dec&&treso.decCats.length===0&&(
                     <tr><td colSpan={99} style={{padding:'10px 24px',color:'var(--text-3)',fontSize:11,fontStyle:'italic'}}>Aucun décaissement sur la période.</td></tr>
                   )}
@@ -825,7 +825,7 @@ export function Tresorerie() {
       )}
 
       {modal && <EcrituresModal {...modal} onClose={()=>setModal(null)}/>}
-    </>
+    </div>
   )
 }
 

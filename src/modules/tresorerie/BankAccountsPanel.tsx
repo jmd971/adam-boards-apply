@@ -77,8 +77,8 @@ export function BankAccountsPanel({ selCo, totalLabel = 'Solde bancaire total' }
 
   const inputSt: React.CSSProperties = {
     padding: '5px 8px', borderRadius: 6, fontSize: 11, fontFamily: 'inherit',
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#cbd5e1', outline: 'none',
+    background: 'var(--bg-1)', border: '1px solid var(--border-1)',
+    color: 'var(--text-1)', outline: 'none',
   }
 
   return (
@@ -93,8 +93,8 @@ export function BankAccountsPanel({ selCo, totalLabel = 'Solde bancaire total' }
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 22 }}>💳</span>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={{ fontSize: 13, fontWeight: 800, color: '#f1f5f9', letterSpacing: '0.3px' }}>{totalLabel}</span>
-            <span style={{ fontSize: 11, color: '#94a3b8' }}>{accounts.length} compte{accounts.length > 1 ? 's' : ''} · clique pour {open ? 'replier' : 'gérer'}</span>
+            <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-0)', letterSpacing: '0.3px' }}>{totalLabel}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-2)' }}>{accounts.length} compte{accounts.length > 1 ? 's' : ''} · clique pour {open ? 'replier' : 'gérer'}</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -107,10 +107,10 @@ export function BankAccountsPanel({ selCo, totalLabel = 'Solde bancaire total' }
 
       {open && (
         <div style={{ marginTop: 12 }}>
-          {isLoading && <div style={{ fontSize: 11, color: '#64748b' }}>Chargement…</div>}
+          {isLoading && <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Chargement…</div>}
 
           {!isLoading && accounts.length === 0 && (
-            <div style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic', padding: '4px 0' }}>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', fontStyle: 'italic', padding: '4px 0' }}>
               Aucun compte saisi pour les sociétés sélectionnées. Ajoute le solde bancaire (CCP, livret, etc.) pour qu'il serve de point de départ du prévisionnel.
             </div>
           )}
@@ -129,25 +129,25 @@ export function BankAccountsPanel({ selCo, totalLabel = 'Solde bancaire total' }
               </thead>
               <tbody>
                 {accounts.map(a => (
-                  <tr key={a.id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                    <td style={{ padding: '5px 6px', color: '#94a3b8', fontWeight: 600 }}>{a.company_key}</td>
-                    <td style={{ padding: '5px 6px', color: '#cbd5e1' }}>{a.label}</td>
+                  <tr key={a.id} style={{ borderTop: '1px solid var(--border-0)' }}>
+                    <td style={{ padding: '5px 6px', color: 'var(--text-2)', fontWeight: 600 }}>{a.company_key}</td>
+                    <td style={{ padding: '5px 6px', color: 'var(--text-1)' }}>{a.label}</td>
                     <td style={{ padding: '5px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: a.balance < 0 ? 'var(--red)' : '#14b8a6' }}>
                       {fmt(a.balance)} €
                     </td>
-                    <td style={{ padding: '5px 6px', fontFamily: 'monospace', color: '#94a3b8', fontSize: 10 }}>
+                    <td style={{ padding: '5px 6px', fontFamily: 'monospace', color: 'var(--text-2)', fontSize: 10 }}>
                       {a.balance_date.split('-').reverse().join('/')}
                     </td>
-                    <td style={{ padding: '5px 6px', color: '#64748b', fontSize: 10, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.notes ?? undefined}>
+                    <td style={{ padding: '5px 6px', color: 'var(--text-3)', fontSize: 10, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.notes ?? undefined}>
                       {a.notes ?? '—'}
                     </td>
                     <td style={{ padding: '5px 6px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                       {!isReadOnly && (
                         <>
                           <button onClick={() => startEdit(a)} title="Modifier"
-                            style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 12, padding: '0 4px' }}>✎</button>
+                            style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', fontSize: 12, padding: '0 4px' }}>✎</button>
                           <button onClick={() => del(a.id)} title="Supprimer"
-                            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
+                            style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', fontSize: 14, padding: '0 4px' }}>×</button>
                         </>
                       )}
                     </td>
@@ -158,32 +158,32 @@ export function BankAccountsPanel({ selCo, totalLabel = 'Solde bancaire total' }
           )}
 
           {!isReadOnly && (
-            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 110px 130px 1fr auto', gap: 6, alignItems: 'end', padding: '8px 4px', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 110px 130px 1fr auto', gap: 6, alignItems: 'end', padding: '8px 4px', borderTop: '1px solid var(--border-0)' }}>
               <div>
-                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Société</label>
+                <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Société</label>
                 <select value={draft.company_key} onChange={e => setDraft(d => ({ ...d, company_key: e.target.value }))} style={{ ...inputSt, width: '100%' }}>
                   {selCo.map(co => <option key={co} value={co}>{co}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Libellé</label>
+                <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Libellé</label>
                 <input value={draft.label} onChange={e => setDraft(d => ({ ...d, label: e.target.value }))} placeholder="CCP, Livret A, BNP courant…" style={{ ...inputSt, width: '100%' }} />
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Solde (€)</label>
+                <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Solde (€)</label>
                 <input type="number" step="0.01" value={draft.balance} onChange={e => setDraft(d => ({ ...d, balance: e.target.value }))} style={{ ...inputSt, width: '100%', fontFamily: 'monospace', textAlign: 'right' }} />
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Au</label>
+                <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Au</label>
                 <input type="date" value={draft.balance_date} onChange={e => setDraft(d => ({ ...d, balance_date: e.target.value }))} style={{ ...inputSt, width: '100%' }} />
               </div>
               <div>
-                <label style={{ fontSize: 9, color: '#94a3b8', display: 'block', marginBottom: 2 }}>Notes</label>
+                <label style={{ fontSize: 9, color: 'var(--text-2)', display: 'block', marginBottom: 2 }}>Notes</label>
                 <input value={draft.notes} onChange={e => setDraft(d => ({ ...d, notes: e.target.value }))} placeholder="optionnel" style={{ ...inputSt, width: '100%' }} />
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {editingId && (
-                  <button onClick={resetDraft} style={{ padding: '6px 10px', borderRadius: 6, fontSize: 10, fontWeight: 500, cursor: 'pointer', background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                  <button onClick={resetDraft} style={{ padding: '6px 10px', borderRadius: 6, fontSize: 10, fontWeight: 500, cursor: 'pointer', background: 'transparent', border: '1px solid var(--border-1)', color: 'var(--text-2)' }}>
                     Annuler
                   </button>
                 )}
