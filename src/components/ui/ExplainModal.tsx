@@ -16,7 +16,8 @@ export function ExplainModal({ expl, onClose }: { expl: Explanation; onClose: ()
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background:'#0f172a', borderRadius:16, padding:'24px 28px', maxWidth:520, width:'100%', border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 24px 64px rgba(0,0,0,0.6)' }}
+        className="ab-light"
+        style={{ background:'var(--bg-1)', borderRadius:16, padding:'24px 28px', maxWidth:520, width:'100%', border:'1px solid var(--border-1)', boxShadow:'0 24px 64px rgba(0,0,0,0.6)' }}
       >
         {/* Header */}
         <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:16, gap:12 }}>
@@ -26,7 +27,7 @@ export function ExplainModal({ expl, onClose }: { expl: Explanation; onClose: ()
 
         {/* Definition */}
         <div style={{ marginBottom:14 }}>
-          <div style={{ fontSize:10, fontWeight:700, color:'#3b82f6', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:5 }}>Définition</div>
+          <div style={{ fontSize:10, fontWeight:700, color:'#1e88c7', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:5 }}>Définition</div>
           <p style={{ margin:0, fontSize:12, color:'var(--text-1)', lineHeight:1.7 }}>{expl.definition}</p>
         </div>
 

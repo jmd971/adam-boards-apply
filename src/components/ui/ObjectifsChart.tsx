@@ -19,7 +19,7 @@ function ObjTooltip({ active, payload }: any) {
   if (!d) return null
   const color = d.pct >= 100 ? '#10b981' : d.pct >= 75 ? '#f59e0b' : '#ef4444'
   return (
-    <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+    <div style={{ background:'var(--bg-1)', border:'1px solid var(--border-1)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
       <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:6 }}>{d.subject}</div>
       <div style={{ display:'flex', gap:6, marginBottom:3 }}>
         <span style={{ color:'var(--text-2)', minWidth:55 }}>Réalisé :</span>
@@ -27,7 +27,7 @@ function ObjTooltip({ active, payload }: any) {
       </div>
       <div style={{ display:'flex', gap:6, marginBottom:6 }}>
         <span style={{ color:'var(--text-2)', minWidth:55 }}>Budget :</span>
-        <span style={{ fontFamily:'monospace', fontWeight:600, color:'#3b82f6' }}>{fmt(d.bud)} €</span>
+        <span style={{ fontFamily:'monospace', fontWeight:600, color:'#1e88c7' }}>{fmt(d.bud)} €</span>
       </div>
       <div style={{ fontWeight:700, color, fontSize:12 }}>{d.pct}% de l'objectif</div>
     </div>
@@ -68,7 +68,7 @@ export function ObjectifsChart({ kpis, hasBudget, height = 300 }: ObjectifsChart
     <div>
       <ResponsiveContainer width="100%" height={height}>
         <RadarChart data={radarData} margin={{ top:20, right:50, bottom:20, left:50 }}>
-          <PolarGrid stroke="rgba(255,255,255,0.07)" />
+          <PolarGrid stroke="var(--bg-2)" />
           <PolarAngleAxis dataKey="subject" tick={{ fill:'var(--text-2)', fontSize:10, fontWeight:600 }} />
           <PolarRadiusAxis
             angle={90} domain={[0, 120]} tick={{ fill:'var(--text-3)', fontSize:9 }}

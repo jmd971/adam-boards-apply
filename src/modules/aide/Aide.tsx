@@ -3,18 +3,18 @@ import { useAppStore } from '@/store'
 import type { TabId } from '@/types'
 
 // ─── Styles helpers ────────────────────────────────────────────────────────
-const card: React.CSSProperties = { background:'#0f172a', borderRadius:10, padding:16, border:'1px solid rgba(255,255,255,0.07)', marginBottom:12 }
+const card: React.CSSProperties = { background:'var(--bg-1)', borderRadius:10, padding:16, border:'1px solid var(--border-1)', marginBottom:12 }
 const tip:  React.CSSProperties = { fontSize:12, color:'#10b981', background:'rgba(16,185,129,0.08)', padding:'8px 12px', borderRadius:8, border:'1px solid rgba(16,185,129,0.2)', margin:'8px 0' }
 const warn: React.CSSProperties = { fontSize:12, color:'#f59e0b', background:'rgba(245,158,11,0.08)', padding:'8px 12px', borderRadius:8, border:'1px solid rgba(245,158,11,0.2)', margin:'8px 0' }
-const ex:   React.CSSProperties = { fontSize:12, color:'#64748b', background:'rgba(255,255,255,0.03)', padding:'10px 14px', borderRadius:8, border:'1px solid rgba(255,255,255,0.06)', margin:'8px 0', fontFamily:'monospace', lineHeight:1.9 }
-const body: React.CSSProperties = { fontSize:13, color:'#94a3b8', lineHeight:1.75, marginBottom:8 }
+const ex:   React.CSSProperties = { fontSize:12, color:'var(--text-3)', background:'rgba(20,30,60,0.03)', padding:'10px 14px', borderRadius:8, border:'1px solid var(--border-1)', margin:'8px 0', fontFamily:'monospace', lineHeight:1.9 }
+const body: React.CSSProperties = { fontSize:13, color:'var(--text-2)', lineHeight:1.75, marginBottom:8 }
 // « 👉 En clair » : la reformulation en langage de tous les jours.
 const clair: React.CSSProperties = { fontSize:12.5, color:'#a5b4fc', background:'rgba(99,102,241,0.08)', padding:'8px 12px', borderRadius:8, border:'1px solid rgba(99,102,241,0.2)', margin:'8px 0', lineHeight:1.7 }
 
-const H = ({ color = '#3b82f6', children }: { color?: string; children: React.ReactNode }) =>
+const H = ({ color = '#1e88c7', children }: { color?: string; children: React.ReactNode }) =>
   <div style={{ fontSize:15, fontWeight:700, color, marginBottom:8 }}>{children}</div>
 const G = ({ color, children }: { color?: string; children: React.ReactNode }) =>
-  <span style={{ color: color || '#3b82f6', fontWeight:600 }}>{children}</span>
+  <span style={{ color: color || '#1e88c7', fontWeight:600 }}>{children}</span>
 
 // ─── Sections Aide ─────────────────────────────────────────────────────────
 const AIDE_TABS = [
@@ -154,20 +154,20 @@ export function Aide() {
 
   const btnSt = (i: number): React.CSSProperties => ({
     padding:'10px 14px', fontSize:12, fontWeight: sec===i ? 700 : 500, cursor:'pointer',
-    border:'none', borderBottom: sec===i ? '2px solid #3b82f6' : '2px solid transparent',
-    background:'transparent', color: sec===i ? '#f1f5f9' : '#94a3b8', whiteSpace:'nowrap' as const,
+    border:'none', borderBottom: sec===i ? '2px solid #1e88c7' : '2px solid transparent',
+    background:'transparent', color: sec===i ? 'var(--text-0)' : 'var(--text-2)', whiteSpace:'nowrap' as const,
   })
 
   return (
-    <div style={{ padding:'20px 24px', maxWidth:900 }}>
-      <div style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', marginBottom:4 }}>Vos chiffres, expliqués simplement</div>
-      <div style={{ fontSize:13, color:'#94a3b8', marginBottom:16 }}>
+    <div className="ab-light" style={{ padding:'20px 24px', maxWidth:900, background:'var(--bg-0)', minHeight:'100%' }}>
+      <div style={{ fontSize:20, fontWeight:800, color:'var(--text-0)', marginBottom:4 }}>Vos chiffres, expliqués simplement</div>
+      <div style={{ fontSize:13, color:'var(--text-2)', marginBottom:16 }}>
         Pas besoin d'être comptable. Ici, tout est expliqué avec des mots de tous les jours et des exemples concrets, pour piloter votre entreprise l'esprit tranquille.
-        {RAW && <span style={{ marginLeft:12, color:'#334155' }}>· {RAW.keys.length} société(s) · {RAW.mn.length} mois N</span>}
+        {RAW && <span style={{ marginLeft:12, color:'var(--text-1)' }}>· {RAW.keys.length} société(s) · {RAW.mn.length} mois N</span>}
       </div>
 
       {/* Navigation */}
-      <div style={{ display:'flex', borderBottom:'1px solid rgba(255,255,255,0.06)', marginBottom:20, overflowX:'auto', position:'sticky', top:0, zIndex:8, background:'#080d1a' }}>
+      <div style={{ display:'flex', borderBottom:'1px solid var(--border-1)', marginBottom:20, overflowX:'auto', position:'sticky', top:0, zIndex:8, background:'var(--bg-0)' }}>
         {AIDE_TABS.map((t, i) => <button key={i} style={btnSt(i)} onClick={() => setSec(i)}>{t}</button>)}
       </div>
 
@@ -181,7 +181,7 @@ export function Aide() {
             − <G color="#f97316">Achats</G> (matières, marchandises, sous-traitance)<br/>
             = <G color="#8b5cf6">Marge</G> (ce qu'il reste pour payer vos charges)<br/>
             − <G color="#ef4444">Dépenses</G> (salaires, loyers, assurances, impôts…)<br/>
-            = <G color="#3b82f6">Résultat</G> (ce que l'entreprise gagne ou perd)
+            = <G color="#1e88c7">Résultat</G> (ce que l'entreprise gagne ou perd)
           </div>
           <div style={clair}>👉 En clair : s'il vous reste de l'argent une fois que TOUT est payé, vous êtes gagnant. Sinon, deux leviers : vendre plus, ou dépenser moins.</div>
         </div>
@@ -230,8 +230,8 @@ export function Aide() {
           <div style={warn}>⚠️ Méfiance : un bénéfice qui vient surtout de la vente d'un matériel ne veut pas dire que votre activité tourne bien. Revenez toujours d'abord au résultat d'exploitation.</div>
         </div>
         <div style={card}>
-          <H color="#3b82f6">4. L'impôt, puis le résultat net</H>
-          <p style={body}>Si vous avez gagné de l'argent, l'État en prend une part : c'est l'impôt sur les sociétés (15 % jusqu'à 42 500 € de bénéfice, 25 % au-delà). Ce qu'il reste une fois l'impôt payé, c'est votre <G color="#3b82f6">résultat net</G> : le vrai « reste à la fin ».</p>
+          <H color="#1e88c7">4. L'impôt, puis le résultat net</H>
+          <p style={body}>Si vous avez gagné de l'argent, l'État en prend une part : c'est l'impôt sur les sociétés (15 % jusqu'à 42 500 € de bénéfice, 25 % au-delà). Ce qu'il reste une fois l'impôt payé, c'est votre <G color="#1e88c7">résultat net</G> : le vrai « reste à la fin ».</p>
         </div>
       </div>}
 
@@ -258,7 +258,7 @@ export function Aide() {
           <div style={ex}>Part de l'EBE dans le chiffre d'affaires :<br/>Confortable : {'>'} 10 %  |  Correct : 5 à 10 %  |  Fragile : {'<'} 5 %</div>
         </div>
         <div style={card}>
-          <H color="#3b82f6">4. Le résultat d'exploitation — après l'usure du matériel</H>
+          <H color="#1e88c7">4. Le résultat d'exploitation — après l'usure du matériel</H>
           <p style={body}>On retire de l'EBE « l'usure » de vos équipements (l'amortissement : un matériel perd de la valeur en vieillissant). S'il reste positif, c'est que votre activité gagne assez pour remplacer un jour vos outils de travail. Très bon signe.</p>
         </div>
       </div>}
@@ -270,7 +270,7 @@ export function Aide() {
           <p style={body}>Le bilan, c'est une photo prise à un instant donné. D'un côté, tout ce que votre entreprise possède. De l'autre, d'où vient l'argent qui a payé tout ça. Il répond à : que vaut mon entreprise, et comment est-elle financée ?</p>
         </div>
         <div style={card}>
-          <H color="#3b82f6">Ce que vous possédez (l'actif)</H>
+          <H color="#1e88c7">Ce que vous possédez (l'actif)</H>
           <p style={body}><G>Le matériel durable</G> : machines, véhicules, logiciels (on dit « immobilisations »). <G>Les stocks</G> : marchandises ou matières en attente d'être vendues. <G>L'argent que vos clients vous doivent</G> (les créances). <G>L'argent en banque</G> (la trésorerie).</p>
         </div>
         <div style={card}>
@@ -295,7 +295,7 @@ export function Aide() {
         </div>
         {[
           { label:'Taux de marge brute', formula:'Marge / CA × 100', good:'> 30%', warn2:'< 20%', desc:'Sur 100 € vendus, combien il vous reste après avoir payé les achats. Plus c\'est haut, plus vous gagnez bien votre vie sur chaque vente.', color:'#10b981' },
-          { label:'Taux de valeur ajoutée', formula:'VA / CA × 100', good:'> 30%', warn2:'< 15%', desc:'La part de richesse que votre travail crée vraiment. Élevé = vous faites beaucoup par vous-même ; faible = vous sous-traitez beaucoup.', color:'#3b82f6' },
+          { label:'Taux de valeur ajoutée', formula:'VA / CA × 100', good:'> 30%', warn2:'< 15%', desc:'La part de richesse que votre travail crée vraiment. Élevé = vous faites beaucoup par vous-même ; faible = vous sous-traitez beaucoup.', color:'#1e88c7' },
           { label:'Taux d\'EBE', formula:'EBE / CA × 100', good:'> 10%', warn2:'< 5%', desc:'Combien votre activité dégage réellement de cash, une fois les salaires payés. Le chiffre que votre banquier regarde en premier.', color:'#f59e0b' },
           { label:'Rentabilité nette', formula:'Résultat net / CA × 100', good:'> 5%', warn2:'< 2%', desc:'Sur 100 € vendus, ce qu\'il reste vraiment dans la poche tout à la fin, une fois absolument tout payé.', color:'#8b5cf6' },
           { label:'Niveau d\'endettement', formula:'Dettes bancaires / Capitaux propres', good:'< 1×', warn2:'> 2×', desc:'Compare ce que vous devez aux banques à votre propre argent. Trop élevé = vous dépendez beaucoup des banques, donc plus fragile si l\'activité ralentit.', color:'#14b8a6' },
@@ -303,7 +303,7 @@ export function Aide() {
           <div key={r.label} style={card}>
             <div style={{ display:'flex', alignItems:'baseline', justifyContent:'space-between', marginBottom:6 }}>
               <H color={r.color}>{r.label}</H>
-              <span style={{ fontFamily:'monospace', fontSize:11, color:'#334155' }}>{r.formula}</span>
+              <span style={{ fontFamily:'monospace', fontSize:11, color:'var(--text-1)' }}>{r.formula}</span>
             </div>
             <p style={body}>{r.desc}</p>
             <div style={{ display:'flex', gap:12, fontSize:11 }}>
@@ -329,7 +329,7 @@ export function Aide() {
           <div style={tip}>💡 Un budget mensuel est plus puissant qu'un budget annuel : il permet de détecter les problèmes dès le mois de janvier plutôt qu'en décembre.</div>
         </div>
         <div style={card}>
-          <H color="#3b82f6">Comparer réel vs budget</H>
+          <H color="#1e88c7">Comparer réel vs budget</H>
           <p style={body}>Dans les onglets CR et SIG, activez les colonnes Budget. Un écart négatif sur les produits ou positif sur les charges demande une action immédiate.</p>
           <div style={warn}>⚠️ Un budget n'est pas une contrainte rigide, c'est un repère. Révisez-le en cours d'année si votre activité évolue significativement.</div>
         </div>
@@ -369,9 +369,9 @@ export function Aide() {
           { term:'Levier financier', def:'Ratio Dettes/Capitaux propres. Mesure la dépendance au financement externe.' },
           { term:'Taux de marge', def:'Marge / CA × 100. Part du prix de vente qui n\'est pas du coût d\'achat.' },
         ].map(({ term, def }) => (
-          <div key={term} style={{ display:'flex', gap:16, padding:'10px 12px', borderBottom:'1px solid rgba(255,255,255,0.04)', background:'#0f172a', borderRadius:0 }}>
-            <span style={{ fontFamily:'monospace', fontWeight:700, color:'#3b82f6', minWidth:150, flexShrink:0 }}>{term}</span>
-            <span style={{ fontSize:13, color:'#94a3b8', lineHeight:1.6 }}>{def}</span>
+          <div key={term} style={{ display:'flex', gap:16, padding:'10px 12px', borderBottom:'1px solid var(--border-1)', background:'var(--bg-1)', borderRadius:0 }}>
+            <span style={{ fontFamily:'monospace', fontWeight:700, color:'#1e88c7', minWidth:150, flexShrink:0 }}>{term}</span>
+            <span style={{ fontSize:13, color:'var(--text-2)', lineHeight:1.6 }}>{def}</span>
           </div>
         ))}
       </div>}
@@ -383,8 +383,8 @@ export function Aide() {
           <p style={body}>Cinq étapes pour être opérationnel. Suivez-les dans l'ordre la première fois, cliquez sur « Ouvrir » pour vous laisser guider.</p>
           {QUICK.map(({ step, label, tab, icon }) => (
             <div key={step} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-              <span style={{ width:20, height:20, borderRadius:'50%', background:'rgba(59,130,246,0.25)', color:'#93c5fd', fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{step}</span>
-              <span style={{ fontSize:12, color:'#94a3b8', flex:1 }}>{icon} {label}</span>
+              <span style={{ width:20, height:20, borderRadius:'50%', background:'rgba(59,130,246,0.25)', color:'#1e88c7', fontSize:10, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{step}</span>
+              <span style={{ fontSize:12, color:'var(--text-2)', flex:1 }}>{icon} {label}</span>
               <button onClick={() => setTab(tab)} style={{ padding:'3px 10px', borderRadius:6, background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.25)', color:'#60a5fa', fontSize:11, cursor:'pointer', fontWeight:600 }}>
                 Ouvrir →
               </button>
@@ -403,8 +403,8 @@ export function Aide() {
             ['Sélecteurs de date en haut',      'filtre sur une plage de mois'],
           ].map(([tip2, action]) => (
             <div key={tip2} style={{ display:'flex', gap:8, marginBottom:6, fontSize:12 }}>
-              <span style={{ color:'#3b82f6', flexShrink:0 }}>▸</span>
-              <span style={{ color:'#64748b' }}><span style={{ color:'#94a3b8' }}>{tip2}</span> → {action}</span>
+              <span style={{ color:'#1e88c7', flexShrink:0 }}>▸</span>
+              <span style={{ color:'var(--text-3)' }}><span style={{ color:'var(--text-2)' }}>{tip2}</span> → {action}</span>
             </div>
           ))}
         </div>
@@ -414,8 +414,8 @@ export function Aide() {
           <p style={body}>• Glissez le fichier dans la zone N ou N-1 — société et période détectées automatiquement.</p>
           <p style={body}>• Si les données semblent vides : vérifiez l'onglet Vérification (nombre d'écritures, équilibre D/C).</p>
         </div>
-        <div style={{ marginTop:20, padding:14, borderRadius:10, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', fontSize:12, color:'#94a3b8' }}>
-          <span style={{ color:'#10b981', fontWeight:700 }}>Adam Boards</span> · Développé par <span style={{ color:'#94a3b8' }}>Jean-Marc Dolmaire</span>
+        <div style={{ marginTop:20, padding:14, borderRadius:10, background:'rgba(16,185,129,0.06)', border:'1px solid rgba(16,185,129,0.15)', fontSize:12, color:'var(--text-2)' }}>
+          <span style={{ color:'#10b981', fontWeight:700 }}>Adam Boards</span> · Développé par <span style={{ color:'var(--text-2)' }}>Jean-Marc Dolmaire</span>
         </div>
       </div>}
 
@@ -427,7 +427,7 @@ export function Aide() {
         </div>
         {MENUS.map(grp => (
           <div key={grp.group}>
-            <div style={{ fontSize:11, fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.6px', margin:'18px 0 8px' }}>{grp.group}</div>
+            <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.6px', margin:'18px 0 8px' }}>{grp.group}</div>
             {grp.items.map(m => (
               <div key={m.name} style={card}>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:10, marginBottom:4 }}>
@@ -438,7 +438,7 @@ export function Aide() {
                 </div>
                 <p style={body}>{m.desc}</p>
                 <ul style={{ margin:0, paddingLeft:18 }}>
-                  {m.feats.map((f, i) => <li key={i} style={{ fontSize:12.5, color:'#94a3b8', lineHeight:1.7, marginBottom:2 }}>{f}</li>)}
+                  {m.feats.map((f, i) => <li key={i} style={{ fontSize:12.5, color:'var(--text-2)', lineHeight:1.7, marginBottom:2 }}>{f}</li>)}
                 </ul>
               </div>
             ))}

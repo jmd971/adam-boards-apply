@@ -77,8 +77,8 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
   )
 
   return (
-    <div style={{
-      minHeight: '100vh', background: '#080d1a', color: '#f1f5f9',
+    <div className="ab-light" style={{
+      minHeight: '100vh', background: 'var(--bg-0)', color: 'var(--text-0)',
       fontFamily: 'Outfit, Inter, sans-serif', padding: '40px 32px',
     }}>
       {/* Confirmation modal */}
@@ -88,13 +88,13 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
           display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
         }}>
           <div style={{
-            background: '#0f172a', border: '1px solid rgba(239,68,68,0.3)',
+            background: 'var(--bg-1)', border: '1px solid rgba(239,68,68,0.3)',
             borderRadius: 14, padding: '28px 32px', maxWidth: 400, width: '90%',
           }}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, color: '#f1f5f9' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10, color: 'var(--text-0)' }}>
               Supprimer ce client ?
             </div>
-            <div style={{ fontSize: 13, color: '#94a3b8', marginBottom: 24 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-2)', marginBottom: 24 }}>
               Toutes les données associées (FEC, saisies, budget) seront définitivement supprimées.
               Cette action est irréversible.
             </div>
@@ -103,8 +103,8 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
                 onClick={() => setConfirmId(null)}
                 style={{
                   padding: '8px 18px', borderRadius: 8,
-                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-                  color: '#94a3b8', fontSize: 13, cursor: 'pointer',
+                  background: 'var(--bg-2)', border: '1px solid var(--border-1)',
+                  color: 'var(--text-2)', fontSize: 13, cursor: 'pointer',
                 }}
               >
                 Annuler
@@ -132,14 +132,14 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
           <div style={{
             width: 48, height: 48, borderRadius: 14,
-            background: 'linear-gradient(135deg,#3b82f6,#6366f1)',
+            background: 'linear-gradient(135deg,#1e88c7,#6366f1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24,
           }}>🏢</div>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>
-              <span style={{ color: '#3b82f6' }}>adam</span>boards — Vue superadmin
+            <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-0)' }}>
+              <span style={{ color: '#1e88c7' }}>adam</span>boards — Vue superadmin
             </div>
-            <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-2)', marginTop: 2 }}>
               {tenants.length} client{tenants.length > 1 ? 's' : ''} actifs
             </div>
           </div>
@@ -152,8 +152,8 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
           onChange={e => setSearch(e.target.value)}
           style={{
             width: '100%', padding: '10px 16px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            color: '#f1f5f9', fontSize: 14, outline: 'none', marginBottom: 24,
+            background: 'var(--bg-2)', border: '1px solid var(--border-1)',
+            color: 'var(--text-0)', fontSize: 14, outline: 'none', marginBottom: 24,
             boxSizing: 'border-box',
           }}
         />
@@ -170,12 +170,12 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
         )}
 
         {loading && (
-          <div style={{ textAlign: 'center', padding: 64, color: '#94a3b8' }}>
+          <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-2)' }}>
             Chargement des clients...
           </div>
         )}
         {!loading && !error && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 64, color: '#94a3b8' }}>
+          <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-2)' }}>
             Aucun client trouvé
           </div>
         )}
@@ -187,25 +187,25 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
               <div key={t.id} style={{
                 display: 'flex', alignItems: 'center', gap: 16,
                 padding: '16px 20px', borderRadius: 12,
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.07)',
+                background: 'var(--bg-2)',
+                border: '1px solid var(--border-1)',
               }}>
                 {/* Avatar */}
                 <div style={{
                   width: 42, height: 42, borderRadius: 10, flexShrink: 0,
                   background: 'linear-gradient(135deg,#1e3a5f,#1e40af)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 18, fontWeight: 800, color: '#93c5fd',
+                  fontSize: 18, fontWeight: 800, color: '#1e88c7',
                 }}>
                   {t.name.slice(0, 1).toUpperCase()}
                 </div>
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-0)', marginBottom: 2 }}>
                     {t.name}
                   </div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-2)' }}>
                     {t.slug} · {t.memberCount} membre{t.memberCount !== 1 ? 's' : ''} · créé le {new Date(t.created_at).toLocaleDateString('fr-FR')}
                   </div>
                 </div>
@@ -230,7 +230,7 @@ export function SuperadminDashboard({ onSelectTenant }: Props) {
                     style={{
                       padding: '8px 18px', borderRadius: 8,
                       background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.3)',
-                      color: '#93c5fd', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                      color: '#1e88c7', fontSize: 13, fontWeight: 600, cursor: 'pointer',
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.25)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.15)' }}

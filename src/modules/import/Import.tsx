@@ -239,8 +239,8 @@ export function Import() {
   ]
 
   return (
-    <div className="px-6 py-5 max-w-3xl">
-      <h2 className="text-base font-bold text-white mb-1">Import fichiers FEC</h2>
+    <div className="px-6 py-5 max-w-3xl ab-light" style={{ background:'var(--bg-0)', minHeight:'100%' }}>
+      <h2 className="text-base font-bold text-[#111726] mb-1">Import fichiers FEC</h2>
       <p className="text-xs text-muted mb-6">
         Format EBP Grand Livre (.txt) — glissez les fichiers dans la zone correspondante ou cliquez pour sélectionner.
       </p>
@@ -254,8 +254,8 @@ export function Import() {
                 <label
                   className="block rounded-xl p-6 text-center cursor-pointer transition-all"
                   style={{
-                    border: `2px dashed ${dragOver === z.id ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`,
-                    background: dragOver === z.id ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.02)',
+                    border: `2px dashed ${dragOver === z.id ? '#1e88c7' : 'var(--bg-2)'}`,
+                    background: dragOver === z.id ? 'rgba(59,130,246,0.08)' : 'rgba(20,30,60,0.03)',
                   }}
                   onDragOver={e => { e.preventDefault(); setDragOver(z.id) }}
                   onDragLeave={() => setDragOver(null)}
@@ -286,19 +286,19 @@ export function Import() {
 
           {pending.length > 0 && !checking && (
             <div className="mb-6 rounded-xl overflow-hidden"
-              style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+              style={{ border: '1px solid var(--border-1)' }}>
               <div className="flex items-center justify-between px-4 py-2.5"
-                style={{ background: 'rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                <span className="text-xs font-semibold text-white">Prêt à importer</span>
+                style={{ background: 'var(--bg-2)', borderBottom: '1px solid var(--border-1)' }}>
+                <span className="text-xs font-semibold text-[#111726]">Prêt à importer</span>
                 <span className="text-xs text-muted">{pending.filter(p => !p.cancelled).length} fichier(s)</span>
               </div>
-              <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+              <div className="divide-y" style={{ borderColor: 'var(--bg-2)' }}>
                 {pending.map((item, i) => {
                   const MONTH_NAMES = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre']
                   const currentFiscal = fiscalSettings[item.company] ?? 1
                   const showFiscalBadge = !item.cancelled && item.detectedFiscalStart !== null
                   return (
-                  <div key={i} style={{ opacity: item.cancelled ? 0.4 : 1, background: 'rgba(255,255,255,0.02)' }}>
+                  <div key={i} style={{ opacity: item.cancelled ? 0.4 : 1, background: 'rgba(20,30,60,0.03)' }}>
                     <div className="flex items-center gap-3 px-4 py-2.5 text-xs">
                       <span className="font-mono text-muted flex-1 truncate" title={item.file.name}>{item.file.name}</span>
 
@@ -329,16 +329,16 @@ export function Import() {
                               {existingCompanies.length > 0 && (
                                 <optgroup label="Sociétés existantes">
                                   {existingCompanies.map(c => (
-                                    <option key={c.key} value={c.key} style={{ background: '#0d1424' }}>{c.name}</option>
+                                    <option key={c.key} value={c.key} style={{ background: 'var(--bg-1)' }}>{c.name}</option>
                                   ))}
                                 </optgroup>
                               )}
                               {!existingCompanies.some(c => c.key === item.detectedCompany) && (
-                                <option value={item.detectedCompany} style={{ background: '#0d1424' }}>
+                                <option value={item.detectedCompany} style={{ background: 'var(--bg-1)' }}>
                                   ✨ Créer : {item.detectedCompany}
                                 </option>
                               )}
-                              <option value="__manual__" style={{ background: '#0d1424' }}>+ Autre nom…</option>
+                              <option value="__manual__" style={{ background: 'var(--bg-1)' }}>+ Autre nom…</option>
                             </select>
                           )}
                           <span className="text-muted">· {item.period}</span>
@@ -358,22 +358,22 @@ export function Import() {
                     </div>
                     {showFiscalBadge && (
                       <div className="px-4 pb-2.5 flex items-center gap-2 text-xs">
-                        <span style={{ color: '#64748b' }}>📅 Exercice détecté :</span>
+                        <span style={{ color: 'var(--text-3)' }}>📅 Exercice détecté :</span>
                         <span style={{ fontWeight: 600, color: item.detectedFiscalStart !== currentFiscal ? '#f59e0b' : '#34d399' }}>
                           {MONTH_NAMES[item.detectedFiscalStart!]}
                           {item.detectedFiscalStart === currentFiscal && ' ✓ déjà configuré'}
                         </span>
                         {item.detectedFiscalStart !== currentFiscal && (
                           <>
-                            <span style={{ color: '#94a3b8' }}>— actuel : {MONTH_NAMES[currentFiscal]}</span>
+                            <span style={{ color: 'var(--text-2)' }}>— actuel : {MONTH_NAMES[currentFiscal]}</span>
                             <button
                               onClick={() => toggleUpdateFiscal(i)}
                               style={{
                                 padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 600,
                                 border: 'none', cursor: 'pointer', transition: 'all 0.12s',
-                                background: item.updateFiscal ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)',
-                                color:      item.updateFiscal ? '#93c5fd' : '#64748b',
-                                boxShadow:  item.updateFiscal ? 'inset 0 0 0 1px rgba(59,130,246,0.4)' : 'inset 0 0 0 1px rgba(255,255,255,0.1)',
+                                background: item.updateFiscal ? 'rgba(59,130,246,0.2)' : 'var(--bg-2)',
+                                color:      item.updateFiscal ? '#1e88c7' : 'var(--text-3)',
+                                boxShadow:  item.updateFiscal ? 'inset 0 0 0 1px rgba(59,130,246,0.4)' : 'inset 0 0 0 1px var(--bg-2)',
                               }}
                             >
                               {item.updateFiscal ? '✓ Mettre à jour' : 'Ignorer'}
@@ -387,7 +387,7 @@ export function Import() {
                 })}
               </div>
               <div className="flex items-center gap-3 px-4 py-3"
-                style={{ background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                style={{ background: 'rgba(20,30,60,0.03)', borderTop: '1px solid var(--border-1)' }}>
                 {(() => {
                   const active = pending.filter(p => !p.cancelled)
                   const missingName = active.some(p => !p.company.trim())
@@ -397,7 +397,7 @@ export function Import() {
                       onClick={confirmImport}
                       disabled={blocked}
                       className="text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors"
-                      style={{ background: '#3b82f6', color: 'white', opacity: blocked ? 0.5 : 1, cursor: blocked ? 'not-allowed' : 'pointer' }}
+                      style={{ background: '#1e88c7', color: 'white', opacity: blocked ? 0.5 : 1, cursor: blocked ? 'not-allowed' : 'pointer' }}
                       title={missingName ? 'Renseigne un nom de société pour chaque fichier' : undefined}>
                       {importing
                         ? <span className="flex items-center gap-2"><Spinner size={12} /> Import...</span>
@@ -406,7 +406,7 @@ export function Import() {
                     </button>
                   )
                 })()}
-                <button onClick={() => setPending([])} className="text-xs text-muted hover:text-white transition-colors">
+                <button onClick={() => setPending([])} className="text-xs text-muted hover:text-[#111726] transition-colors">
                   Tout annuler
                 </button>
               </div>
@@ -417,7 +417,7 @@ export function Import() {
             <div className="space-y-2">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold text-muted">Résultats</div>
-                <button onClick={() => setResults([])} className="text-xs text-muted hover:text-white transition-colors">Effacer</button>
+                <button onClick={() => setResults([])} className="text-xs text-muted hover:text-[#111726] transition-colors">Effacer</button>
               </div>
               {results.map((r, i) => (
                 <div key={i}>
@@ -429,14 +429,14 @@ export function Import() {
                       ? <span className="text-brand-red">{r.error}</span>
                       : <span className="text-brand-green">{r.company} · {r.period} · {r.months} mois · {r.entries.toLocaleString()} écritures
                           {r.skippedLines ? <span style={{ color:'#f59e0b' }}> · {r.skippedLines} ignorée(s)</span> : null}
-                          {r.fiscalStart ? <span style={{ color:'#93c5fd' }}> · exercice : mois {r.fiscalStart}</span> : null}
+                          {r.fiscalStart ? <span style={{ color:'#1e88c7' }}> · exercice : mois {r.fiscalStart}</span> : null}
                         </span>
                     }
                   </div>
                   {!r.error && r.warnings && r.warnings.length > 0 && (
                     <div style={{ marginLeft:32, marginBottom:4 }}>
                       {r.warnings.map((w, j) => (
-                        <div key={j} style={{ fontSize:11, paddingLeft:8, color: w.type === 'format' ? '#ef4444' : w.type === 'skip' ? '#f59e0b' : '#64748b' }}>
+                        <div key={j} style={{ fontSize:11, paddingLeft:8, color: w.type === 'format' ? '#ef4444' : w.type === 'skip' ? '#f59e0b' : 'var(--text-3)' }}>
                           {w.type === 'format' ? '⚠️' : w.type === 'skip' ? '⏭️' : 'ℹ️'} {w.message}
                         </div>
                       ))}
@@ -449,7 +449,7 @@ export function Import() {
         </>
       ) : (
         <div className="px-4 py-3 rounded-xl text-xs text-muted"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          style={{ background: 'var(--bg-2)', border: '1px solid var(--border-1)' }}>
           L'import de fichiers FEC est réservé aux rôles Administrateur et Comptable. Contactez votre administrateur.
         </div>
       )}

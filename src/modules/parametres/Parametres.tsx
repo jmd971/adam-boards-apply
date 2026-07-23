@@ -119,7 +119,7 @@ export function Parametres() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="ab-light" style={{ padding: '28px 32px', maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24, background:'var(--bg-0)', minHeight:'100%' }}>
 
       {/* En-tête */}
       <div>
@@ -158,7 +158,7 @@ export function Parametres() {
                 <div key={co} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: '12px 16px', borderRadius: 8,
-                  background: 'rgba(255,255,255,0.03)',
+                  background: 'rgba(20,30,60,0.03)',
                   border: '1px solid var(--border-1)',
                 }}>
                   {/* Nom société */}
@@ -186,13 +186,13 @@ export function Parametres() {
                       }}
                     >
                       {MONTH_NAMES.slice(1).map((name, i) => (
-                        <option key={i + 1} value={i + 1} style={{ background: '#0d1424' }}>
+                        <option key={i + 1} value={i + 1} style={{ background: 'var(--bg-1)' }}>
                           {name}
                         </option>
                       ))}
                     </select>
                   ) : (
-                    <span style={{ fontSize: 12, color: 'var(--text-1)', padding: '6px 10px', background: 'rgba(255,255,255,0.04)', borderRadius: 6, border: '1px solid var(--border-1)' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-1)', padding: '6px 10px', background: 'var(--bg-2)', borderRadius: 6, border: '1px solid var(--border-1)' }}>
                       {MONTH_NAMES[currentMonth]}
                     </span>
                   )}
@@ -252,7 +252,7 @@ export function Parametres() {
               return (
                 <div key={co} style={{
                   padding: '12px 16px', borderRadius: 8,
-                  background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-1)',
+                  background: 'rgba(20,30,60,0.03)', border: '1px solid var(--border-1)',
                   display: 'flex', flexDirection: 'column', gap: 10,
                 }}>
                   {/* Ligne société + toggle */}
@@ -270,7 +270,7 @@ export function Parametres() {
                         style={{
                           padding: '5px 11px', borderRadius: 6, fontSize: 11.5, fontWeight: 600,
                           border: 'none', cursor: 'pointer',
-                          background: vat.enabled ? 'rgba(16,185,129,0.18)' : 'rgba(255,255,255,0.04)',
+                          background: vat.enabled ? 'rgba(16,185,129,0.18)' : 'var(--bg-2)',
                           color: vat.enabled ? '#34d399' : 'var(--text-2)',
                           boxShadow: vat.enabled ? 'inset 0 0 0 1px rgba(16,185,129,0.3)' : 'inset 0 0 0 1px var(--border-1)',
                         }}>
@@ -327,7 +327,7 @@ export function Parametres() {
 
       {/* Explication */}
       <div style={{ ...card, background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)' }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#93c5fd', marginBottom: 4 }}>ℹ️ Comment ça marche</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#1e88c7', marginBottom: 4 }}>ℹ️ Comment ça marche</div>
         <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-2)', lineHeight: 1.7, display: 'flex', flexDirection: 'column', gap: 4 }}>
           <li>Pour un exercice <strong style={{ color: 'var(--text-1)' }}>civil (jan → déc)</strong>, choisissez <strong style={{ color: 'var(--text-1)' }}>Janvier</strong> (défaut).</li>
           <li>Pour un exercice <strong style={{ color: 'var(--text-1)' }}>oct → sep</strong>, choisissez <strong style={{ color: 'var(--text-1)' }}>Octobre</strong>.</li>
