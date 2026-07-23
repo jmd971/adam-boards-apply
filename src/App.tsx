@@ -70,6 +70,9 @@ function AppInner() {
     const resolveAuth = (userId: string) =>
       getUserRoleAndTenant(userId).then(({ role: r, tenantId: tid, tenantName: tname }) => {
         setRole(r)
+        // Un superadmin n'a pas de tenant "maison" (tid=null). S'il a déjà sélectionné un
+        // client, ne pas l'écraser lors d'une ré-résolution (refresh/focus) → sinon rebascule.
+        if (r === 'superadmin' && tid == null && useAppStore.getState().tenantId) return
         setTenant(tid, tname)
       })
 
