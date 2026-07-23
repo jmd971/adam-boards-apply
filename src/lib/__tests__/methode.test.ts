@@ -106,8 +106,8 @@ describe('buildMethodeRapport — cadrage (étape 1)', () => {
     const r = build()
     expect(r.nbMois).toBe(5)
     expect(r.periodeComplete).toBe(false)
-    // N : 706=2000 − (6226 2500 + 613 6500 + 607 800 + 681 200) = −8000
-    expect(Math.round(r.resultatN)).toBe(2000 - 2500 - 6500 - 800 - 200)
+    // N : 706=2000 − (6226 2500 + 613 6500 + 607 800) = −7800 — HORS OD : la dotation 681 (200) est exclue
+    expect(Math.round(r.resultatN)).toBe(2000 - 2500 - 6500 - 800)
     // N-1 même période : 706=2500 − (6226 2500 + 613 5000) = −5000
     expect(Math.round(r.resultatN1)).toBe(2500 - 2500 - 5000)
   })
@@ -156,11 +156,10 @@ describe('buildMethodeRapport — verdicts (étapes 2-4)', () => {
     expect(Math.round(c.nouveaux)).toBe(800)
   })
 
-  it('OD : le compte 681 n\'a pas d\'attendus', () => {
-    const c = findGroupe('charges', '681')
-    expect(c.isOD).toBe(true)
-    expect(c.groupes).toHaveLength(0)
-    expect(Math.round(c.residuel)).toBe(200)
+  it('OD : le compte 681 (dotation, clôture) est exclu du rapport (hors OD)', () => {
+    const r = build()
+    const inCharges = r.charges.some(f => f.comptes.some(c => c.account === '681'))
+    expect(inCharges).toBe(false)
   })
 })
 
