@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAppStore } from '@/store'
-import { fiscalYearOf, currentFiscalYear, fiscalMonthIndex } from '@/lib/calc'
+import { fiscalYearOf, currentFiscalYear, fiscalMonthIndex, isODAccount } from '@/lib/calc'
 import type { ManualEntry, CompanyRaw, FecAccount, BilanAccount } from '@/types'
 
 // ── Types de sortie ─────────────────────────────────────────────────────────
@@ -104,6 +104,7 @@ function aggregateAccounts(
   monthsMM: Set<string>,      // mois (MM) disponibles dans N → période de comparaison
   budgetIdx: Set<number>,     // index fiscaux (0-11) correspondants pour le budget
   restrictN: Set<string> | null, // plage de mois (YYYY-MM) côté N, ou null = pas de restriction
+  excludeOD = false,          // « Hors OD » : ignorer les comptes de clôture (dotations, variation stocks…)
 ): { detail: CompteLigne[]; familles: CompteLigne[]; totalN: number; totalN1: number; totalBudget: number } {
   // acc -> { totalN, totalN1, budget, freq, label }
   const map = new Map<string, { totalN: number; totalN1: number; budget: number; freq: number; label: string }>()
@@ -112,6 +113,7 @@ function aggregateAccounts(
     // N
     for (const [acc, fa] of Object.entries(co.pn ?? {})) {
       if (!predicate(acc)) continue
+      if (excludeOD && isODAccount(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
       e.totalN += soldeFec(fa, charge, undefined, restrictN ?? undefined)
       e.freq   += restrictN
@@ -123,6 +125,7 @@ function aggregateAccounts(
     // N-1
     for (const [acc, fa] of Object.entries(co.p1 ?? {})) {
       if (!predicate(acc)) continue
+      if (excludeOD && isODAccount(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: fa.l }
       e.totalN1 += soldeFec(fa, charge, monthsMM)
       if (!e.label) e.label = fa.l
@@ -131,6 +134,7 @@ function aggregateAccounts(
     // Budget : seulement les mois correspondant à la période de N (même période)
     for (const [acc, ba] of Object.entries(co.bud ?? {})) {
       if (!predicate(acc)) continue
+      if (excludeOD && isODAccount(acc)) continue
       const e = map.get(acc) ?? { totalN: 0, totalN1: 0, budget: 0, freq: 0, label: ba.l }
       e.budget += (ba.b ?? []).reduce((s, v, i) => budgetIdx.has(i) ? s + v : s, 0)
       if (!e.label) e.label = ba.l
@@ -253,9 +257,11 @@ export function useRapportData(period?: { startM: string; endM: string } | null)
     const safeIdx = budgetIdx.size > 0 ? budgetIdx : new Set(Array.from({length:12},(_,i)=>i))
     const periodeComplete = safeMM.size >= 12
 
-    // ── P&L : produits / charges ──────────────────────────────────────────
-    const prod    = aggregateAccounts(companies, isProduit, false, safeMM, safeIdx, restrictN)
-    const charges = aggregateAccounts(companies, isCharge, true, safeMM, safeIdx, restrictN)
+    // ── P&L : produits / charges ── (rapport généré HORS OD : on neutralise les
+    // comptes de clôture — dotations, variation de stocks, reprises — des deux côtés
+    // N et N-1 pour une comparaison juste en cours d'exercice.)
+    const prod    = aggregateAccounts(companies, isProduit, false, safeMM, safeIdx, restrictN, true)
+    const charges = aggregateAccounts(companies, isCharge, true, safeMM, safeIdx, restrictN, true)
 
     // ── Bilan : immobilisations (20/21/23, hors 28) & amortissements ──────
     const immobilisations = aggregateBilan(companies, acc =>

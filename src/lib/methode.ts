@@ -340,6 +340,7 @@ export function buildMethodeRapport(
   const collect = (src: Record<string, FecAccount>, which: 'N' | 'N1') => {
     for (const [acc, fa] of Object.entries(src)) {
       if (!isCharge(acc) && !isProduit(acc)) continue
+      if (isODAccount(acc)) continue   // « Hors OD » : exclure les comptes de clôture (dotations, variation stocks, reprises…)
       const charge = isCharge(acc)
       const c = comptes.get(acc) ?? {
         label: fa.l || acc, charge, isOD: isODAccount(acc),
@@ -376,7 +377,7 @@ export function buildMethodeRapport(
 
   const histoLimite = !hasN1
 
-  // ── Cadrage : résultat net & CA (3 grandeurs, OD inclus) ──────────────────
+  // ── Cadrage : résultat net & CA (3 grandeurs, HORS OD) ────────────────────
   let totalProduitsN = 0, totalProduitsN1 = 0, totalChargesN = 0, totalChargesN1 = 0
   let caN = 0, caN1 = 0
   for (const [acc, c] of comptes) {
