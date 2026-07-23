@@ -111,7 +111,7 @@ function AlertCard({ a }: { a: { icon: string; title: string; msg: string; color
       {a.tip && show && (
         <div style={{
           position:'absolute', top:'calc(100% + 6px)', left:0,
-          background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8,
+          background:'#ffffff', border:'1px solid #dde1ea', borderRadius:8,
           padding:'10px 14px', fontSize:11, fontWeight:400, color:'#94a3b8', lineHeight:1.6,
           width:280, maxWidth:'70vw', zIndex:300, boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
           pointerEvents:'none', whiteSpace:'normal',
@@ -136,7 +136,7 @@ function SectionTitle({ children, tip, style }: { children: React.ReactNode; tip
       {tip && show && (
         <div style={{
           position:'absolute', top:'calc(100% + 6px)', left:0,
-          background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8,
+          background:'#ffffff', border:'1px solid #dde1ea', borderRadius:8,
           padding:'10px 14px', fontSize:11, fontWeight:400, color:'#94a3b8', lineHeight:1.6,
           width:280, maxWidth:'70vw', zIndex:300, boxShadow:'0 8px 24px rgba(0,0,0,0.5)',
           pointerEvents:'none', textTransform:'none', letterSpacing:'normal', whiteSpace:'normal',
@@ -149,7 +149,7 @@ function SectionTitle({ children, tip, style }: { children: React.ReactNode; tip
 }
 
 const MONTHS_SHORT = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc']
-const CHARGE_COLORS = ['#ef4444','#f97316','#f59e0b','#8b5cf6','#6366f1','#3b82f6','#14b8a6']
+const CHARGE_COLORS = ['#ef4444','#f97316','#f59e0b','#8b5cf6','#6366f1','#1e88c7','#14b8a6']
 
 // Les KPI principaux (CA, Marge, EBE, REX, VA) viennent désormais de computePlCalc(SIG)
 // — cf. plCalc useMemo. Cela aligne le Dashboard sur SIG (formule comptable rigoureuse).
@@ -176,7 +176,7 @@ function sumAccs(RAW: any, selCo: string[], field: 'pn'|'p1'|'p2', month: string
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null
   return (
-    <div style={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.12)', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
+    <div style={{ background:'#ffffff', border:'1px solid #dde1ea', borderRadius:8, padding:'10px 14px', fontSize:11, boxShadow:'0 8px 24px rgba(0,0,0,0.4)' }}>
       <div style={{ fontWeight:700, color:'var(--text-0)', marginBottom:6 }}>{label}</div>
       {payload.map((p: any) => (
         <div key={p.name} style={{ display:'flex', gap:8, alignItems:'center', marginBottom:3 }}>
@@ -206,8 +206,8 @@ function ThresholdConfigPanel({ onClose }: { onClose: () => void }) {
 
   const inputSt: React.CSSProperties = {
     width: 64, padding: '4px 6px', borderRadius: 6, fontSize: 11, fontFamily: 'monospace',
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#cbd5e1', textAlign: 'right', outline: 'none',
+    background: '#eef1f6', border: '1px solid #e2e6ee',
+    color: '#3c4557', textAlign: 'right', outline: 'none',
   }
 
   return (
@@ -222,7 +222,7 @@ function ThresholdConfigPanel({ onClose }: { onClose: () => void }) {
         {draft.map(t => (
           <div key={t.id} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-            borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
+            borderRadius: 8, background: '#f7f9fc', border: '1px solid #ffffff',
           }}>
             <span style={{ flex: 1, fontSize: 11, color: '#94a3b8', fontWeight: 500 }}>{t.label}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 10 }}>
@@ -240,14 +240,14 @@ function ThresholdConfigPanel({ onClose }: { onClose: () => void }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
         <button onClick={apply} disabled={!dirty} style={{
           padding: '7px 20px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: dirty ? 'pointer' : 'not-allowed',
-          background: dirty ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'rgba(255,255,255,0.05)',
+          background: dirty ? 'linear-gradient(135deg,#1e88c7,#6366f1)' : '#f2f5f9',
           border: 'none', color: dirty ? '#fff' : '#94a3b8', opacity: dirty ? 1 : 0.5,
         }}>
           Valider
         </button>
         <button onClick={reset} disabled={!dirty} style={{
           padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: dirty ? 'pointer' : 'not-allowed',
-          background: 'transparent', border: '1px solid rgba(255,255,255,0.1)', color: dirty ? '#94a3b8' : '#334155',
+          background: 'transparent', border: '1px solid #e2e6ee', color: dirty ? '#94a3b8' : '#334155',
         }}>
           Annuler
         </button>
@@ -529,14 +529,14 @@ export function Dashboard() {
       <div style={{ fontSize:16, fontWeight:700, color:'var(--text-0)' }}>Bienvenue sur Adam Boards</div>
       <div style={{ fontSize:13 }}>Importez un fichier FEC pour voir votre tableau de bord</div>
       <button onClick={() => useAppStore.getState().setTab('import')}
-        style={{ padding:'10px 24px', borderRadius:10, background:'linear-gradient(135deg,#3b82f6,#6366f1)', border:'none', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', marginTop:8 }}>
+        style={{ padding:'10px 24px', borderRadius:10, background:'linear-gradient(135deg,#1e88c7,#6366f1)', border:'none', color:'#fff', fontSize:13, fontWeight:700, cursor:'pointer', marginTop:8 }}>
         → Aller à l'import
       </button>
     </div>
   )
 
   return (
-    <div ref={printRef} style={{ padding:'20px 24px', display:'flex', flexDirection:'column', gap:20 }}>
+    <div ref={printRef} className="ab-light" style={{ background:'var(--bg-0)', minHeight:'100%', padding:'20px 24px', display:'flex', flexDirection:'column', gap:20 }}>
 
       {/* Logo accueil */}
       <div style={{ display:'flex', justifyContent:'center', paddingBottom:4, borderBottom:'1px solid var(--border-0)' }}>
@@ -550,10 +550,10 @@ export function Dashboard() {
           {selectedMs.length > 0 && ` · ${selectedMs.length} mois analysés`}
         </div>
         <div className="print-hide" style={{ display:'flex', gap:8, alignItems:'center' }}>
-          <button onClick={() => setShowThresholdConfig(v => !v)} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background: showThresholdConfig ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color: showThresholdConfig ? '#93c5fd' : 'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+          <button onClick={() => setShowThresholdConfig(v => !v)} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background: showThresholdConfig ? 'rgba(59,130,246,0.15)' : '#f2f5f9', border:'1px solid var(--border-1)', color: showThresholdConfig ? '#1e88c7' : 'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
             Seuils
           </button>
-          <button onClick={handlePrint} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background:'rgba(255,255,255,0.05)', border:'1px solid var(--border-1)', color:'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+          <button onClick={handlePrint} style={{ display:'flex', alignItems:'center', gap:6, padding:'7px 14px', borderRadius:'var(--radius-md)', background:'#f2f5f9', border:'1px solid var(--border-1)', color:'var(--text-1)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
             PDF
           </button>
           {/* Budget toggle */}
@@ -578,9 +578,9 @@ export function Dashboard() {
               onClick={() => setFilters({ showBudget: !showBudget })}
               style={{
                 padding:'7px 14px', borderRadius:'var(--radius-md)',
-                background: showBudget ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
+                background: showBudget ? 'rgba(139,92,246,0.15)' : '#f2f5f9',
                 border: `1px solid ${showBudget ? 'rgba(139,92,246,0.4)' : 'var(--border-1)'}`,
-                color: showBudget ? '#c4b5fd' : 'var(--text-1)',
+                color: showBudget ? '#6b5fd0' : 'var(--text-1)',
                 fontSize:12, fontWeight:600, cursor:'pointer'
               }}
             >
@@ -645,16 +645,16 @@ export function Dashboard() {
         <SectionTitle tip={SIMPLE_TIPS.evoCA}>📈 Évolution du CA — N vs N-1</SectionTitle>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" />
             <XAxis dataKey="month" tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} />
             <YAxis tickFormatter={tickFmt} tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} width={52} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize:11 }} />
-            <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
-            <Line type="monotone" dataKey="CA N"   stroke="#3b82f6" strokeWidth={2.5} dot={false} activeDot={{ r:4 }} />
+            <ReferenceLine y={0} stroke="#e2e6ee" />
+            <Line type="monotone" dataKey="CA N"   stroke="#1e88c7" strokeWidth={2.5} dot={false} activeDot={{ r:4 }} />
             <Line type="monotone" dataKey="CA N-1" stroke="#64748b" strokeWidth={1.5} dot={false} strokeDasharray="5 5" />
             {showBudget && budKpis && (
-              <Line type="monotone" dataKey="Budget CA" stroke="#c4b5fd" strokeWidth={1.5} dot={false} strokeDasharray="4 3" />
+              <Line type="monotone" dataKey="Budget CA" stroke="#6b5fd0" strokeWidth={1.5} dot={false} strokeDasharray="4 3" />
             )}
           </LineChart>
         </ResponsiveContainer>
@@ -665,13 +665,13 @@ export function Dashboard() {
           <SectionTitle tip={SIMPLE_TIPS.mensuel}>📊 Marge · EBE · Résultat mensuels</SectionTitle>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }} barGap={2}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" vertical={false} />
               <XAxis dataKey="month" tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={tickFmt} tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} width={52} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize:11 }} />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
-              <Bar dataKey="Marge"    fill="#3b82f6" opacity={0.8} radius={[3,3,0,0]} />
+              <ReferenceLine y={0} stroke="#d5dae4" />
+              <Bar dataKey="Marge"    fill="#1e88c7" opacity={0.8} radius={[3,3,0,0]} />
               <Bar dataKey="EBE"      fill="#f59e0b" opacity={0.85} radius={[3,3,0,0]} />
               <Bar dataKey="Résultat" fill="#10b981" opacity={0.9}  radius={[3,3,0,0]} />
             </BarChart>
@@ -719,11 +719,11 @@ export function Dashboard() {
         <SectionTitle tip={SIMPLE_TIPS.rexMensuel}>🎯 Résultat d'exploitation mensuel</SectionTitle>
         <ResponsiveContainer width="100%" height={140}>
           <BarChart data={monthlyData} margin={{ top:4, right:16, left:0, bottom:0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" vertical={false} />
             <XAxis dataKey="month" tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} />
             <YAxis tickFormatter={tickFmt} tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} width={52} />
             <Tooltip content={<CustomTooltip />} />
-            <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" strokeWidth={1.5} />
+            <ReferenceLine y={0} stroke="#c9cfdb" strokeWidth={1.5} />
             <Bar dataKey="Résultat" radius={[3,3,0,0]}>
               {monthlyData.map((m: any, i: number) => (
                 <Cell key={i} fill={m['Résultat'] >= 0 ? '#10b981' : '#ef4444'} opacity={0.85} />
@@ -745,15 +745,15 @@ export function Dashboard() {
               [trendData.fyN1]: Math.round(m.N1),
               ...(trendData.hasN2 ? { [trendData.fyN2]: Math.round(m.N2 ?? 0) } : {}),
             }))} barGap={4}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff" />
               <XAxis dataKey="name" tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} />
               <YAxis tickFormatter={tickFmt} tick={{ fontSize:10, fill:'#64748b' }} axisLine={false} tickLine={false} width={52} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize:11 }} />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
+              <ReferenceLine y={0} stroke="#d5dae4" />
               {trendData.hasN2 && <Bar dataKey={trendData.fyN2} fill="#64748b" opacity={0.5} radius={[3,3,0,0]} />}
               <Bar dataKey={trendData.fyN1} fill="#6366f1" opacity={0.7} radius={[3,3,0,0]} />
-              <Bar dataKey={trendData.fyN} fill="#3b82f6" radius={[3,3,0,0]} />
+              <Bar dataKey={trendData.fyN} fill="#1e88c7" radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
 
@@ -761,11 +761,11 @@ export function Dashboard() {
             <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
               <thead>
                 <tr>
-                  <th style={{ padding:'6px 10px', textAlign:'left', color:'#64748b', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Indicateur</th>
-                  {trendData.hasN2 && <th style={{ padding:'6px 10px', textAlign:'right', color:'#64748b', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{trendData.fyN2}</th>}
-                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#6366f1', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{trendData.fyN1}</th>
-                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#3b82f6', fontWeight:700, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>{trendData.fyN}</th>
-                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#64748b', fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)' }}>Var. N/N-1</th>
+                  <th style={{ padding:'6px 10px', textAlign:'left', color:'#64748b', fontWeight:600, borderBottom:'1px solid #e6e9f0' }}>Indicateur</th>
+                  {trendData.hasN2 && <th style={{ padding:'6px 10px', textAlign:'right', color:'#64748b', fontWeight:600, borderBottom:'1px solid #e6e9f0' }}>{trendData.fyN2}</th>}
+                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#6366f1', fontWeight:600, borderBottom:'1px solid #e6e9f0' }}>{trendData.fyN1}</th>
+                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#1e88c7', fontWeight:700, borderBottom:'1px solid #e6e9f0' }}>{trendData.fyN}</th>
+                  <th style={{ padding:'6px 10px', textAlign:'right', color:'#64748b', fontWeight:600, borderBottom:'1px solid #e6e9f0' }}>Var. N/N-1</th>
                 </tr>
               </thead>
               <tbody>
@@ -773,11 +773,11 @@ export function Dashboard() {
                   const varAmt = m.N - m.N1
                   const varPctVal = m.N1 !== 0 ? varAmt / Math.abs(m.N1) : null
                   return (
-                    <tr key={m.key} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                    <tr key={m.key} style={{ borderBottom:'1px solid #ffffff' }}>
                       <td style={{ padding:'6px 10px', color:'#94a3b8', fontWeight:600 }}>{m.key}</td>
                       {trendData.hasN2 && <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', color:'#64748b' }}>{fmt(m.N2 ?? 0)} €</td>}
                       <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', color:'#94a3b8' }}>{fmt(m.N1)} €</td>
-                      <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', color:'#f1f5f9', fontWeight:700 }}>{fmt(m.N)} €</td>
+                      <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', color:'#111726', fontWeight:700 }}>{fmt(m.N)} €</td>
                       <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: varAmt >= 0 ? '#10b981' : '#ef4444' }}>
                         {varAmt >= 0 ? '+' : ''}{fmt(varAmt)} € {varPctVal != null ? `(${varPctVal >= 0 ? '+' : ''}${pct(varPctVal)})` : ''}
                       </td>
@@ -800,7 +800,7 @@ export function Dashboard() {
             height={280}
             kpis={[
               { label:"CA",             icon:'💰', color:'#10b981', real: kpis.ca,    bud: (budKpis ?? budDataKpis)!.ca    },
-              { label:"Marge brute",    icon:'📊', color:'#3b82f6', real: kpis.marge, bud: (budKpis ?? budDataKpis)!.marge },
+              { label:"Marge brute",    icon:'📊', color:'#1e88c7', real: kpis.marge, bud: (budKpis ?? budDataKpis)!.marge },
               { label:"EBE",            icon:'💹', color:'#f59e0b', real: kpis.ebe,   bud: (budKpis ?? budDataKpis)!.ebe   },
               { label:"Rés. exploit.",  icon:'🎯', color:'#8b5cf6', real: kpis.re,    bud: (budKpis ?? budDataKpis)!.re    },
             ]}
@@ -816,12 +816,12 @@ export function Dashboard() {
           </SectionTitle>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={cumulComparisonData} margin={{ top:4, right:16, bottom:0, left:0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f2f5f9" />
               <XAxis dataKey="month" tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} width={50} />
               <Tooltip content={<CustomTooltip />} />
               <Legend wrapperStyle={{ fontSize:11 }} />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" />
+              <ReferenceLine y={0} stroke="#e2e6ee" />
               <Line type="monotone" dataKey="Réalisé cumulé" stroke="#10b981" strokeWidth={2.5} dot={false} activeDot={{ r:4 }} />
               <Line type="monotone" dataKey="Budget cumulé"  stroke="#8b5cf6" strokeWidth={2} dot={false} strokeDasharray="5 5" />
               <Line type="monotone" dataKey="Écart"          stroke="#f59e0b" strokeWidth={1.5} dot={false} />
@@ -840,26 +840,26 @@ export function Dashboard() {
           </SectionTitle>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={forecastData} margin={{ top:4, right:16, bottom:0, left:0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#f2f5f9" />
               <XAxis dataKey="month" tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill:'var(--text-3)', fontSize:10 }} axisLine={false} tickLine={false} width={72}
                 tickFormatter={(v: number) => v >= 1000 ? `${Math.round(v/1000)}k` : String(v)} />
               <Tooltip
-                contentStyle={{ background:'#0d1424', border:'1px solid rgba(255,255,255,0.1)', borderRadius:8, fontSize:11 }}
+                contentStyle={{ background:'#ffffff', border:'1px solid #e2e6ee', borderRadius:8, fontSize:11 }}
                 formatter={(v: any, name: string) => [
                   new Intl.NumberFormat('fr-FR').format(v) + ' €',
                   name === 'enc' ? 'Encaissements' : name === 'dec' ? 'Décaissements' : name === 'fl' ? 'Flux net' : 'Trésorerie cumulée'
                 ]}
               />
-              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
+              <ReferenceLine y={0} stroke="#d5dae4" />
               <Line type="monotone" dataKey="enc" stroke="#10b981" strokeWidth={2} dot={false} name="enc" />
               <Line type="monotone" dataKey="dec" stroke="#ef4444" strokeWidth={2} dot={false} name="dec" />
-              <Line type="monotone" dataKey="fl" stroke="#3b82f6" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="fl" />
-              <Line type="monotone" dataKey="cum" stroke="#a78bfa" strokeWidth={2.5} dot={{ r:3, fill:'#a78bfa' }} name="cum" />
+              <Line type="monotone" dataKey="fl" stroke="#1e88c7" strokeWidth={1.5} dot={false} strokeDasharray="4 2" name="fl" />
+              <Line type="monotone" dataKey="cum" stroke="#6b5fd0" strokeWidth={2.5} dot={{ r:3, fill:'#6b5fd0' }} name="cum" />
             </LineChart>
           </ResponsiveContainer>
           <div style={{ display:'flex', gap:16, justifyContent:'center', marginTop:10, flexWrap:'wrap' }}>
-            {([['#10b981','Encaissements'],['#ef4444','Décaissements'],['#3b82f6','Flux net (pointillé)'],['#a78bfa','Trésorerie cumulée']] as const).map(([color,label]) => (
+            {([['#10b981','Encaissements'],['#ef4444','Décaissements'],['#1e88c7','Flux net (pointillé)'],['#6b5fd0','Trésorerie cumulée']] as const).map(([color,label]) => (
               <div key={label} style={{ display:'flex', alignItems:'center', gap:5, fontSize:10, color:'var(--text-3)' }}>
                 <div style={{ width:16, height:2, background:color as string, borderRadius:2 }} />
                 {label}

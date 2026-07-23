@@ -177,6 +177,16 @@ function AppInner() {
 
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden', background:'#080d1a', color:'#f1f5f9', fontFamily:'Outfit, Inter, sans-serif' }}>
+      {/* Thème CLAIR (migration progressive) : appliqué par écran via className="ab-light".
+          Redéfinit les tokens en clair → tout ce qui utilise var(--…) bascule automatiquement. */}
+      <style>{`
+        .ab-light{
+          --bg-0:#f6f7fb; --bg-1:#ffffff; --bg-2:#f2f5f9; --bg-3:#eceef4;
+          --text-0:#111726; --text-1:#3c4557; --text-2:#697488; --text-3:#98a1b3;
+          --border-0:#eceef4; --border-1:#e0e4ec;
+          --blue:#1e88c7; --green:#17a05c; --red:#e0524f; --amber:#e0913a;
+        }
+      `}</style>
       {/* Overlay mobile */}
       {navOpen && (
         <div onClick={() => setNavOpen(false)}
