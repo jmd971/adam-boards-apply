@@ -390,8 +390,8 @@ export function Rapprochement() {
   }, [])
 
   const inputSt: React.CSSProperties = {
-    background: '#0f172a', border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 8, color: '#cbd5e1', padding: '6px 10px', fontSize: 12, outline: 'none',
+    background: 'var(--bg-1)', border: '1px solid var(--border-1)',
+    borderRadius: 8, color: 'var(--text-1)', padding: '6px 10px', fontSize: 12, outline: 'none',
   }
 
   if (!RAW) return (
@@ -401,15 +401,15 @@ export function Rapprochement() {
   )
 
   return (
-    <div style={{ padding: '16px 24px' }}>
+    <div className="ab-light" style={{ padding: '16px 24px', background:'var(--bg-0)', minHeight:'100%' }}>
 
       {/* ── Header ── */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
           <span style={{ fontSize: 22 }}>🏦</span>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: '#f1f5f9', margin: 0 }}>Rapprochement bancaire</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-0)', margin: 0 }}>Rapprochement bancaire</h2>
         </div>
-        <p style={{ fontSize: 12, color: '#94a3b8', margin: 0 }}>
+        <p style={{ fontSize: 12, color: 'var(--text-2)', margin: 0 }}>
           Importez un relevé bancaire CSV et rapprochez-le avec les écritures FEC du compte 512.
         </p>
       </div>
@@ -421,10 +421,10 @@ export function Rapprochement() {
 
         {/* Import CSV */}
         <div style={{
-          background: '#0f172a', borderRadius: 12, padding: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--bg-1)', borderRadius: 12, padding: 16,
+          border: '1px solid var(--border-1)',
         }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#1e88c7', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
             Import relevé bancaire
           </div>
 
@@ -442,17 +442,17 @@ export function Rapprochement() {
               <>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>✅</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: '#10b981' }}>{fileName}</div>
-                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>
                   {bankLines.length} lignes importées · Cliquer pour remplacer
                 </div>
               </>
             ) : (
               <>
                 <div style={{ fontSize: 24, marginBottom: 6 }}>📄</div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>
                   Cliquer ou glisser un fichier CSV
                 </div>
-                <div style={{ fontSize: 10, color: '#334155', marginTop: 4 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-1)', marginTop: 4 }}>
                   Formats supportés : CSV, TSV, TXT (séparateur auto-détecté)
                 </div>
               </>
@@ -465,16 +465,16 @@ export function Rapprochement() {
                 Avertissements ({csvWarnings.length})
               </div>
               {csvWarnings.slice(0, 5).map((w, i) => (
-                <div key={i} style={{ fontSize: 10, color: '#94a3b8' }}>{w}</div>
+                <div key={i} style={{ fontSize: 10, color: 'var(--text-2)' }}>{w}</div>
               ))}
               {csvWarnings.length > 5 && (
-                <div style={{ fontSize: 10, color: '#94a3b8' }}>+{csvWarnings.length - 5} autres...</div>
+                <div style={{ fontSize: 10, color: 'var(--text-2)' }}>+{csvWarnings.length - 5} autres...</div>
               )}
             </div>
           )}
 
           {csvHeaders.length > 0 && (
-            <div style={{ marginTop: 8, fontSize: 9, color: '#334155' }}>
+            <div style={{ marginTop: 8, fontSize: 9, color: 'var(--text-1)' }}>
               Colonnes détectées : {csvHeaders.join(' · ')}
             </div>
           )}
@@ -482,8 +482,8 @@ export function Rapprochement() {
 
         {/* Config */}
         <div style={{
-          background: '#0f172a', borderRadius: 12, padding: 16,
-          border: '1px solid rgba(255,255,255,0.06)',
+          background: 'var(--bg-1)', borderRadius: 12, padding: 16,
+          border: '1px solid var(--border-1)',
         }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: '#8b5cf6', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 12 }}>
             Paramètres de rapprochement
@@ -491,7 +491,7 @@ export function Rapprochement() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div>
-              <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>
                 Compte bancaire FEC
               </label>
               <select value={bankAccount} onChange={e => setBankAccount(e.target.value)} style={{ ...inputSt, width: '100%' }}>
@@ -500,14 +500,14 @@ export function Rapprochement() {
                   <option key={acc} value={acc}>{acc} — {label}</option>
                 ))}
               </select>
-              <div style={{ fontSize: 9, color: '#334155', marginTop: 2 }}>
+              <div style={{ fontSize: 9, color: 'var(--text-1)', marginTop: 2 }}>
                 {fecLines.length} écritures FEC trouvées
               </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+                <label style={{ fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>
                   Tolérance date (jours)
                 </label>
                 <input type="number" min={0} max={30} value={dateTol}
@@ -515,7 +515,7 @@ export function Rapprochement() {
                   style={{ ...inputSt, width: '100%' }} />
               </div>
               <div>
-                <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+                <label style={{ fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>
                   Tolérance montant (%)
                 </label>
                 <input type="number" min={0} max={50} step={0.5} value={amountTol}
@@ -527,7 +527,7 @@ export function Rapprochement() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <input type="checkbox" checked={fuzzyLabel} onChange={e => setFuzzyLabel(e.target.checked)}
                 style={{ accentColor: '#8b5cf6' }} />
-              <label style={{ fontSize: 11, color: '#94a3b8' }}>
+              <label style={{ fontSize: 11, color: 'var(--text-2)' }}>
                 Rapprochement par libellé (fuzzy matching)
               </label>
             </div>
@@ -539,7 +539,7 @@ export function Rapprochement() {
       {bankLines.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: 10, marginBottom: 20 }}>
           {[
-            { label: 'Lignes banque',  value: bankLines.length.toString(), sub: fileName ?? '', color: '#3b82f6' },
+            { label: 'Lignes banque',  value: bankLines.length.toString(), sub: fileName ?? '', color: '#1e88c7' },
             { label: 'Écritures FEC',  value: fecLines.length.toString(),  sub: bankAccount || '512x', color: '#8b5cf6' },
             { label: 'Rapprochées',    value: stats.matched.toString(),    sub: stats.total > 0 ? pct(stats.matched / stats.total) : '—', color: '#10b981' },
             { label: 'Banque seul',    value: stats.bankOnly.toString(),   sub: 'Non trouvé dans FEC', color: '#f59e0b' },
@@ -548,15 +548,15 @@ export function Rapprochement() {
           ].map(k => (
             <div key={k.label} style={{
               padding: '12px 14px', borderRadius: 10,
-              background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+              background: 'rgba(20,30,60,0.03)', border: '1px solid var(--border-1)',
             }}>
-              <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
+              <div style={{ fontSize: 9, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
                 {k.label}
               </div>
               <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'monospace', color: k.color }}>
                 {k.value}
               </div>
-              <div style={{ fontSize: 9, color: '#334155', marginTop: 2 }}>{k.sub}</div>
+              <div style={{ fontSize: 9, color: 'var(--text-1)', marginTop: 2 }}>{k.sub}</div>
             </div>
           ))}
         </div>
@@ -566,7 +566,7 @@ export function Rapprochement() {
       {bankLines.length > 0 && stats.total > 0 && (
         <div style={{
           display: 'flex', gap: 2, height: 8, borderRadius: 4, overflow: 'hidden', marginBottom: 20,
-          background: 'rgba(255,255,255,0.03)',
+          background: 'rgba(20,30,60,0.03)',
         }}>
           {stats.matched > 0 && (
             <div style={{ width: `${stats.matched / stats.total * 100}%`, background: '#10b981', borderRadius: 2 }}
@@ -586,7 +586,7 @@ export function Rapprochement() {
       {/* ── Filter bar ── */}
       {bankLines.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border-1)' }}>
             {(['all', 'matched', 'bank_only', 'fec_only'] as const).map(f => {
               const cnt = f === 'all' ? stats.total : stats[f === 'matched' ? 'matched' : f === 'bank_only' ? 'bankOnly' : 'fecOnly']
               const lbl = f === 'all' ? 'Tous' : STATUS_CONFIG[f].label
@@ -595,7 +595,7 @@ export function Rapprochement() {
                   style={{
                     padding: '6px 10px', fontSize: 11, fontWeight: 600, border: 'none', cursor: 'pointer',
                     background: statusFilter === f ? 'rgba(59,130,246,0.2)' : 'transparent',
-                    color: statusFilter === f ? '#93c5fd' : '#94a3b8',
+                    color: statusFilter === f ? '#1e88c7' : 'var(--text-2)',
                   }}>
                   {lbl} ({cnt})
                 </button>
@@ -619,38 +619,38 @@ export function Rapprochement() {
 
       {/* ── Results table ── */}
       {bankLines.length > 0 && filtered.length > 0 && (
-        <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ overflowX: 'auto', borderRadius: 12, border: '1px solid var(--border-1)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
-              <tr style={{ background: '#0a0f1a', position: 'sticky', top: 0, zIndex: 5 }}>
-                <th style={{ padding: '8px 10px', textAlign: 'center', color: '#94a3b8', fontWeight: 600, width: 30, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <tr style={{ background: 'var(--bg-1)', position: 'sticky', top: 0, zIndex: 5 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-2)', fontWeight: 600, width: 30, borderBottom: '1px solid var(--border-1)' }}>
                   Statut
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)' }}>
                   Date banque
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 180 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)', minWidth: 180 }}>
                   Libellé banque
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 90 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)', minWidth: 90 }}>
                   Montant banque
                 </th>
-                <th style={{ padding: '8px 4px', textAlign: 'center', color: '#334155', borderBottom: '1px solid rgba(255,255,255,0.08)', width: 30 }}>
+                <th style={{ padding: '8px 4px', textAlign: 'center', color: 'var(--text-1)', borderBottom: '1px solid var(--border-1)', width: 30 }}>
                   ↔
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)' }}>
                   Date FEC
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 180 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)', minWidth: 180 }}>
                   Libellé FEC
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 90 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)', minWidth: 90 }}>
                   Montant FEC
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'left', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <th style={{ padding: '8px 10px', textAlign: 'left', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)' }}>
                   Pièce
                 </th>
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#94a3b8', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.08)', minWidth: 70 }}>
+                <th style={{ padding: '8px 10px', textAlign: 'right', color: 'var(--text-2)', fontWeight: 600, borderBottom: '1px solid var(--border-1)', minWidth: 70 }}>
                   Écart
                 </th>
               </tr>
@@ -661,7 +661,7 @@ export function Rapprochement() {
                 const fecAmt = r.fec ? r.fec.credit - r.fec.debit : null
                 return (
                   <tr key={idx} style={{
-                    borderBottom: '1px solid rgba(255,255,255,0.025)',
+                    borderBottom: '1px solid var(--border-1)',
                     background: r.status !== 'matched' ? cfg.bg : 'transparent',
                   }}>
                     <td style={{ padding: '5px 10px', textAlign: 'center' }}>
@@ -673,39 +673,39 @@ export function Rapprochement() {
                         {cfg.icon}
                       </span>
                     </td>
-                    <td style={{ padding: '5px 10px', color: '#94a3b8', fontFamily: 'monospace', fontSize: 10 }}>
+                    <td style={{ padding: '5px 10px', color: 'var(--text-2)', fontFamily: 'monospace', fontSize: 10 }}>
                       {r.bank?.date ?? '—'}
                     </td>
-                    <td style={{ padding: '5px 10px', color: r.bank ? '#cbd5e1' : '#334155', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '5px 10px', color: r.bank ? 'var(--text-1)' : 'var(--text-1)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {r.bank?.label ?? '—'}
                     </td>
                     <td style={{
                       padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-                      color: r.bank ? (r.bank.amount >= 0 ? '#10b981' : '#ef4444') : '#334155',
+                      color: r.bank ? (r.bank.amount >= 0 ? '#10b981' : '#ef4444') : 'var(--text-1)',
                     }}>
                       {r.bank ? `${fmt(r.bank.amount)} €` : '—'}
                     </td>
                     <td style={{ padding: '5px 4px', textAlign: 'center', color: '#1e293b', fontSize: 10 }}>
                       {r.status === 'matched' ? '═' : '·'}
                     </td>
-                    <td style={{ padding: '5px 10px', color: '#94a3b8', fontFamily: 'monospace', fontSize: 10 }}>
+                    <td style={{ padding: '5px 10px', color: 'var(--text-2)', fontFamily: 'monospace', fontSize: 10 }}>
                       {r.fec?.date ?? '—'}
                     </td>
-                    <td style={{ padding: '5px 10px', color: r.fec ? '#cbd5e1' : '#334155', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '5px 10px', color: r.fec ? 'var(--text-1)' : 'var(--text-1)', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {r.fec?.label ?? '—'}
                     </td>
                     <td style={{
                       padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-                      color: fecAmt !== null ? (fecAmt >= 0 ? '#10b981' : '#ef4444') : '#334155',
+                      color: fecAmt !== null ? (fecAmt >= 0 ? '#10b981' : '#ef4444') : 'var(--text-1)',
                     }}>
                       {fecAmt !== null ? `${fmt(fecAmt)} €` : '—'}
                     </td>
-                    <td style={{ padding: '5px 10px', color: '#94a3b8', fontFamily: 'monospace', fontSize: 10 }}>
+                    <td style={{ padding: '5px 10px', color: 'var(--text-2)', fontFamily: 'monospace', fontSize: 10 }}>
                       {r.fec?.piece ?? '—'}
                     </td>
                     <td style={{
                       padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600,
-                      color: r.delta ? (Math.abs(r.delta) < 1 ? '#94a3b8' : '#f59e0b') : '#1e293b',
+                      color: r.delta ? (Math.abs(r.delta) < 1 ? 'var(--text-2)' : '#f59e0b') : '#1e293b',
                     }}>
                       {r.delta !== undefined ? `${r.delta > 0 ? '+' : ''}${fmt(r.delta)} €` : r.status === 'matched' ? '0' : '—'}
                     </td>
@@ -721,19 +721,19 @@ export function Rapprochement() {
       {bankLines.length > 0 && stats.total > 0 && (
         <div style={{
           display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginTop: 12,
-          padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.06)',
+          padding: '12px 16px', borderRadius: 10, background: 'rgba(20,30,60,0.03)',
+          border: '1px solid var(--border-1)',
         }}>
           <div>
-            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total banque</div>
-            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#3b82f6' }}>{fmt(stats.totalBank)} €</div>
+            <div style={{ fontSize: 9, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total banque</div>
+            <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#1e88c7' }}>{fmt(stats.totalBank)} €</div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total FEC (512)</div>
+            <div style={{ fontSize: 9, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Total FEC (512)</div>
             <div style={{ fontSize: 16, fontWeight: 700, fontFamily: 'monospace', color: '#8b5cf6' }}>{fmt(stats.totalFec)} €</div>
           </div>
           <div>
-            <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Écart net</div>
+            <div style={{ fontSize: 9, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Écart net</div>
             <div style={{
               fontSize: 16, fontWeight: 700, fontFamily: 'monospace',
               color: Math.abs(stats.ecart) < 1 ? '#10b981' : '#ef4444',
@@ -747,14 +747,14 @@ export function Rapprochement() {
       {/* ── Empty states ── */}
       {bankLines.length === 0 && (
         <div style={{
-          padding: 40, borderRadius: 12, background: '#0f172a',
-          border: '1px solid rgba(255,255,255,0.06)', textAlign: 'center', marginTop: 10,
+          padding: 40, borderRadius: 12, background: 'var(--bg-1)',
+          border: '1px solid var(--border-1)', textAlign: 'center', marginTop: 10,
         }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🏦</div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#f1f5f9', marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-0)', marginBottom: 8 }}>
             Importez votre relevé bancaire
           </div>
-          <div style={{ fontSize: 12, color: '#94a3b8', maxWidth: 400, margin: '0 auto', lineHeight: 1.6 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-2)', maxWidth: 400, margin: '0 auto', lineHeight: 1.6 }}>
             Glissez un fichier CSV de votre banque dans la zone d'import ci-dessus.<br />
             Le système détectera automatiquement le format et rapprochera<br />
             les lignes avec les écritures du compte 512 de votre FEC.
@@ -765,7 +765,7 @@ export function Rapprochement() {
               { icon: '💶', text: 'Matching par montant' },
               { icon: '🔍', text: 'Rapprochement fuzzy libellé' },
             ].map(f => (
-              <div key={f.text} style={{ fontSize: 11, color: '#64748b' }}>
+              <div key={f.text} style={{ fontSize: 11, color: 'var(--text-3)' }}>
                 <span style={{ marginRight: 4 }}>{f.icon}</span>{f.text}
               </div>
             ))}
@@ -774,7 +774,7 @@ export function Rapprochement() {
       )}
 
       {bankLines.length > 0 && filtered.length === 0 && (
-        <div style={{ padding: 32, textAlign: 'center', color: '#94a3b8', fontSize: 12 }}>
+        <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-2)', fontSize: 12 }}>
           Aucun résultat avec les filtres actuels.
         </div>
       )}

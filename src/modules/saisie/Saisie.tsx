@@ -805,21 +805,21 @@ export function Saisie() {
 
   const inputSt: React.CSSProperties = {
     padding: '7px 10px', borderRadius: 8,
-    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-    color: '#cbd5e1', fontSize: 12, width: '100%', outline: 'none', fontFamily: 'inherit',
+    background: 'var(--bg-2)', border: '1px solid var(--border-1)',
+    color: 'var(--text-1)', fontSize: 12, width: '100%', outline: 'none', fontFamily: 'inherit',
   }
   const tabSt = (active: boolean): React.CSSProperties => ({
     flex:1, padding:'8px 12px', border:'none', cursor:'pointer', borderRadius:8,
     fontSize:12, fontWeight:600, transition:'all 0.15s',
     background: active ? 'rgba(59,130,246,0.2)' : 'transparent',
-    color:      active ? '#93c5fd' : '#94a3b8',
+    color:      active ? '#1e88c7' : 'var(--text-2)',
     boxShadow:  active ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'none',
   })
 
   if (!RAW) return <div className="flex items-center justify-center h-64 text-muted text-sm">Aucune donnée.</div>
 
   return (
-    <div style={{ padding:'16px 24px' }}>
+    <div className="ab-light" style={{ padding:'16px 24px', background:'var(--bg-0)', minHeight:'100%' }}>
 
       {isReadOnly && (
         <div style={{ padding:'8px 14px', borderRadius:8, background:'rgba(245,158,11,0.1)', border:'1px solid rgba(245,158,11,0.2)', color:'#f59e0b', fontSize:11, fontWeight:600, marginBottom:16 }}>
@@ -828,7 +828,7 @@ export function Saisie() {
       )}
 
       {/* Tabs */}
-      <div style={{ display:'flex', gap:6, marginBottom:20, padding:4, background:'rgba(255,255,255,0.03)', borderRadius:10, border:'1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ display:'flex', gap:6, marginBottom:20, padding:4, background:'rgba(20,30,60,0.03)', borderRadius:10, border:'1px solid var(--border-1)' }}>
         <button onClick={() => setMode('manual')} style={tabSt(mode==='manual')} disabled={isReadOnly}>✏️ Saisie manuelle</button>
         <button onClick={() => setMode('ocr')}    style={tabSt(mode==='ocr')}    disabled={isReadOnly}>📷 Scanner (OCR)</button>
         <button onClick={() => setMode('csv')}    style={tabSt(mode==='csv')}    disabled={isReadOnly}>📄 Import CSV</button>
@@ -836,7 +836,7 @@ export function Saisie() {
 
       {/* OCR */}
       {mode === 'ocr' && (
-        <div style={{ background:'#0f172a', borderRadius:12, padding:24, border:'1px solid rgba(139,92,246,0.2)', marginBottom:24, textAlign:'center' }}>
+        <div style={{ background:'var(--bg-1)', borderRadius:12, padding:24, border:'1px solid rgba(139,92,246,0.2)', marginBottom:24, textAlign:'center' }}>
           <div style={{ fontSize:14, fontWeight:600, color:'#8b5cf6', marginBottom:16 }}>
             {ocrLoading ? 'Analyse en cours...' : 'Importez une facture — HT et TTC extraits automatiquement'}
           </div>
@@ -849,7 +849,7 @@ export function Saisie() {
           {ocrResult && (
             <div style={{ marginTop:12, fontSize:12, color:'#10b981' }}>
               {ocrResult}<br/>
-              <span style={{ color:'#94a3b8' }}>Formulaire pré-rempli → passez en Saisie manuelle</span>
+              <span style={{ color:'var(--text-2)' }}>Formulaire pré-rempli → passez en Saisie manuelle</span>
             </div>
           )}
           {ocrFile && !ocrResult && (
@@ -857,7 +857,7 @@ export function Saisie() {
               📎 {ocrFile.name} — prêt à être enregistré avec la saisie
             </div>
           )}
-          <div style={{ marginTop:16, fontSize:11, color:'#334155' }}>JPG · PNG · PDF · Facture stockée automatiquement</div>
+          <div style={{ marginTop:16, fontSize:11, color:'var(--text-1)' }}>JPG · PNG · PDF · Facture stockée automatiquement</div>
         </div>
       )}
 
@@ -881,12 +881,12 @@ export function Saisie() {
 
       {/* Saisie manuelle */}
       {mode === 'manual' && (
-        <div style={{ background:'#0f172a', borderRadius:12, padding:20, border:'1px solid rgba(255,255,255,0.06)', marginBottom:24 }}>
-          <div style={{ fontSize:13, fontWeight:700, color:'#f1f5f9', marginBottom:16 }}>Nouvelle saisie</div>
+        <div style={{ background:'var(--bg-1)', borderRadius:12, padding:20, border:'1px solid var(--border-1)', marginBottom:24 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:'var(--text-0)', marginBottom:16 }}>Nouvelle saisie</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(175px,1fr))', gap:10 }}>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Société</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Société</label>
               {RAW.keys.length > 0
                 ? (
                   <select value={form.company_key} onChange={e => setForm(f => ({...f, company_key:e.target.value}))} style={inputSt}>
@@ -905,12 +905,12 @@ export function Saisie() {
             </div>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Date</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Date</label>
               <input type="date" value={form.entry_date} onChange={e => setForm(f => ({...f, entry_date:e.target.value}))} style={inputSt} />
             </div>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Type d'opération</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Type d'opération</label>
               <select value={form.operation_type}
                 onChange={e => setForm(f => ({ ...f, operation_type: e.target.value as 'facture' | 'acompte' | 'reglement_n1', subcategory: '' }))}
                 style={inputSt}>
@@ -921,7 +921,7 @@ export function Saisie() {
             </div>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Catégorie</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Catégorie</label>
               <select value={form.category} onChange={e => {
                 setForm(f => ({...f, category:e.target.value as ManualEntry['category'], subcategory:''}))
                 setSubSearch('')
@@ -933,13 +933,13 @@ export function Saisie() {
             {/* ── Sous-catégorie : combobox — ou compte automatique (acompte / règlement N-1) ── */}
             {opInfo ? (
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Compte (automatique)</label>
-              <div style={{ ...inputSt, color:'#93c5fd', display:'flex', alignItems:'center', cursor:'default' }}>{opInfo.sub}</div>
-              <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', lineHeight:1.5 }}>ℹ️ {opInfo.hint}</div>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Compte (automatique)</label>
+              <div style={{ ...inputSt, color:'#1e88c7', display:'flex', alignItems:'center', cursor:'default' }}>{opInfo.sub}</div>
+              <div style={{ marginTop:4, fontSize:10.5, color:'var(--text-2)', lineHeight:1.5 }}>ℹ️ {opInfo.hint}</div>
             </div>
             ) : (
             <div style={{ position:'relative' }}>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>
                 Sous-catégorie
                 {form.subcategory && <span style={{ marginLeft:6, color:'#22c55e', fontSize:9 }}>✓ sélectionnée</span>}
               </label>
@@ -951,10 +951,10 @@ export function Saisie() {
                   onChange={e => { setSubSearch(e.target.value); setSubOpen(true); if (!e.target.value) setForm(f => ({...f, subcategory:''})) }}
                   onFocus={() => { setSubSearch(''); setSubOpen(true) }}
                   onBlur={() => setTimeout(() => setSubOpen(false), 160)}
-                  style={{ ...inputSt, color: !subOpen && form.subcategory ? '#93c5fd' : undefined, paddingRight: 28 }}
+                  style={{ ...inputSt, color: !subOpen && form.subcategory ? '#1e88c7' : undefined, paddingRight: 28 }}
                 />
                 {/* Indicateur : flèche si fermé, croix si valeur sélectionnée */}
-                <span style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', fontSize:10, color:'#94a3b8', pointerEvents: form.subcategory ? 'auto' : 'none', cursor: form.subcategory ? 'pointer' : 'default' }}
+                <span style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', fontSize:10, color:'var(--text-2)', pointerEvents: form.subcategory ? 'auto' : 'none', cursor: form.subcategory ? 'pointer' : 'default' }}
                   onMouseDown={e => { e.preventDefault(); setForm(f => ({...f, subcategory:''})); setSubSearch('') }}>
                   {form.subcategory ? '✕' : '▾'}
                 </span>
@@ -963,12 +963,12 @@ export function Saisie() {
               {subOpen && (
                 <div style={{
                   position:'absolute', top:'calc(100% + 2px)', left:0, right:0, zIndex:200,
-                  background:'#0f172a', border:'1px solid rgba(255,255,255,0.15)',
+                  background:'var(--bg-1)', border:'1px solid var(--border-1)',
                   borderRadius:8, maxHeight:220, overflowY:'auto',
                   boxShadow:'0 8px 28px rgba(0,0,0,0.5)',
                 }}>
                   {filteredSubs.length === 0 ? (
-                    <div style={{ padding:'10px 14px', fontSize:11, color:'#94a3b8', fontStyle:'italic' }}>
+                    <div style={{ padding:'10px 14px', fontSize:11, color:'var(--text-2)', fontStyle:'italic' }}>
                       Aucune correspondance — essayez un autre mot
                     </div>
                   ) : filteredSubs.map(sub => (
@@ -976,12 +976,12 @@ export function Saisie() {
                       onMouseDown={() => { setForm(f => ({...f, subcategory:sub})); setSubSearch(''); setSubOpen(false) }}
                       style={{
                         padding:'9px 12px', cursor:'pointer', fontSize:12,
-                        color: sub === form.subcategory ? '#93c5fd' : '#cbd5e1',
+                        color: sub === form.subcategory ? '#1e88c7' : 'var(--text-1)',
                         background: sub === form.subcategory ? 'rgba(59,130,246,0.18)' : 'transparent',
-                        borderBottom:'1px solid rgba(255,255,255,0.04)',
+                        borderBottom:'1px solid var(--border-1)',
                         transition:'background 0.1s',
                       }}
-                      onMouseEnter={e => { if (sub !== form.subcategory) e.currentTarget.style.background='rgba(255,255,255,0.07)' }}
+                      onMouseEnter={e => { if (sub !== form.subcategory) e.currentTarget.style.background='var(--bg-2)' }}
                       onMouseLeave={e => { e.currentTarget.style.background = sub === form.subcategory ? 'rgba(59,130,246,0.18)' : 'transparent' }}
                     >
                       {sub}
@@ -991,11 +991,11 @@ export function Saisie() {
               )}
               {/* Suggestion : FEC N-1 → historique saisies → libellé/PCG */}
               {!subOpen && suggestion && suggestion.sub !== form.subcategory && (
-                <div style={{ marginTop:4, fontSize:10.5, color:'#94a3b8', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                <div style={{ marginTop:4, fontSize:10.5, color:'var(--text-2)', display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                   <span>💡 {suggestion.source} :</span>
                   <button type="button"
                     onClick={() => { setForm(f => ({ ...f, subcategory: suggestion.sub })); setSubSearch('') }}
-                    style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#93c5fd', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
+                    style={{ background:'rgba(59,130,246,0.15)', border:'1px solid rgba(59,130,246,0.3)', color:'#1e88c7', cursor:'pointer', padding:'2px 8px', borderRadius:4, fontSize:10.5, fontWeight:600 }}>
                     {suggestion.sub}
                   </button>
                 </div>
@@ -1004,14 +1004,14 @@ export function Saisie() {
             )}
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Montant HT € *</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Montant HT € *</label>
               <input type="number" step="0.01" value={form.amount_ht}
                 onChange={e => setForm(f => ({...f, amount_ht:e.target.value}))}
                 style={inputSt} placeholder="0.00" />
             </div>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Montant TTC €</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Montant TTC €</label>
               <input type="number" step="0.01" value={form.amount_ttc}
                 onChange={e => setForm(f => ({...f, amount_ttc:e.target.value}))}
                 style={inputSt} placeholder="= HT si vide" />
@@ -1019,24 +1019,24 @@ export function Saisie() {
 
             {/* TVA calculée automatiquement */}
             <div style={{ gridColumn: 'span 1' }}>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>TVA (calculée)</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>TVA (calculée)</label>
               <div style={{ ...inputSt, display:'flex', alignItems:'center', gap:8, justifyContent:'space-between' }}>
-                <span style={{ fontFamily:'monospace', color: tvaAmount !== null ? '#f59e0b' : '#334155' }}>
+                <span style={{ fontFamily:'monospace', color: tvaAmount !== null ? '#f59e0b' : 'var(--text-1)' }}>
                   {tvaAmount !== null ? `${tvaAmount.toFixed(2)} €` : '—'}
                 </span>
-                <span style={{ fontSize:10, color:'#94a3b8' }}>
+                <span style={{ fontSize:10, color:'var(--text-2)' }}>
                   {tvaRate ? `(${parseFloat(tvaRate).toFixed(1)} %)` : ''}
                 </span>
               </div>
             </div>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Libellé</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Libellé</label>
               <input type="text" value={form.label} onChange={e => setForm(f => ({...f, label:e.target.value}))} style={inputSt} placeholder="Description..." />
             </div>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>N° de facture</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>N° de facture</label>
               <input type="text" value={form.invoice_number} onChange={e => setForm(f => ({...f, invoice_number:e.target.value}))} style={inputSt} placeholder="Ex : F2026-001" />
             </div>
 
@@ -1050,7 +1050,7 @@ export function Saisie() {
                   const amt = parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0
                   const checked = imputeIds.includes(id)
                   return (
-                    <label key={id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:11.5, color:'#cbd5e1', padding:'3px 0', cursor:'pointer' }}>
+                    <label key={id} style={{ display:'flex', alignItems:'center', gap:8, fontSize:11.5, color:'var(--text-1)', padding:'3px 0', cursor:'pointer' }}>
                       <input type="checkbox" checked={checked}
                         onChange={() => setImputeIds(p => checked ? p.filter(x => x !== id) : [...p, id])} />
                       <span>{fmtDate(a.entry_date)} · {a.counterpart || a.label || 'Acompte'} · <strong style={{ fontFamily:'monospace' }}>{amt.toFixed(2)} €</strong></span>
@@ -1062,7 +1062,7 @@ export function Saisie() {
                     .reduce((s, a) => s + (parseFloat(a.amount_ttc || a.amount_ht_saisie || a.amount_ht || '0') || 0), 0)
                   const ttcF = parseFloat(form.amount_ttc || form.amount_ht || '0') || 0
                   return (
-                    <div style={{ marginTop:6, fontSize:11, color:'#94a3b8' }}>
+                    <div style={{ marginTop:6, fontSize:11, color:'var(--text-2)' }}>
                       Imputé : <strong style={{ color:'#a78bfa', fontFamily:'monospace' }}>{tot.toFixed(2)} €</strong>
                       {ttcF > 0 && <> · Net à régler : <strong style={{ color:'#10b981', fontFamily:'monospace' }}>{Math.max(0, ttcF - tot).toFixed(2)} €</strong></>}
                     </div>
@@ -1072,12 +1072,12 @@ export function Saisie() {
             )}
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Contrepartie</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Contrepartie</label>
               <input type="text" value={form.counterpart} onChange={e => setForm(f => ({...f, counterpart:e.target.value}))} style={inputSt} placeholder="Fournisseur..." />
             </div>
 
             <div>
-              <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Mode règlement</label>
+              <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Mode règlement</label>
               <select value={form.payment_mode} onChange={e => setForm(f => ({...f, payment_mode:e.target.value}))} style={inputSt}>
                 {['comptant','virement','prelevement','cb','cheque','especes','echeancier'].map(m => (
                   <option key={m} value={m}>{m === 'echeancier' ? 'Paiement échelonné' : m}</option>
@@ -1088,7 +1088,7 @@ export function Saisie() {
             {/* Date de paiement pour les modes non-échelonnés */}
             {form.payment_mode !== 'echeancier' && (
               <div>
-                <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Date de paiement</label>
+                <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Date de paiement</label>
                 <input type="date" value={form.payment_date}
                   onChange={e => setForm(f => ({...f, payment_date:e.target.value}))}
                   style={inputSt} placeholder="Optionnel" />
@@ -1099,25 +1099,25 @@ export function Saisie() {
             {form.payment_mode === 'echeancier' && (
               <>
                 <div>
-                  <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>1ère échéance</label>
+                  <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>1ère échéance</label>
                   <input type="date" value={echStartDate || form.entry_date}
                     onChange={e => setEchStartDate(e.target.value)} style={inputSt} />
                 </div>
                 <div>
-                  <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Nb d'échéances</label>
+                  <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Nb d'échéances</label>
                   <input type="number" min={1} max={60} value={echNb}
                     onChange={e => setEchNb(Math.max(1, Math.min(60, Number(e.target.value))))}
                     style={inputSt} />
                 </div>
                 <div>
-                  <label style={{ fontSize:11, color:'#94a3b8', display:'block', marginBottom:4 }}>Délai entre chaque (jours)</label>
+                  <label style={{ fontSize:11, color:'var(--text-2)', display:'block', marginBottom:4 }}>Délai entre chaque (jours)</label>
                   <input type="number" min={1} max={365} value={echDelaiJours}
                     onChange={e => setEchDelaiJours(Math.max(1, Math.min(365, Number(e.target.value))))}
                     style={inputSt} />
                 </div>
                 <div style={{ gridColumn:'1 / -1' }}>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6 }}>
-                    <label style={{ fontSize:10, color:'#94a3b8' }}>Échéances (date et montant modifiables)</label>
+                    <label style={{ fontSize:10, color:'var(--text-2)' }}>Échéances (date et montant modifiables)</label>
                     {echAmountsDirty && (
                       <button type="button" onClick={() => setEchAmountsDirty(false)}
                         style={{ background:'rgba(99,102,241,0.15)', color:'#a5b4fc', border:'1px solid rgba(99,102,241,0.3)',
@@ -1129,7 +1129,7 @@ export function Saisie() {
                   <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'flex-end' }}>
                     {echDates.map((d, i) => (
                       <div key={i} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2 }}>
-                        <span style={{ fontSize:9, color:'#94a3b8' }}>Échéance {i + 1}</span>
+                        <span style={{ fontSize:9, color:'var(--text-2)' }}>Échéance {i + 1}</span>
                         <input type="date" value={d}
                           onChange={e => setEchDates(prev => prev.map((x, j) => j === i ? e.target.value : x))}
                           style={{ ...inputSt, width:130, fontSize:11, padding:'4px 6px' }} />
@@ -1164,7 +1164,7 @@ export function Saisie() {
           <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:14 }}>
             <button onClick={handleSubmit} disabled={saving || !form.amount_ht || isReadOnly}
               style={{ padding:'8px 20px', borderRadius:8,
-                background: editingId ? 'linear-gradient(135deg,#f59e0b,#ef4444)' : 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                background: editingId ? 'linear-gradient(135deg,#f59e0b,#ef4444)' : 'linear-gradient(135deg,#1e88c7,#6366f1)',
                 border:'none', color:'#fff', fontSize:12, fontWeight:600,
                 cursor: saving||!form.amount_ht ? 'not-allowed':'pointer',
                 opacity: saving||!form.amount_ht ? 0.6:1 }}>
@@ -1172,7 +1172,7 @@ export function Saisie() {
             </button>
             {editingId && (
               <button onClick={handleCancelEdit} disabled={saving}
-                style={{ padding:'8px 16px', borderRadius:8, background:'transparent', border:'1px solid rgba(255,255,255,0.1)', color:'#94a3b8', fontSize:12, fontWeight:500, cursor: saving ? 'not-allowed' : 'pointer' }}>
+                style={{ padding:'8px 16px', borderRadius:8, background:'transparent', border:'1px solid var(--border-1)', color:'var(--text-2)', fontSize:12, fontWeight:500, cursor: saving ? 'not-allowed' : 'pointer' }}>
                 Annuler
               </button>
             )}
@@ -1182,7 +1182,7 @@ export function Saisie() {
       )}
 
       {/* Historique */}
-      <div style={{ fontSize:11, fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Historique</div>
+      <div style={{ fontSize:11, fontWeight:700, color:'var(--text-2)', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Historique</div>
 
       {/* Recherche + filtres */}
       {!dataLoading && manualEntries.filter(e => e.source !== 'echeance').length > 0 && (
@@ -1202,24 +1202,24 @@ export function Saisie() {
                 <button key={cat} onClick={() => setFilterCat(cat)} style={{
                   padding:'5px 10px', borderRadius:6, border: active ? `1px solid ${accent}` : '1px solid transparent',
                   cursor:'pointer', fontSize:11, fontWeight:600, transition:'all 0.15s',
-                  background: active ? `${accent}22` : 'rgba(255,255,255,0.03)',
-                  color: active ? accent : '#94a3b8',
+                  background: active ? `${accent}22` : 'rgba(20,30,60,0.03)',
+                  color: active ? accent : 'var(--text-2)',
                 }}>{cat}</button>
               )
             })}
           </div>
-          <span style={{ fontSize:10, color:'#334155', marginLeft:4 }}>
+          <span style={{ fontSize:10, color:'var(--text-1)', marginLeft:4 }}>
             {displayEntries.length} résultat{displayEntries.length !== 1 ? 's' : ''}
           </span>
         </div>
       )}
       {dataLoading ? <Spinner size={24} /> : manualEntries.filter(e => e.source !== 'echeance').length === 0 ? (
-        <div style={{ fontSize:12, color:'#334155', textAlign:'center', padding:40 }}>Aucune saisie pour le moment.</div>
+        <div style={{ fontSize:12, color:'var(--text-1)', textAlign:'center', padding:40 }}>Aucune saisie pour le moment.</div>
       ) : (
         <div style={{ overflowX:'auto' }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
             <thead style={{ position:'sticky', top:0, zIndex:2 }}>
-              <tr style={{ background:'#0f172a' }}>
+              <tr style={{ background:'var(--bg-1)' }}>
                 {([
                   { label:'Date facture',         col:'entry_date'  as const, align:'left'  },
                   { label:'Dt paiement',          col:null,                   align:'left'  },
@@ -1237,8 +1237,8 @@ export function Saisie() {
                 ] as { label:string; col:'entry_date'|'amount_ht'|'amount_ttc'|'counterpart'|null; align:string }[]).map(({ label, col, align }) => (
                   <th key={label} onClick={col ? () => handleSort(col) : undefined} style={{
                     padding:'6px 8px', textAlign: align as 'left'|'right',
-                    color: col && sortCol === col ? '#93c5fd' : '#94a3b8',
-                    fontWeight:600, borderBottom:'1px solid rgba(255,255,255,0.08)',
+                    color: col && sortCol === col ? '#1e88c7' : 'var(--text-2)',
+                    fontWeight:600, borderBottom:'1px solid var(--border-1)',
                     whiteSpace:'nowrap', cursor: col ? 'pointer' : 'default', userSelect:'none',
                   }}>
                     {label}{col ? sortIcon(col) : ''}
@@ -1252,9 +1252,9 @@ export function Saisie() {
                 const ttc = parseFloat(e.amount_ttc||'0')||0
                 const tva = calcTvaAmount(ht, ttc)
                 return (
-                  <tr key={e.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                    <td style={{ padding:'6px 8px', color:'#94a3b8', whiteSpace:'nowrap' }}>{fmtDate(e.entry_date)}</td>
-                    <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : '#334155', whiteSpace:'nowrap', fontSize:11 }}>
+                  <tr key={e.id} style={{ borderBottom:'1px solid var(--border-1)' }}>
+                    <td style={{ padding:'6px 8px', color:'var(--text-2)', whiteSpace:'nowrap' }}>{fmtDate(e.entry_date)}</td>
+                    <td style={{ padding:'6px 8px', color: e.payment_date ? '#10b981' : 'var(--text-1)', whiteSpace:'nowrap', fontSize:11 }}>
                       {(() => {
                         const ttcE = parseFloat(e.amount_ttc || e.amount_ht_saisie || e.amount_ht || '0') || 0
                         const isEchE = e.payment_mode === 'echeancier' && (e.echeancier_data as any)?.dates?.length
@@ -1268,14 +1268,14 @@ export function Saisie() {
                         if (payingId === String(e.id)) return (
                           <span style={{ display:'inline-flex', alignItems:'center', gap:4 }}>
                             <input type="date" value={payDate} onChange={ev => setPayDate(ev.target.value)}
-                              style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'#cbd5e1', fontSize:10, padding:'2px 4px', outline:'none' }} />
+                              style={{ background:'var(--bg-2)', border:'1px solid var(--border-1)', borderRadius:4, color:'var(--text-1)', fontSize:10, padding:'2px 4px', outline:'none' }} />
                             <input type="number" step="0.01" min="0" value={payAmount} onChange={ev => setPayAmount(ev.target.value)}
                               title="Montant payé (partiel possible)"
-                              style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:4, color:'#cbd5e1', fontSize:10, padding:'2px 4px', width:70, textAlign:'right', outline:'none', fontFamily:'monospace' }} />
+                              style={{ background:'var(--bg-2)', border:'1px solid var(--border-1)', borderRadius:4, color:'var(--text-1)', fontSize:10, padding:'2px 4px', width:70, textAlign:'right', outline:'none', fontFamily:'monospace' }} />
                             <button onClick={() => handleQuickPay(String(e.id))} disabled={saving || !payDate}
                               style={{ background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.35)', color:'#10b981', borderRadius:4, fontSize:10, padding:'2px 6px', cursor:'pointer' }}>✓</button>
                             <button onClick={() => setPayingId(null)}
-                              style={{ background:'none', border:'none', color:'#94a3b8', fontSize:10, cursor:'pointer', padding:'2px 2px' }}>✕</button>
+                              style={{ background:'none', border:'none', color:'var(--text-2)', fontSize:10, cursor:'pointer', padding:'2px 2px' }}>✕</button>
                           </span>
                         )
                         if (e.payment_date) return fmtDate(e.payment_date)
@@ -1312,7 +1312,7 @@ export function Saisie() {
                     <td style={{ padding:'6px 8px', fontSize:11 }}>
                       {e.invoice_url
                         ? <button onClick={() => openInvoice(e.invoice_url!)} style={{ background:'none', border:'none', padding:0, color:'#60a5fa', cursor:'pointer', fontSize:11, fontFamily:'inherit' }}>📄 Voir</button>
-                        : <span style={{ color:'#64748b' }}>—</span>}
+                        : <span style={{ color:'var(--text-3)' }}>—</span>}
                     </td>
                     <td style={{ padding:'6px 8px' }}>
                       <span style={{ padding:'2px 6px', borderRadius:20, fontSize:10,
@@ -1323,14 +1323,14 @@ export function Saisie() {
                       {e.operation_type === 'acompte' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(139,92,246,0.12)', color:'#a78bfa' }}>{e.acompte_invoice_id ? 'Acompte ✓ imputé' : 'Acompte'}</span>}
                       {e.operation_type === 'reglement_n1' && <span style={{ marginLeft:4, padding:'2px 6px', borderRadius:20, fontSize:10, background:'rgba(59,130,246,0.12)', color:'#60a5fa' }}>Règlt N-1</span>}
                     </td>
-                    <td style={{ padding:'6px 8px', color:'#94a3b8', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    <td style={{ padding:'6px 8px', color:'var(--text-2)', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
                       {e.subcategory}{e.label ? ' — '+e.label : ''}
                     </td>
-                    <td style={{ padding:'6px 8px', color:'#64748b', whiteSpace:'nowrap' }}>{e.counterpart||'—'}</td>
-                    <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f1f5f9' }}>{ht.toFixed(2)}</td>
+                    <td style={{ padding:'6px 8px', color:'var(--text-3)', whiteSpace:'nowrap' }}>{e.counterpart||'—'}</td>
+                    <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'var(--text-0)' }}>{ht.toFixed(2)}</td>
                     <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', color:'#f59e0b' }}>{tva !== 0 ? tva.toFixed(2) : '—'}</td>
-                    <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: e.category==='Vente' ? '#10b981':'#f1f5f9' }}>{ttc.toFixed(2)}</td>
-                    <td style={{ padding:'6px 8px', color:'#64748b' }}>{e.payment_mode||'—'}</td>
+                    <td style={{ padding:'6px 8px', textAlign:'right', fontFamily:'monospace', fontWeight:600, color: e.category==='Vente' ? '#10b981':'var(--text-0)' }}>{ttc.toFixed(2)}</td>
+                    <td style={{ padding:'6px 8px', color:'var(--text-3)' }}>{e.payment_mode||'—'}</td>
                     <td style={{ padding:'6px 8px', color:'#8b5cf6', fontSize:9 }}>{e.source}</td>
                     <td style={{ padding:'6px 8px', fontSize:10, whiteSpace:'nowrap', textAlign:'center' }}>
                       {confirmDelete === String(e.id) ? (
@@ -1340,7 +1340,7 @@ export function Saisie() {
                             ✓ Confirmer
                           </button>
                           <button onClick={() => setConfirmDelete(null)}
-                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid rgba(255,255,255,0.1)', background:'rgba(255,255,255,0.05)', color:'#94a3b8', fontSize:10, cursor:'pointer', fontFamily:'inherit' }}>
+                            style={{ padding:'3px 8px', borderRadius:5, border:'1px solid var(--border-1)', background:'var(--bg-2)', color:'var(--text-2)', fontSize:10, cursor:'pointer', fontFamily:'inherit' }}>
                             ✕
                           </button>
                         </div>
@@ -1367,12 +1367,12 @@ export function Saisie() {
 
           {/* Pagination */}
           {pageCount > 1 && (
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px 0', borderTop:'1px solid rgba(255,255,255,0.05)' }}>
-              <button onClick={() => setPage(0)} disabled={page === 0} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page===0?'#1e293b':'#94a3b8', cursor: page===0?'default':'pointer', fontSize:11 }}>«</button>
-              <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page===0?'#1e293b':'#94a3b8', cursor: page===0?'default':'pointer', fontSize:11 }}>‹</button>
-              <span style={{ fontSize:11, color:'#94a3b8' }}>Page {page+1} / {pageCount} — {displayEntries.length} entrée{displayEntries.length>1?'s':''}</span>
-              <button onClick={() => setPage(p => Math.min(pageCount-1, p+1))} disabled={page >= pageCount-1} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page>=pageCount-1?'#1e293b':'#94a3b8', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>›</button>
-              <button onClick={() => setPage(pageCount-1)} disabled={page >= pageCount-1} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid rgba(255,255,255,0.08)', background:'transparent', color: page>=pageCount-1?'#1e293b':'#94a3b8', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>»</button>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:8, padding:'12px 0', borderTop:'1px solid var(--border-1)' }}>
+              <button onClick={() => setPage(0)} disabled={page === 0} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border-1)', background:'transparent', color: page===0?'#1e293b':'var(--text-2)', cursor: page===0?'default':'pointer', fontSize:11 }}>«</button>
+              <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid var(--border-1)', background:'transparent', color: page===0?'#1e293b':'var(--text-2)', cursor: page===0?'default':'pointer', fontSize:11 }}>‹</button>
+              <span style={{ fontSize:11, color:'var(--text-2)' }}>Page {page+1} / {pageCount} — {displayEntries.length} entrée{displayEntries.length>1?'s':''}</span>
+              <button onClick={() => setPage(p => Math.min(pageCount-1, p+1))} disabled={page >= pageCount-1} style={{ padding:'4px 10px', borderRadius:6, border:'1px solid var(--border-1)', background:'transparent', color: page>=pageCount-1?'#1e293b':'var(--text-2)', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>›</button>
+              <button onClick={() => setPage(pageCount-1)} disabled={page >= pageCount-1} style={{ padding:'4px 8px', borderRadius:6, border:'1px solid var(--border-1)', background:'transparent', color: page>=pageCount-1?'#1e293b':'var(--text-2)', cursor: page>=pageCount-1?'default':'pointer', fontSize:11 }}>»</button>
             </div>
           )}
         </div>

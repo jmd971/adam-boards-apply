@@ -349,8 +349,8 @@ function SubCombo({ category, value, onChange, realAccounts = [] }: {
 
   const inputSt: React.CSSProperties = {
     width: '100%', padding: '5px 22px 5px 7px', borderRadius: 6, fontSize: 11,
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-    color: value ? '#93c5fd' : '#94a3b8', outline: 'none', boxSizing: 'border-box',
+    background: 'var(--bg-2)', border: '1px solid var(--border-1)',
+    color: value ? '#1e88c7' : 'var(--text-2)', outline: 'none', boxSizing: 'border-box',
     cursor: 'pointer',
   }
 
@@ -368,14 +368,14 @@ function SubCombo({ category, value, onChange, realAccounts = [] }: {
           style={inputSt}
         />
         <span
-          style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: '#94a3b8', cursor: 'pointer', pointerEvents: value ? 'auto' : 'none' }}
+          style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', fontSize: 9, color: 'var(--text-2)', cursor: 'pointer', pointerEvents: value ? 'auto' : 'none' }}
           onMouseDown={e => { e.preventDefault(); onChange(''); setSearch('') }}
         >{value ? '✕' : '▾'}</span>
       </div>
       {open && (
         <div style={{
           position: 'absolute', top: 'calc(100% + 2px)', left: 0, minWidth: 280, zIndex: 300,
-          background: '#0f172a', border: '1px solid rgba(255,255,255,0.15)',
+          background: 'var(--bg-1)', border: '1px solid var(--border-1)',
           borderRadius: 7, maxHeight: 240, overflowY: 'auto',
           boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
         }}>
@@ -384,19 +384,19 @@ function SubCombo({ category, value, onChange, realAccounts = [] }: {
               onMouseDown={() => { onChange(o.value); setSearch(''); setOpen(false) }}
               style={{
                 padding: '6px 10px', fontSize: 11, cursor: 'pointer',
-                color: o.value === value ? '#93c5fd' : '#cbd5e1',
+                color: o.value === value ? '#1e88c7' : 'var(--text-1)',
                 background: o.value === value ? 'rgba(59,130,246,0.18)' : 'transparent',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                borderBottom: '1px solid var(--border-1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
               }}
-              onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
+              onMouseEnter={e => { if (o.value !== value) e.currentTarget.style.background = 'var(--bg-2)' }}
               onMouseLeave={e => { e.currentTarget.style.background = o.value === value ? 'rgba(59,130,246,0.18)' : 'transparent' }}>
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {o.code && <span style={{ fontFamily: 'monospace', color: '#64748b', marginRight: 6 }}>{o.code}</span>}
+                {o.code && <span style={{ fontFamily: 'monospace', color: 'var(--text-3)', marginRight: 6 }}>{o.code}</span>}
                 {o.label}
               </span>
               {o.source !== 'liste' && (
-                <span style={{ flexShrink: 0, fontSize: 8.5, color: o.source === 'liste' ? '#64748b' : '#34d399', background: 'rgba(52,211,153,0.12)', padding: '1px 5px', borderRadius: 8 }}>{o.source}</span>
+                <span style={{ flexShrink: 0, fontSize: 8.5, color: o.source === 'liste' ? 'var(--text-3)' : '#34d399', background: 'rgba(52,211,153,0.12)', padding: '1px 5px', borderRadius: 8 }}>{o.source}</span>
               )}
             </div>
           ))}
@@ -404,14 +404,14 @@ function SubCombo({ category, value, onChange, realAccounts = [] }: {
           {search.trim() && !options.some(o => normSub(o.value) === normSub(search)) && (
             <div
               onMouseDown={() => { onChange(search.trim()); setSearch(''); setOpen(false) }}
-              style={{ padding: '7px 10px', fontSize: 11, cursor: 'pointer', color: '#a78bfa', borderTop: '1px solid rgba(255,255,255,0.08)' }}
+              style={{ padding: '7px 10px', fontSize: 11, cursor: 'pointer', color: '#a78bfa', borderTop: '1px solid var(--border-1)' }}
               onMouseEnter={e => { e.currentTarget.style.background = 'rgba(139,92,246,0.1)' }}
               onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
               ➕ Ajouter le compte : « {search.trim()} »
             </div>
           )}
           {options.length === 0 && !search.trim() && (
-            <div style={{ padding: '8px 10px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>Tapez pour chercher un compte…</div>
+            <div style={{ padding: '8px 10px', fontSize: 11, color: 'var(--text-2)', fontStyle: 'italic' }}>Tapez pour chercher un compte…</div>
           )}
         </div>
       )}
@@ -586,24 +586,24 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
 
   const inputSt: React.CSSProperties = {
     padding: '6px 10px', borderRadius: 7, fontSize: 12,
-    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
-    color: '#f1f5f9', outline: 'none',
+    background: 'var(--bg-2)', border: '1px solid var(--border-1)',
+    color: 'var(--text-0)', outline: 'none',
   }
 
   // ── Étape 1 : sélection fichier ────────────────────────────────────────────
   if (step === 'idle') {
     return (
-      <div style={{ background: '#0f172a', borderRadius: 12, padding: 28, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24 }}>
+      <div style={{ background: 'var(--bg-1)', borderRadius: 12, padding: 28, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: '#14b8a6', marginBottom: 6 }}>Import fichier ventes / achats</div>
-        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 20, lineHeight: 1.6 }}>
-          Accepte les fichiers <strong style={{ color: '#94a3b8' }}>CSV, TXT</strong> (séparateurs , ; ou tabulation).<br />
+        <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 20, lineHeight: 1.6 }}>
+          Accepte les fichiers <strong style={{ color: 'var(--text-2)' }}>CSV, TXT</strong> (séparateurs , ; ou tabulation).<br />
           Colonnes détectées automatiquement : date, libellé, tiers, montant HT, montant TTC, catégorie.<br />
           Export Excel → <em>Fichier → Enregistrer sous → CSV</em> avant import.
         </div>
 
         {companyKeys.length > 1 && (
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, color: '#94a3b8', display: 'block', marginBottom: 4 }}>Société</label>
+            <label style={{ fontSize: 11, color: 'var(--text-2)', display: 'block', marginBottom: 4 }}>Société</label>
             <select value={companyKey} onChange={e => setCompanyKey(e.target.value)} style={inputSt}>
               {companyKeys.map(k => <option key={k} value={k}>{companyNames[k] || k}</option>)}
             </select>
@@ -622,8 +622,8 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
           onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(20,184,166,0.35)')}
         >
           <div style={{ fontSize: 28, marginBottom: 8 }}>📂</div>
-          <div style={{ fontSize: 13, color: '#94a3b8', fontWeight: 600 }}>Glisser-déposer ou cliquer pour choisir</div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>.csv · .txt</div>
+          <div style={{ fontSize: 13, color: 'var(--text-2)', fontWeight: 600 }}>Glisser-déposer ou cliquer pour choisir</div>
+          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>.csv · .txt</div>
         </div>
         <input ref={fileRef} type="file" accept=".csv,.txt" style={{ display: 'none' }}
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }} />
@@ -641,21 +641,21 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
     const missingRequired = FIELDS.filter(f => f.required && mapping[f.key] < 0)
 
     return (
-      <div style={{ background: '#0f172a', borderRadius: 12, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ background: 'var(--bg-1)', borderRadius: 12, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24, overflow: 'hidden' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-1)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 200 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#14b8a6' }}>🔗 Correspondance des colonnes — 📄 {fileName}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>
               {structure.dataRows.length} ligne{structure.dataRows.length > 1 ? 's' : ''} · {structure.rawHeaders.length} colonne{structure.rawHeaders.length > 1 ? 's' : ''} détectée{structure.rawHeaders.length > 1 ? 's' : ''}
             </div>
           </div>
           <button onClick={resetAll}
-            style={{ ...inputSt, color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>
+            style={{ ...inputSt, color: 'var(--text-2)', cursor: 'pointer', fontSize: 11 }}>
             ← Changer de fichier
           </button>
         </div>
 
-        <div style={{ padding: '14px 20px', fontSize: 11.5, color: '#94a3b8', lineHeight: 1.6, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ padding: '14px 20px', fontSize: 11.5, color: 'var(--text-2)', lineHeight: 1.6, borderBottom: '1px solid var(--border-1)' }}>
           Vérifiez la correspondance entre les colonnes de votre fichier et les champs AdamBoards.
           Les colonnes ont été détectées automatiquement — corrigez si nécessaire. <strong style={{ color: '#14b8a6' }}>Date</strong> et <strong style={{ color: '#14b8a6' }}>Montant HT</strong> sont obligatoires.
         </div>
@@ -681,9 +681,9 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                 title={missingRequired.length > 0 ? 'Mappez d’abord les champs obligatoires' : ''}
                 style={{
                   padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 700, whiteSpace: 'nowrap',
-                  background: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'rgba(255,255,255,0.05)' : 'rgba(139,92,246,0.2)',
-                  border: `1px solid ${(profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'rgba(255,255,255,0.1)' : 'rgba(139,92,246,0.45)'}`,
-                  color: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? '#94a3b8' : '#c4b5fd',
+                  background: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'var(--bg-2)' : 'rgba(139,92,246,0.2)',
+                  border: `1px solid ${(profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'var(--bg-2)' : 'rgba(139,92,246,0.45)'}`,
+                  color: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'var(--text-2)' : '#c4b5fd',
                   cursor: (profileBusy || missingRequired.length > 0 || !saveName.trim()) ? 'not-allowed' : 'pointer',
                 }}>
                 💾 Enregistrer
@@ -694,10 +694,10 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                 {companyMappings.map(p => (
                   <span key={p.id} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: '#cbd5e1',
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '3px 6px 3px 10px',
+                    display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 10.5, color: 'var(--text-1)',
+                    background: 'var(--bg-2)', border: '1px solid var(--border-1)', borderRadius: 20, padding: '3px 6px 3px 10px',
                   }}>
-                    {p.name} <span style={{ color: '#64748b' }}>· {p.category}</span>
+                    {p.name} <span style={{ color: 'var(--text-3)' }}>· {p.category}</span>
                     <span onClick={() => !profileBusy && deleteProfile(p.id, p.name)} title="Supprimer ce profil"
                       style={{ cursor: profileBusy ? 'default' : 'pointer', color: '#f87171', fontSize: 11, lineHeight: 1, padding: '0 2px' }}>✕</span>
                   </span>
@@ -708,8 +708,8 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
             {profileMsg && (
               <div style={{ marginTop: 8, fontSize: 11, color: (profileMsg.startsWith('❌') || profileMsg.startsWith('⚠')) ? '#f59e0b' : '#a78bfa' }}>{profileMsg}</div>
             )}
-            <div style={{ marginTop: 6, fontSize: 10.5, color: '#94a3b8', lineHeight: 1.5 }}>
-              Enregistrez cette correspondance pour la réappliquer automatiquement aux prochains imports de <strong style={{ color: '#cbd5e1' }}>{companyNames[companyKey] || companyKey}</strong>. Le mapping est reconnu par le nom des colonnes du fichier.
+            <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--text-2)', lineHeight: 1.5 }}>
+              Enregistrez cette correspondance pour la réappliquer automatiquement aux prochains imports de <strong style={{ color: 'var(--text-1)' }}>{companyNames[companyKey] || companyKey}</strong>. Le mapping est reconnu par le nom des colonnes du fichier.
             </div>
           </div>
         )}
@@ -722,11 +722,11 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
             return (
               <div key={f.key} style={{
                 padding: '10px 12px', borderRadius: 9,
-                background: isMissing ? 'rgba(239,68,68,0.06)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${isMissing ? 'rgba(239,68,68,0.3)' : idx >= 0 ? 'rgba(20,184,166,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                background: isMissing ? 'rgba(239,68,68,0.06)' : 'rgba(20,30,60,0.03)',
+                border: `1px solid ${isMissing ? 'rgba(239,68,68,0.3)' : idx >= 0 ? 'rgba(20,184,166,0.25)' : 'var(--bg-2)'}`,
               }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: isMissing ? '#f87171' : '#e2e8f0', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
-                  {idx >= 0 ? <span style={{ color: '#14b8a6' }}>✓</span> : <span style={{ color: '#94a3b8' }}>○</span>}
+                <div style={{ fontSize: 11, fontWeight: 700, color: isMissing ? '#f87171' : 'var(--text-1)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                  {idx >= 0 ? <span style={{ color: '#14b8a6' }}>✓</span> : <span style={{ color: 'var(--text-2)' }}>○</span>}
                   {f.label}
                   {f.required && <span style={{ color: '#f87171', fontSize: 13 }}>*</span>}
                 </div>
@@ -742,7 +742,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                   ))}
                 </select>
                 {idx >= 0 && sample(idx) && (
-                  <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 5, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 10, color: 'var(--text-2)', marginTop: 5, fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     ex : {sample(idx)}
                   </div>
                 )}
@@ -752,8 +752,8 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
         </div>
 
         {/* Pied : validation */}
-        <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, fontSize: 11, color: missingRequired.length ? '#f59e0b' : '#94a3b8' }}>
+        <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-1)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, fontSize: 11, color: missingRequired.length ? '#f59e0b' : 'var(--text-2)' }}>
             {missingRequired.length > 0
               ? `⚠ Champ${missingRequired.length > 1 ? 's' : ''} obligatoire${missingRequired.length > 1 ? 's' : ''} non mappé${missingRequired.length > 1 ? 's' : ''} : ${missingRequired.map(f => f.label).join(', ')}`
               : '✓ Tous les champs obligatoires sont mappés'}
@@ -761,9 +761,9 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
           <button onClick={confirmMapping} disabled={missingRequired.length > 0}
             style={{
               padding: '9px 22px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-              background: missingRequired.length === 0 ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.05)',
-              border: `1px solid ${missingRequired.length === 0 ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.1)'}`,
-              color: missingRequired.length === 0 ? '#14b8a6' : '#94a3b8',
+              background: missingRequired.length === 0 ? 'rgba(20,184,166,0.2)' : 'var(--bg-2)',
+              border: `1px solid ${missingRequired.length === 0 ? 'rgba(20,184,166,0.4)' : 'var(--bg-2)'}`,
+              color: missingRequired.length === 0 ? '#14b8a6' : 'var(--text-2)',
               cursor: missingRequired.length === 0 ? 'pointer' : 'not-allowed',
             }}>
             Prévisualiser →
@@ -779,22 +779,22 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
   const totalTTC = selectedRows.reduce((s, r) => s + r.amount_ttc, 0)
 
   return (
-    <div style={{ background: '#0f172a', borderRadius: 12, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24, overflow: 'hidden' }}>
+    <div style={{ background: 'var(--bg-1)', borderRadius: 12, border: '1px solid rgba(20,184,166,0.2)', marginBottom: 24, overflow: 'hidden' }}>
       {/* En-tête */}
-      <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-1)', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#14b8a6' }}>📄 {fileName}</div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>
             {rows.length} ligne{rows.length > 1 ? 's' : ''} détectée{rows.length > 1 ? 's' : ''} · {selectedRows.length} sélectionnée{selectedRows.length > 1 ? 's' : ''}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => setStep('mapping')}
-            style={{ ...inputSt, color: '#93c5fd', cursor: 'pointer', fontSize: 11, borderColor: 'rgba(59,130,246,0.3)' }}>
+            style={{ ...inputSt, color: '#1e88c7', cursor: 'pointer', fontSize: 11, borderColor: 'rgba(59,130,246,0.3)' }}>
             ← Colonnes
           </button>
           <button onClick={resetAll}
-            style={{ ...inputSt, color: '#94a3b8', cursor: 'pointer', fontSize: 11 }}>
+            style={{ ...inputSt, color: 'var(--text-2)', cursor: 'pointer', fontSize: 11 }}>
             Changer de fichier
           </button>
         </div>
@@ -802,7 +802,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
 
       {/* Barre d'affectation globale */}
       <div style={{ padding: '12px 20px', background: 'rgba(59,130,246,0.06)', borderBottom: '1px solid rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: '#93c5fd', whiteSpace: 'nowrap' }}>⚡ Affectation globale</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: '#1e88c7', whiteSpace: 'nowrap' }}>⚡ Affectation globale</span>
         <select value={gCat} onChange={e => setGCat(e.target.value as ManualEntry['category'])} style={{ ...inputSt, fontSize: 11 }}>
           {CATEGORIES.map(c => <option key={c.cat} value={c.cat}>{c.cat}</option>)}
         </select>
@@ -810,11 +810,11 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
           <SubCombo category={gCat} value={gSub} onChange={setGSub} realAccounts={realAccountsByCompany[companyKey] ?? []} />
         </div>
         <button onClick={applyGlobal}
-          style={{ padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.4)', color: '#93c5fd', whiteSpace: 'nowrap' }}>
+          style={{ padding: '6px 14px', borderRadius: 7, fontSize: 11, fontWeight: 700, cursor: 'pointer', background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.4)', color: '#1e88c7', whiteSpace: 'nowrap' }}>
           Appliquer à toutes
         </button>
         <button onClick={applyGlobalCatOnly}
-          style={{ padding: '6px 14px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+          style={{ padding: '6px 14px', borderRadius: 7, fontSize: 11, cursor: 'pointer', background: 'var(--bg-2)', border: '1px solid var(--border-1)', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
           Catégorie seule
         </button>
       </div>
@@ -823,20 +823,20 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
       <div style={{ overflowX: 'auto', maxHeight: 420, overflowY: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
-            <tr style={{ background: 'rgba(255,255,255,0.04)', position: 'sticky', top: 0, zIndex: 10 }}>
+            <tr style={{ background: 'var(--bg-2)', position: 'sticky', top: 0, zIndex: 10 }}>
               <th style={{ padding: '8px 10px', textAlign: 'center', width: 32 }}>
                 <input type="checkbox" checked={allChecked}
                   onChange={e => setRows(rs => rs.map(r => ({ ...r, selected: e.target.checked })))} />
               </th>
-              <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', whiteSpace: 'nowrap' }}>Date</th>
-              <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', whiteSpace: 'nowrap' }}>N° Facture</th>
-              <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8' }}>Tiers</th>
-              <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8' }}>Libellé</th>
-              <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', whiteSpace: 'nowrap' }}>HT €</th>
-              <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', whiteSpace: 'nowrap' }}>TVA €</th>
-              <th style={{ padding: '8px 8px', textAlign: 'right', color: '#94a3b8', whiteSpace: 'nowrap' }}>TTC €</th>
-              <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', minWidth: 100 }}>Catégorie</th>
-              <th style={{ padding: '8px 8px', textAlign: 'left', color: '#94a3b8', minWidth: 180 }}>Sous-catégorie</th>
+              <th style={{ padding: '8px 8px', textAlign: 'left', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>Date</th>
+              <th style={{ padding: '8px 8px', textAlign: 'left', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>N° Facture</th>
+              <th style={{ padding: '8px 8px', textAlign: 'left', color: 'var(--text-2)' }}>Tiers</th>
+              <th style={{ padding: '8px 8px', textAlign: 'left', color: 'var(--text-2)' }}>Libellé</th>
+              <th style={{ padding: '8px 8px', textAlign: 'right', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>HT €</th>
+              <th style={{ padding: '8px 8px', textAlign: 'right', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>TVA €</th>
+              <th style={{ padding: '8px 8px', textAlign: 'right', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>TTC €</th>
+              <th style={{ padding: '8px 8px', textAlign: 'left', color: 'var(--text-2)', minWidth: 100 }}>Catégorie</th>
+              <th style={{ padding: '8px 8px', textAlign: 'left', color: 'var(--text-2)', minWidth: 180 }}>Sous-catégorie</th>
             </tr>
           </thead>
           <tbody>
@@ -844,7 +844,7 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
               const warn = r.selected && (!r.date || r.amount_ht === 0)
               return (
                 <tr key={r.id}
-                  style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', opacity: r.selected ? 1 : 0.35, background: warn ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
+                  style={{ borderBottom: '1px solid var(--border-1)', opacity: r.selected ? 1 : 0.35, background: warn ? 'rgba(239,68,68,0.05)' : 'transparent' }}>
                   <td style={{ padding: '6px 10px', textAlign: 'center' }}>
                     <input type="checkbox" checked={r.selected}
                       onChange={e => updateRow(r.id, { selected: e.target.checked })} />
@@ -876,9 +876,9 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#f59e0b', whiteSpace: 'nowrap' }}>
                     {r.tva_amount > 0
                       ? <span title={r.tva_rate ? `${r.tva_rate} %` : ''}>{fmt(r.tva_amount)}</span>
-                      : <span style={{ color: '#334155' }}>—</span>}
+                      : <span style={{ color: 'var(--text-1)' }}>—</span>}
                   </td>
-                  <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', color: '#94a3b8', whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '6px 8px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
                     {fmt(r.amount_ttc)}
                   </td>
                   <td style={{ padding: '6px 8px' }}>
@@ -904,27 +904,27 @@ export function CsvImportView({ companyKeys, defaultCompanyKey, companyNames, on
       </div>
 
       {/* Pied : totaux + bouton import */}
-      <div style={{ padding: '14px 20px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, fontSize: 11, color: '#94a3b8' }}>
-          <span style={{ marginRight: 16 }}><strong style={{ color: '#f1f5f9' }}>{selectedRows.length}</strong> ligne{selectedRows.length > 1 ? 's' : ''} sélectionnée{selectedRows.length > 1 ? 's' : ''}</span>
+      <div style={{ padding: '14px 20px', borderTop: '1px solid var(--border-1)', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, fontSize: 11, color: 'var(--text-2)' }}>
+          <span style={{ marginRight: 16 }}><strong style={{ color: 'var(--text-0)' }}>{selectedRows.length}</strong> ligne{selectedRows.length > 1 ? 's' : ''} sélectionnée{selectedRows.length > 1 ? 's' : ''}</span>
           <span style={{ marginRight: 16 }}>Total HT : <strong style={{ color: '#34d399', fontFamily: 'monospace' }}>{fmt(totalHT)} €</strong></span>
           {totalTVA > 0 && <span style={{ marginRight: 16 }}>TVA : <strong style={{ color: '#f59e0b', fontFamily: 'monospace' }}>{fmt(totalTVA)} €</strong></span>}
-          <span>Total TTC : <strong style={{ color: '#94a3b8', fontFamily: 'monospace' }}>{fmt(totalTTC)} €</strong></span>
+          <span>Total TTC : <strong style={{ color: 'var(--text-2)', fontFamily: 'monospace' }}>{fmt(totalTTC)} €</strong></span>
         </div>
         {someInvalid && (
           <div style={{ fontSize: 11, color: '#f59e0b' }}>⚠ Certaines lignes ont une date ou un montant manquant</div>
         )}
         {rows.some(r => !r.selected && (!r.date || r.amount_ht === 0)) && (
-          <div style={{ fontSize: 11, color: '#94a3b8' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-2)' }}>
             ⓘ {rows.filter(r => !r.selected && (!r.date || r.amount_ht === 0)).length} ligne(s) sans date ou à 0 € décochée(s) automatiquement
           </div>
         )}
         <button onClick={handleImport} disabled={saving || selectedRows.length === 0}
           style={{
             padding: '9px 22px', borderRadius: 8, fontSize: 13, fontWeight: 700,
-            background: selectedRows.length > 0 ? 'rgba(20,184,166,0.2)' : 'rgba(255,255,255,0.05)',
-            border: `1px solid ${selectedRows.length > 0 ? 'rgba(20,184,166,0.4)' : 'rgba(255,255,255,0.1)'}`,
-            color: selectedRows.length > 0 ? '#14b8a6' : '#94a3b8',
+            background: selectedRows.length > 0 ? 'rgba(20,184,166,0.2)' : 'var(--bg-2)',
+            border: `1px solid ${selectedRows.length > 0 ? 'rgba(20,184,166,0.4)' : 'var(--bg-2)'}`,
+            color: selectedRows.length > 0 ? '#14b8a6' : 'var(--text-2)',
             cursor: saving || selectedRows.length === 0 ? 'not-allowed' : 'pointer',
             opacity: saving ? 0.7 : 1,
           }}>
