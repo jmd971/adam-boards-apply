@@ -128,7 +128,8 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background:'#0d1424', borderRadius:14, width:'min(1100px,95vw)', maxHeight:'88vh', display:'flex', flexDirection:'column', border:'1px solid rgba(255,255,255,0.1)', boxShadow:'0 30px 60px rgba(0,0,0,0.6)' }}
+        className="ab-light"
+        style={{ background:'var(--bg-1)', borderRadius:14, width:'min(1100px,95vw)', maxHeight:'88vh', display:'flex', flexDirection:'column', border:'1px solid var(--border-1)', boxShadow:'0 30px 60px rgba(0,0,0,0.6)' }}
       >
 
         {/* En-tête */}
@@ -154,7 +155,7 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
                 </div>
               </div>
             ))}
-            <button onClick={onClose} style={{ background:'rgba(255,255,255,0.08)', border:'none', color:'var(--text-2)', fontSize:16, cursor:'pointer', width:34, height:34, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <button onClick={onClose} style={{ background:'var(--bg-2)', border:'none', color:'var(--text-2)', fontSize:16, cursor:'pointer', width:34, height:34, borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }}>
               ✕
             </button>
           </div>
@@ -172,7 +173,7 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
         {/* Tableau */}
         <div style={{ flex:1, overflowY:'auto', minHeight:0 }}>
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-            <thead style={{ position:'sticky', top:0, background:'#0d1424', zIndex:2 }}>
+            <thead style={{ position:'sticky', top:0, background:'var(--bg-1)', zIndex:2 }}>
               <tr>
                 <SortTh col={0} label="Date"    align="left"   w={100} />
                 <SortTh col={1} label="Libellé" align="left"   />
@@ -204,7 +205,7 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
                 const isOD  = e[5] === 1
                 return (
                   <tr key={i} style={{
-                    borderBottom: '1px solid rgba(255,255,255,0.03)',
+                    borderBottom: '1px solid rgba(20,30,60,0.05)',
                     background: isOD ? 'rgba(245,158,11,0.04)' : isN1 ? 'rgba(148,163,184,0.03)' : 'transparent',
                     opacity: isOD ? 0.75 : 1,
                   }}>
@@ -215,7 +216,7 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
                         <button onClick={ev => { ev.stopPropagation(); openInvoice(String(e[7])) }}
                           title="Voir / télécharger la facture"
                           style={{ marginLeft:8, display:'inline-flex', alignItems:'center', gap:3, padding:'1px 7px',
-                            borderRadius:6, background:'rgba(59,130,246,0.18)', color:'#93c5fd', fontSize:10, fontWeight:600,
+                            borderRadius:6, background:'rgba(59,130,246,0.18)', color:'#1e88c7', fontSize:10, fontWeight:600,
                             border:'none', boxShadow:'inset 0 0 0 1px rgba(59,130,246,0.35)', cursor:'pointer',
                             fontFamily:'inherit', verticalAlign:'middle' }}>
                           📎 Facture
@@ -286,7 +287,7 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
                   </thead>
                   <tbody>
                     {kids.map((ch, ci) => (
-                      <tr key={ci} style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                      <tr key={ci} style={{ borderBottom:'1px solid rgba(20,30,60,0.05)' }}>
                         <td style={{ padding:'4px 8px', color:'var(--text-1)', whiteSpace:'nowrap' }}>
                           <span style={{ color:'var(--amber)', marginRight:6, opacity:0.7 }}>└</span>
                           {ch.name || <span style={{ color:'var(--text-3)', fontStyle:'italic' }}>(sans nom)</span>}
@@ -339,7 +340,7 @@ export function EcrituresModal({ title, entries, cumN, cumN1, budChildren, budSe
         </div>
 
         {/* Footer totaux */}
-        <div style={{ padding:'10px 20px', borderTop:'1px solid var(--border-1)', flexShrink:0, display:'flex', alignItems:'center', gap:24, background:'rgba(255,255,255,0.02)' }}>
+        <div style={{ padding:'10px 20px', borderTop:'1px solid var(--border-1)', flexShrink:0, display:'flex', alignItems:'center', gap:24, background:'rgba(20,30,60,0.03)' }}>
           {[
             { label:'Débit',  value:totalD, color:'var(--text-1)' },
             { label:'Crédit', value:totalC, color:'var(--text-1)' },

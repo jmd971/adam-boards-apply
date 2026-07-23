@@ -246,7 +246,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               onClick={() => onOpenModal?.(`${acc} — ${lbl}`, ents, true, val, d.cumulN1S, acc)}
               style={{ background:'rgba(20,30,60,0.05)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
-              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
+              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'var(--bg-2)', whiteSpace:'nowrap' }}>
                 <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
                 <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
                 <span>{lbl}</span>
@@ -364,7 +364,7 @@ export function PlTable({ struct, plCalc, RAW, selCo, selectedMs, msSrc: _msSrc,
               onClick={() => onOpenModal?.(`${acc} — ${lbl}`, allEnts, true, val, valN1, acc)}
               style={{ background:'rgba(20,30,60,0.05)', borderBottom:'1px solid var(--border-0)', cursor: onOpenModal ? 'pointer' : 'default' }}
             >
-              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'rgba(6,11,20,0.95)', whiteSpace:'nowrap' }}>
+              <td style={{ padding:'5px 14px 5px 48px', fontSize:11, color:'var(--text-2)', position:'sticky', left:0, zIndex:2, background:'var(--bg-2)', whiteSpace:'nowrap' }}>
                 <span style={{ color:'var(--blue)', marginRight:5, fontSize:9 }}>▸</span>
                 <span style={{ fontFamily:'monospace', color:'var(--text-3)', marginRight:6, fontSize:10 }}>{acc}</span>
                 <span>{lbl}</span>
