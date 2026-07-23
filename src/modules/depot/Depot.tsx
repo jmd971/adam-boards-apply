@@ -60,7 +60,7 @@ function LinkManager() {
 
   return (
     <div>
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 12 }}>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-0)', marginBottom: 12 }}>
         Liens de dépôt
       </h3>
 
@@ -68,16 +68,16 @@ function LinkManager() {
       <div style={{
         display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap',
         marginBottom: 16, padding: '12px 16px', borderRadius: 10,
-        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
+        background: 'rgba(20,30,60,0.03)', border: '1px solid var(--border-1)',
       }}>
         <div style={{ flex: '1 1 160px' }}>
-          <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Société *</div>
+          <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 4 }}>Société *</div>
           <select value={form.company_key}
             onChange={e => setForm(f => ({ ...f, company_key: e.target.value }))}
             style={{
               width: '100%', padding: '6px 10px', borderRadius: 6, fontSize: 12,
-              background: 'rgba(255,255,255,0.06)', color: '#f1f5f9',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--bg-2)', color: 'var(--text-0)',
+              border: '1px solid var(--border-1)',
             }}>
             <option value="">Sélectionner...</option>
             {companies.map(co => (
@@ -86,24 +86,24 @@ function LinkManager() {
           </select>
         </div>
         <div style={{ flex: '1 1 160px' }}>
-          <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Libellé (optionnel)</div>
+          <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 4 }}>Libellé (optionnel)</div>
           <input value={form.label}
             onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
             placeholder="Ex: Dépôt mensuel Mars"
             style={{
               width: '100%', padding: '6px 10px', borderRadius: 6, fontSize: 12,
-              background: 'rgba(255,255,255,0.06)', color: '#f1f5f9',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--bg-2)', color: 'var(--text-0)',
+              border: '1px solid var(--border-1)',
             }} />
         </div>
         <div style={{ flex: '0 0 90px' }}>
-          <div style={{ fontSize: 10, color: '#94a3b8', marginBottom: 4 }}>Période</div>
+          <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 4 }}>Période</div>
           <select value={form.period}
             onChange={e => setForm(f => ({ ...f, period: e.target.value }))}
             style={{
               width: '100%', padding: '6px 10px', borderRadius: 6, fontSize: 12,
-              background: 'rgba(255,255,255,0.06)', color: '#f1f5f9',
-              border: '1px solid rgba(255,255,255,0.1)',
+              background: 'var(--bg-2)', color: 'var(--text-0)',
+              border: '1px solid var(--border-1)',
             }}>
             <option value="N">N</option>
             <option value="N-1">N-1</option>
@@ -113,7 +113,7 @@ function LinkManager() {
         <button onClick={createLink} disabled={!form.company_key || creating}
           style={{
             padding: '7px 16px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-            background: form.company_key ? '#3b82f6' : 'rgba(59,130,246,0.3)',
+            background: form.company_key ? '#1e88c7' : 'rgba(59,130,246,0.3)',
             color: '#fff', border: 'none', cursor: form.company_key ? 'pointer' : 'default',
             opacity: creating ? 0.6 : 1,
           }}>
@@ -123,7 +123,7 @@ function LinkManager() {
 
       {/* Liste des liens */}
       {isLoading ? <Spinner size={18} /> : links.length === 0 ? (
-        <div style={{ fontSize: 12, color: '#94a3b8', padding: '12px 0' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-2)', padding: '12px 0' }}>
           Aucun lien créé. Créez un lien pour permettre à vos clients de déposer leurs fichiers FEC.
         </div>
       ) : (
@@ -132,24 +132,24 @@ function LinkManager() {
             <div key={lk.id} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
               borderRadius: 8, fontSize: 12,
-              background: lk.active ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.01)',
-              border: `1px solid ${lk.active ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)'}`,
+              background: lk.active ? 'rgba(20,30,60,0.03)' : 'rgba(20,30,60,0.03)',
+              border: `1px solid ${lk.active ? 'var(--bg-2)' : 'rgba(20,30,60,0.03)'}`,
               opacity: lk.active ? 1 : 0.5,
             }}>
-              <span style={{ fontWeight: 600, color: '#f1f5f9', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontWeight: 600, color: 'var(--text-0)', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {lk.label || lk.company_key}
               </span>
-              <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: 'var(--text-2)', flexShrink: 0 }}>
                 {lk.period}
               </span>
-              <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
+              <span style={{ fontSize: 10, color: 'var(--text-2)', flexShrink: 0 }}>
                 {new Date(lk.created_at).toLocaleDateString('fr-FR')}
               </span>
               <button onClick={() => copyLink(lk.token)}
                 style={{
                   padding: '4px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600,
                   background: copied === lk.token ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.12)',
-                  color: copied === lk.token ? '#6ee7b7' : '#93c5fd',
+                  color: copied === lk.token ? '#6ee7b7' : '#1e88c7',
                   border: 'none', cursor: 'pointer', flexShrink: 0,
                 }}>
                 {copied === lk.token ? 'Copié !' : 'Copier le lien'}
@@ -283,7 +283,7 @@ function PendingDeposits() {
   }
 
   return (
-    <div>
+    <div className="ab-light" style={{ background:'var(--bg-0)', minHeight:'100%' }}>
       {/* Preview modal */}
       {preview && (
         <div style={{
@@ -293,20 +293,20 @@ function PendingDeposits() {
           <div style={{ fontSize: 13, fontWeight: 700, color: '#6ee7b7', marginBottom: 6 }}>
             Intégration réussie
           </div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
             {preview.company} &middot; {preview.period} &middot; {preview.months} mois &middot; {preview.entries.toLocaleString()} écritures
             {preview.warnings > 0 && <span style={{ color: '#f59e0b' }}> &middot; {preview.warnings} avertissement(s)</span>}
           </div>
           <button onClick={() => setPreview(null)} style={{
             marginTop: 8, padding: '4px 12px', borderRadius: 6, fontSize: 11,
-            background: 'rgba(255,255,255,0.06)', color: '#94a3b8',
+            background: 'var(--bg-2)', color: 'var(--text-2)',
             border: 'none', cursor: 'pointer',
           }}>Fermer</button>
         </div>
       )}
 
       {/* Pending */}
-      <h3 style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 12 }}>
+      <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-0)', marginBottom: 12 }}>
         Dépôts en attente
         {pending.length > 0 && (
           <span style={{
@@ -317,7 +317,7 @@ function PendingDeposits() {
       </h3>
 
       {isLoading ? <Spinner size={18} /> : pending.length === 0 ? (
-        <div style={{ fontSize: 12, color: '#94a3b8', padding: '12px 0', marginBottom: 24 }}>
+        <div style={{ fontSize: 12, color: 'var(--text-2)', padding: '12px 0', marginBottom: 24 }}>
           Aucun dépôt en attente.
         </div>
       ) : (
@@ -325,15 +325,15 @@ function PendingDeposits() {
           {pending.map(dep => (
             <div key={dep.id} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
-              borderRadius: 8, background: 'rgba(255,255,255,0.03)',
-              border: '1px solid rgba(255,255,255,0.06)', fontSize: 12,
+              borderRadius: 8, background: 'rgba(20,30,60,0.03)',
+              border: '1px solid var(--border-1)', fontSize: 12,
             }}>
               <span style={{ fontSize: 18, flexShrink: 0 }}>📄</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 600, color: '#f1f5f9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontWeight: 600, color: 'var(--text-0)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {dep.file_name}
                 </div>
-                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-2)', marginTop: 2 }}>
                   {dep.company_key} &middot; {dep.period} &middot; {formatSize(dep.file_size)} &middot; {new Date(dep.deposited_at).toLocaleString('fr-FR')}
                 </div>
               </div>
@@ -341,7 +341,7 @@ function PendingDeposits() {
                 disabled={integrating === dep.id}
                 style={{
                   padding: '6px 14px', borderRadius: 6, fontSize: 11, fontWeight: 600,
-                  background: '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer',
+                  background: '#1e88c7', color: '#fff', border: 'none', cursor: 'pointer',
                   opacity: integrating === dep.id ? 0.6 : 1, flexShrink: 0,
                 }}>
                 {integrating === dep.id ? 'Intégration...' : 'Intégrer'}
@@ -362,7 +362,7 @@ function PendingDeposits() {
       {/* Historique */}
       {history.length > 0 && (
         <>
-          <h3 style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-0)', marginBottom: 12 }}>
             Historique
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -371,17 +371,17 @@ function PendingDeposits() {
               return (
                 <div key={dep.id} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                  borderRadius: 8, background: 'rgba(255,255,255,0.02)',
-                  border: '1px solid rgba(255,255,255,0.04)', fontSize: 12,
+                  borderRadius: 8, background: 'rgba(20,30,60,0.03)',
+                  border: '1px solid var(--border-1)', fontSize: 12,
                 }}>
                   <span style={{ fontSize: 14, flexShrink: 0 }}>📄</span>
-                  <span style={{ flex: 1, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ flex: 1, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {dep.file_name}
                   </span>
-                  <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-2)', flexShrink: 0 }}>
                     {dep.company_key} &middot; {dep.period}
                   </span>
-                  <span style={{ fontSize: 10, color: '#94a3b8', flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-2)', flexShrink: 0 }}>
                     {new Date(dep.deposited_at).toLocaleDateString('fr-FR')}
                   </span>
                   <span style={{
@@ -403,14 +403,14 @@ function PendingDeposits() {
 export function Depot() {
   return (
     <div className="px-6 py-5" style={{ maxWidth: 900 }}>
-      <h2 className="text-base font-bold text-white mb-1">Dépôts clients</h2>
+      <h2 className="text-base font-bold text-[#111726] mb-1">Dépôts clients</h2>
       <p className="text-xs text-muted mb-6">
         Créez des liens de dépôt pour vos clients. Ils pourront déposer leurs fichiers FEC sans créer de compte.
       </p>
 
       <LinkManager />
 
-      <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '24px 0' }} />
+      <div style={{ height: 1, background: 'var(--bg-2)', margin: '24px 0' }} />
 
       <PendingDeposits />
     </div>

@@ -85,8 +85,8 @@ export function DepotPublic({ token }: Props) {
   }, [handleUpload])
 
   return (
-    <div style={{
-      minHeight: '100vh', background: '#080d1a', color: '#f1f5f9',
+    <div className="ab-light" style={{
+      minHeight: '100vh', background: 'var(--bg-0)', color: 'var(--text-0)',
       fontFamily: 'Outfit, Inter, sans-serif',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
@@ -95,21 +95,21 @@ export function DepotPublic({ token }: Props) {
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <div style={{
             width: 48, height: 48, borderRadius: 14,
-            background: 'linear-gradient(135deg,#3b82f6,#6366f1)',
+            background: 'linear-gradient(135deg,#1e88c7,#6366f1)',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 24, marginBottom: 12,
           }}>📊</div>
           <div style={{ fontSize: 20, fontWeight: 800 }}>
-            <span style={{ color: '#3b82f6' }}>adam</span>boards
+            <span style={{ color: '#1e88c7' }}>adam</span>boards
           </div>
-          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>
             Portail de dépôt de fichiers comptables
           </div>
         </div>
 
         {/* Loading */}
         {stage === 'loading' && (
-          <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+          <div style={{ textAlign: 'center', color: 'var(--text-2)', fontSize: 13 }}>
             Vérification du lien...
           </div>
         )}
@@ -126,7 +126,7 @@ export function DepotPublic({ token }: Props) {
               <button onClick={() => { setStage('ready'); setError('') }}
                 style={{
                   marginTop: 12, padding: '8px 20px', borderRadius: 8,
-                  background: 'rgba(59,130,246,0.15)', color: '#93c5fd',
+                  background: 'rgba(59,130,246,0.15)', color: '#1e88c7',
                   border: '1px solid rgba(59,130,246,0.3)', cursor: 'pointer',
                   fontSize: 12, fontWeight: 600,
                 }}>
@@ -143,11 +143,11 @@ export function DepotPublic({ token }: Props) {
               padding: '12px 16px', borderRadius: 10, marginBottom: 16,
               background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)',
             }}>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 2 }}>Dossier</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 2 }}>Dossier</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-0)' }}>
                 {link.label || link.company_key}
               </div>
-              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>
                 Période : {link.period}
               </div>
             </div>
@@ -159,15 +159,15 @@ export function DepotPublic({ token }: Props) {
               style={{
                 display: 'block', padding: '48px 24px', borderRadius: 14,
                 textAlign: 'center', cursor: 'pointer', transition: 'all 0.15s',
-                border: `2px dashed ${dragOver ? '#3b82f6' : 'rgba(255,255,255,0.1)'}`,
-                background: dragOver ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.02)',
+                border: `2px dashed ${dragOver ? '#1e88c7' : 'var(--bg-2)'}`,
+                background: dragOver ? 'rgba(59,130,246,0.08)' : 'rgba(20,30,60,0.03)',
               }}
             >
               <div style={{ fontSize: 40, marginBottom: 12 }}>📤</div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9', marginBottom: 4 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-0)', marginBottom: 4 }}>
                 Glissez votre fichier FEC ici
               </div>
-              <div style={{ fontSize: 12, color: '#94a3b8' }}>
+              <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
                 ou cliquez pour sélectionner (.txt, .csv)
               </div>
               <input type="file" accept=".txt,.csv" style={{ display: 'none' }} onChange={onFileSelect} />
@@ -180,14 +180,14 @@ export function DepotPublic({ token }: Props) {
           <div style={{ textAlign: 'center' }}>
             <div style={{
               width: 40, height: 40, border: '3px solid rgba(59,130,246,0.2)',
-              borderTopColor: '#3b82f6', borderRadius: '50%',
+              borderTopColor: '#1e88c7', borderRadius: '50%',
               animation: 'spin 0.8s linear infinite',
               margin: '0 auto 16px',
             }} />
-            <div style={{ fontSize: 13, color: '#93c5fd', fontWeight: 600 }}>
+            <div style={{ fontSize: 13, color: '#1e88c7', fontWeight: 600 }}>
               Envoi en cours...
             </div>
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>{fileName}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 4 }}>{fileName}</div>
             <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
           </div>
         )}
@@ -202,13 +202,13 @@ export function DepotPublic({ token }: Props) {
             <div style={{ fontSize: 15, fontWeight: 700, color: '#6ee7b7', marginBottom: 4 }}>
               Fichier déposé avec succès
             </div>
-            <div style={{ fontSize: 12, color: '#94a3b8' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-2)' }}>
               {fileName} — Votre comptable sera notifié.
             </div>
             <button onClick={() => { setStage('ready'); setFileName('') }}
               style={{
                 marginTop: 16, padding: '8px 20px', borderRadius: 8,
-                background: 'rgba(59,130,246,0.15)', color: '#93c5fd',
+                background: 'rgba(59,130,246,0.15)', color: '#1e88c7',
                 border: '1px solid rgba(59,130,246,0.3)', cursor: 'pointer',
                 fontSize: 12, fontWeight: 600,
               }}>
@@ -218,7 +218,7 @@ export function DepotPublic({ token }: Props) {
         )}
 
         {/* Footer */}
-        <div style={{ textAlign: 'center', marginTop: 40, fontSize: 10, color: '#334155' }}>
+        <div style={{ textAlign: 'center', marginTop: 40, fontSize: 10, color: 'var(--text-1)' }}>
           Portail sécurisé — adamboards.fr
         </div>
       </div>

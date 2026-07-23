@@ -67,15 +67,15 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   }
 
   const inputClass = `
-    w-full px-4 py-3 rounded-xl text-sm text-white
+    w-full px-4 py-3 rounded-xl text-sm text-[#111726]
     bg-white/5 border border-white/10
     focus:outline-none focus:border-brand-blue/60 focus:bg-white/8
     placeholder:text-muted transition-all
   `
 
   return (
-    <div className="min-h-screen flex items-center justify-center"
-      style={{ background: '#080d1a', fontFamily: 'Outfit, Inter, sans-serif' }}>
+    <div className="min-h-screen flex items-center justify-center ab-light"
+      style={{ background: 'var(--bg-0)', fontFamily: 'Outfit, Inter, sans-serif' }}>
       <div className="w-full max-w-sm mx-4">
 
         {/* Logo */}
@@ -86,17 +86,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {/* Card */}
         <div className="rounded-2xl p-8"
-          style={{ background: '#0d1426', border: '1px solid rgba(255,255,255,0.07)' }}>
+          style={{ background: 'var(--bg-1)', border: '1px solid var(--border-1)' }}>
 
           {/* Tabs login / signup */}
           <div className="flex rounded-xl overflow-hidden mb-6"
-            style={{ background: 'rgba(255,255,255,0.04)' }}>
+            style={{ background: 'var(--bg-2)' }}>
             {(['login', 'signup'] as const).map(m => (
               <button key={m} onClick={() => { setMode(m); setError(null) }}
                 className="flex-1 py-2.5 text-sm font-semibold transition-all"
                 style={{
                   background: mode === m ? 'rgba(59,130,246,0.2)' : 'transparent',
-                  color: mode === m ? '#93c5fd' : '#94a3b8',
+                  color: mode === m ? '#1e88c7' : 'var(--text-2)',
                   border: 'none', cursor: 'pointer',
                   boxShadow: mode === m ? 'inset 0 0 0 1px rgba(59,130,246,0.3)' : 'none',
                   borderRadius: 10,
@@ -154,9 +154,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
             <button
               onClick={handleSubmit}
               disabled={loading || !email || !password || (mode === 'signup' && !company.trim())}
-              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all mt-2"
+              className="w-full py-3 rounded-xl text-sm font-bold text-[#111726] transition-all mt-2"
               style={{
-                background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                background: loading ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg,#1e88c7,#6366f1)',
                 border: 'none', cursor: loading ? 'not-allowed' : 'pointer',
               }}
             >
@@ -170,7 +170,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
         {mode === 'signup' && (
           <p className="text-center text-xs text-muted mt-4">
-            Votre compte sera créé avec le rôle <strong style={{ color: '#93c5fd' }}>Administrateur</strong>.
+            Votre compte sera créé avec le rôle <strong style={{ color: '#1e88c7' }}>Administrateur</strong>.
           </p>
         )}
       </div>
