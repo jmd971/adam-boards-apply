@@ -303,7 +303,7 @@ function PeriodPicker({ months, period, onChange }: { months: string[]; period: 
 
 function Kpi({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div style={{ background:'#ffffff', border:'1px solid #e6e9f0', borderRadius:12, padding:'14px 16px' }}>
+    <div style={{ background:'#ffffff', border:'1px solid #e6e9f0', borderRadius:12, padding:'14px 16px', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
       <div style={{ fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:6 }}>{label}</div>
       <div style={{ fontSize:19, fontWeight:800, color: accent ?? 'var(--text-0)' }}>{value}</div>
       {sub && <div style={{ fontSize:10.5, color:'var(--text-3)', marginTop:4 }}>{sub}</div>}

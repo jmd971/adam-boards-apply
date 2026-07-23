@@ -211,7 +211,7 @@ function WhatIfPanel({ coBud, monthOrder }: WhatIfProps) {
   return (
     <div style={{
       background: '#ffffff', borderRadius: 12, padding: '20px 24px', marginBottom: 16,
-      border: '1px solid rgba(139,92,246,0.25)',
+      border: '1px solid rgba(139,92,246,0.25)', boxShadow: '0 2px 5px rgba(20,30,60,0.05)',
     }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -1282,7 +1282,7 @@ export function Budget() {
                 const cT = totals.charges.reduce((s, x) => s + x, 0)
                 const rT = pT - cT
                 const Card = ({ label, val, color }: { label: string; val: number; color: string }) => (
-                  <div style={{ background:'#ffffff', border:'1px solid #eceef4', borderRadius:10, padding:'10px 14px' }}>
+                  <div style={{ background:'#ffffff', border:'1px solid #eceef4', borderRadius:10, padding:'10px 14px', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
                     <div style={{ fontSize:10, letterSpacing:'0.05em', textTransform:'uppercase', color:'#64748b' }}>{label}</div>
                     <div style={{ fontSize:20, fontWeight:800, marginTop:3, fontFamily:'monospace', color }}>{fmt(val)} €</div>
                   </div>
@@ -1310,7 +1310,7 @@ export function Budget() {
                   </button>
                 </div>
               ) : (
-                <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 240px)', overflowY:'auto', borderRadius:12, border:'1px solid #eceef4' }}>
+                <div style={{ overflowX:'auto', maxHeight:'calc(100vh - 240px)', overflowY:'auto', borderRadius:12, border:'1px solid #eceef4', boxShadow:'0 2px 5px rgba(20,30,60,0.05)' }}>
                   {/* maxHeight + overflow:auto → le scroll vertical se fait DANS ce conteneur,
                       condition nécessaire pour que les th sticky (top:0) restent visibles.
                       Sticky posé sur les th (pas le tr) : sticky sur <tr> n'est pas fiable sous Chrome. */}
@@ -1495,7 +1495,7 @@ export function Budget() {
         const close = () => setMenu(null)
         const Item = ({ icon, label, extra, danger, onClick }: { icon: string; label: string; extra?: string; danger?: boolean; onClick: () => void }) => (
           <div className="bud-mi" onClick={() => { onClick(); close() }}
-            style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:7, fontSize:13, color: danger ? '#ff9d9d' : '#3c4557', cursor:'pointer' }}>
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:7, fontSize:13, color: danger ? '#e0524f' : '#3c4557', cursor:'pointer' }}>
             <span style={{ width:18, textAlign:'center' }}>{icon}</span>
             <span>{label}</span>
             {extra && <span style={{ marginLeft:'auto', fontSize:11, color:'#64748b' }}>{extra}</span>}
@@ -1504,7 +1504,7 @@ export function Budget() {
         return (
           <>
             <div onClick={close} style={{ position:'fixed', inset:0, zIndex:200 }} />
-            <div style={{ position:'fixed', top:menu.y, left:menu.x, zIndex:201, background:'#ffffff', border:'1px solid rgba(255,255,255,0.14)', borderRadius:10, padding:6, minWidth:238, boxShadow:'0 14px 44px rgba(0,0,0,0.55)' }}>
+            <div style={{ position:'fixed', top:menu.y, left:menu.x, zIndex:201, background:'#ffffff', border:'1px solid #e0e4ec', borderRadius:10, padding:6, minWidth:238, boxShadow:'0 14px 44px rgba(20,30,60,0.18)' }}>
               {!isChild && ents.length > 0 && <Item icon="📄" label="Voir les écritures réalisées" extra={`${ents.length} éc.`} onClick={() => openEcritures(menu.acc)} />}
               {!isChild && <Item icon="＋" label="Ajouter un sous-compte" onClick={() => addChild(menu.acc)} />}
               {(isChild || !hasChildren) && <Item icon="↻" label="Recopier un montant…" onClick={() => openFillModal(menu.acc, isChild ? menu.ci : undefined)} />}
