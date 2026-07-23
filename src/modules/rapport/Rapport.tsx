@@ -356,10 +356,10 @@ function PlanActionTable({ rows }: { rows: PlanAction[] }) {
     <div className="rp-avoid" style={{ marginTop:20 }}>
       <div style={{ fontSize:11, fontWeight:800, color:'#3b82f6', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Plan d'action priorisé</div>
       <div style={{ border:'1px solid rgba(59,130,246,0.25)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed' }}>
           <thead>
             <tr style={{ background:'rgba(59,130,246,0.08)' }}>
-              <th style={{ ...th, width:78 }}>Priorité</th><th style={th}>Cible</th><th style={th}>Constat</th><th style={th}>Action recommandée</th><th style={{ ...th, width:110 }}>Impact</th>
+              <th style={{ ...th, width:'9%' }}>Priorité</th><th style={{ ...th, width:'16%' }}>Cible</th><th style={{ ...th, width:'23%' }}>Constat</th><th style={{ ...th, width:'33%' }}>Action recommandée</th><th style={{ ...th, width:'19%' }}>Impact</th>
             </tr>
           </thead>
           <tbody>
@@ -371,7 +371,7 @@ function PlanActionTable({ rows }: { rows: PlanAction[] }) {
                   <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{r.cible}</td>
                   <td style={td}>{r.constat}</td>
                   <td style={{ ...td, color:'#93c5fd' }}>{r.action}</td>
-                  <td style={{ ...td, fontFamily:'monospace', color:'#34d399', fontWeight:700, whiteSpace:'nowrap' }}>{r.impact || '—'}</td>
+                  <td style={{ ...td, color:'#34d399', fontWeight:700, overflowWrap:'anywhere' }}>{r.impact || '—'}</td>
                 </tr>
               )
             })}
