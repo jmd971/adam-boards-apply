@@ -104,14 +104,15 @@ export function Rapport() {
   const rangeLabel = (rangeStart && rangeEnd) ? `${monthLabel(rangeStart)} → ${monthLabel(rangeEnd)}` : ''
 
   return (
-    <div style={{ padding:'24px 28px', maxWidth:1040, margin:'0 auto' }}>
+    <div className="ab-light" style={{ background:'var(--bg-0)', minHeight:'100%' }}>
+      <div style={{ padding:'24px 28px', maxWidth:1040, margin:'0 auto' }}>
       <div className="rapport-actions" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24, gap:16, flexWrap:'wrap' }}>
         <div>
           <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:'var(--text-0)' }}>Rapport d'activité</h2>
           <div style={{ fontSize:12, color:'var(--text-3)', marginTop:4 }}>
             Exercice {data.exerciceN} vs {data.exerciceN1} vs Budget
             {!data.periodeComplete && (
-              <span style={{ marginLeft:8, padding:'2px 8px', borderRadius:6, background:'rgba(245,158,11,0.15)', color:'#fcd34d', fontSize:10.5, fontWeight:700 }}>
+              <span style={{ marginLeft:8, padding:'2px 8px', borderRadius:6, background:'rgba(245,158,11,0.15)', color:'#b9721f', fontSize:10.5, fontWeight:700 }}>
                 à même période ({data.nbMois} mois)
               </span>
             )}
@@ -119,12 +120,12 @@ export function Rapport() {
         </div>
         <div style={{ display:'flex', gap:10 }}>
           <button onClick={generer} disabled={loading}
-            style={{ background: loading ? '#475569' : 'linear-gradient(135deg,#3b82f6,#8b5cf6)', color:'#fff', border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor: loading ? 'wait' : 'pointer', display:'flex', alignItems:'center', gap:8 }}>
+            style={{ background: loading ? '#475569' : 'linear-gradient(135deg,#1e88c7,#8b5cf6)', color:'#fff', border:'none', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor: loading ? 'wait' : 'pointer', display:'flex', alignItems:'center', gap:8 }}>
             {loading ? <Spinner size={14} /> : '✨'} {loading ? 'Analyse en cours…' : rapport ? 'Régénérer' : 'Générer le rapport'}
           </button>
           {rapport && (
             <button onClick={() => window.print()}
-              style={{ background:'rgba(255,255,255,0.08)', color:'var(--text-1)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer' }}>
+              style={{ background:'#e6e9f0', color:'var(--text-1)', border:'1px solid #d5dae4', borderRadius:10, padding:'10px 18px', fontSize:13, fontWeight:700, cursor:'pointer' }}>
               📄 Exporter en PDF
             </button>
           )}
@@ -132,7 +133,7 @@ export function Rapport() {
       </div>
 
       {error && (
-        <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:10, padding:'12px 16px', color:'#fca5a5', fontSize:13, marginBottom:20 }}>
+        <div style={{ background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', borderRadius:10, padding:'12px 16px', color:'#b33b38', fontSize:13, marginBottom:20 }}>
           ⚠️ {error}
         </div>
       )}
@@ -239,6 +240,7 @@ export function Rapport() {
           @page { margin: 14mm; }
         }
       `}</style>
+      </div>
     </div>
   )
 }
@@ -264,7 +266,7 @@ function PeriodPicker({ months, period, onChange }: { months: string[]; period: 
   const onEnd   = (v: string) => onChange({ startM: v < curStart ? v : curStart, endM: v })
 
   const selStyle: React.CSSProperties = {
-    background: 'rgba(255,255,255,0.05)', color: 'var(--text-1)', border: '1px solid rgba(255,255,255,0.15)',
+    background: '#f2f5f9', color: 'var(--text-1)', border: '1px solid #d5dae4',
     borderRadius: 8, padding: '5px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
   }
 
@@ -277,9 +279,9 @@ function PeriodPicker({ months, period, onChange }: { months: string[]; period: 
           <button key={i} onClick={() => onChange(p.value)}
             style={{
               fontSize: 11.5, fontWeight: 700, cursor: 'pointer', borderRadius: 8, padding: '5px 11px',
-              color: on ? '#0b1220' : 'var(--text-1)',
-              background: on ? '#3b82f6' : 'rgba(255,255,255,0.04)',
-              border: `1px solid ${on ? '#3b82f6' : 'rgba(255,255,255,0.12)'}`,
+              color: on ? '#ffffff' : 'var(--text-1)',
+              background: on ? '#1e88c7' : '#ffffff',
+              border: `1px solid ${on ? '#1e88c7' : '#dde1ea'}`,
             }}>
             {p.label}
           </button>
@@ -301,7 +303,7 @@ function PeriodPicker({ months, period, onChange }: { months: string[]; period: 
 
 function Kpi({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div style={{ background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'14px 16px' }}>
+    <div style={{ background:'#ffffff', border:'1px solid #e6e9f0', borderRadius:12, padding:'14px 16px' }}>
       <div style={{ fontSize:10, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'0.5px', marginBottom:6 }}>{label}</div>
       <div style={{ fontSize:19, fontWeight:800, color: accent ?? 'var(--text-0)' }}>{value}</div>
       {sub && <div style={{ fontSize:10.5, color:'var(--text-3)', marginTop:4 }}>{sub}</div>}
@@ -313,11 +315,11 @@ function Essentiel({ items }: { items: string[] }) {
   if (!items?.length) return null
   return (
     <div className="rp-avoid" style={{ background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.3)', borderRadius:12, padding:'14px 16px', marginBottom:18 }}>
-      <div style={{ fontSize:11, fontWeight:800, color:'#60a5fa', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:10 }}>⚡ L'essentiel</div>
+      <div style={{ fontSize:11, fontWeight:800, color:'#1e88c7', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:10 }}>⚡ L'essentiel</div>
       <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
         {items.map((it, i) => (
           <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
-            <span style={{ flex:'0 0 20px', height:20, borderRadius:6, background:'#3b82f6', color:'#04122e', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:1 }}>{i + 1}</span>
+            <span style={{ flex:'0 0 20px', height:20, borderRadius:6, background:'#1e88c7', color:'#ffffff', fontSize:11, fontWeight:800, display:'flex', alignItems:'center', justifyContent:'center', marginTop:1 }}>{i + 1}</span>
             <span style={{ fontSize:13.5, color:'var(--text-1)', lineHeight:1.5 }}>{it}</span>
           </div>
         ))}
@@ -329,7 +331,7 @@ function Essentiel({ items }: { items: string[] }) {
 function BulletCard({ titre, accent, items }: { titre: string; accent: string; items: string[] }) {
   if (!items?.length) return null
   return (
-    <div className="rp-avoid" style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'14px 16px' }}>
+    <div className="rp-avoid" style={{ background:'#fbfcfe', border:'1px solid #e6e9f0', borderRadius:12, padding:'14px 16px' }}>
       <div style={{ fontSize:11, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.7px', marginBottom:10 }}>{titre}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {items.map((it, i) => (
@@ -354,7 +356,7 @@ function PlanActionTable({ rows }: { rows: PlanAction[] }) {
   }
   return (
     <div className="rp-avoid" style={{ marginTop:20 }}>
-      <div style={{ fontSize:11, fontWeight:800, color:'#3b82f6', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Plan d'action priorisé</div>
+      <div style={{ fontSize:11, fontWeight:800, color:'#1e88c7', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Plan d'action priorisé</div>
       <div style={{ border:'1px solid rgba(59,130,246,0.25)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, tableLayout:'fixed' }}>
           <thead>
@@ -366,11 +368,11 @@ function PlanActionTable({ rows }: { rows: PlanAction[] }) {
             {sorted.map((r, i) => {
               const p = prioUI[r.priorite] ?? prioUI.basse
               return (
-                <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)', verticalAlign:'top' }}>
+                <tr key={i} style={{ borderTop:'1px solid #eceef4', verticalAlign:'top' }}>
                   <td style={td}><span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:999, background:p.bg, color:p.color, whiteSpace:'nowrap' }}>{p.label}</span></td>
                   <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{r.cible}</td>
                   <td style={td}>{r.constat}</td>
-                  <td style={{ ...td, color:'#93c5fd' }}>{r.action}</td>
+                  <td style={{ ...td, color:'#1266a0' }}>{r.action}</td>
                   <td style={{ ...td, color:'#34d399', fontWeight:700, overflowWrap:'anywhere' }}>{r.impact || '—'}</td>
                 </tr>
               )
@@ -387,14 +389,14 @@ function TiersTable({ titre, tiers }: { titre: string; tiers: TiersDelai[] }) {
   return (
     <div style={{ marginTop:24 }}>
       <div style={{ fontSize:12, fontWeight:800, color:'var(--text-1)', marginBottom:10 }}>{titre}</div>
-      <div style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
+      <div style={{ border:'1px solid #e6e9f0', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-          <thead><tr style={{ background:'rgba(255,255,255,0.04)' }}>
+          <thead><tr style={{ background:'#ffffff' }}>
             <th style={th}>Tiers</th><th style={th}>Source</th><th style={thR}>Total N</th><th style={thR}>Nb fact.</th><th style={thR}>Délai moyen</th><th style={thR}>Poids</th><th style={thR}>Contrib. délai</th><th style={thR}>Impayés</th>
           </tr></thead>
           <tbody>
             {tiers.map((t, i) => (
-              <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+              <tr key={i} style={{ borderTop:'1px solid #eceef4' }}>
                 <td style={{ ...td, fontWeight:700, color:'var(--text-0)' }}>{t.name}</td>
                 <td style={td}><SourceBadge source={t.source} /></td>
                 <td style={tdR}>{eur(t.totalN)}</td>
@@ -417,16 +419,16 @@ function ComptesTable({ titre, lignes, inverse, noBudget }: { titre: string; lig
   return (
     <div style={{ marginTop:24 }}>
       <div style={{ fontSize:12, fontWeight:800, color:'var(--text-1)', marginBottom:10 }}>{titre}</div>
-      <div style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
+      <div style={{ border:'1px solid #e6e9f0', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-          <thead><tr style={{ background:'rgba(255,255,255,0.04)' }}>
+          <thead><tr style={{ background:'#ffffff' }}>
             <th style={th}>Poste</th><th style={thR}>Total N</th><th style={thR}>N-1 (m.p.)</th><th style={thR}>Var.</th>
             {!noBudget && <th style={thR}>Budget</th>}{!noBudget && <th style={thR}>vs Bud.</th>}
             <th style={thR}>Fréq.</th><th style={thR}>Moy./écr.</th><th style={thR}>Poids</th>
           </tr></thead>
           <tbody>
             {lignes.map((l, i) => (
-              <tr key={i} style={{ borderTop:'1px solid rgba(255,255,255,0.06)' }}>
+              <tr key={i} style={{ borderTop:'1px solid #eceef4' }}>
                 <td style={td}><span style={{ color:'var(--text-3)', fontFamily:'monospace', fontSize:10.5 }}>{l.account}</span> {l.label}</td>
                 <td style={{ ...tdR, fontWeight:700, color:'var(--text-0)' }}>{eur(l.totalN)}</td>
                 <td style={tdR}>{eur(l.totalN1)}</td>
@@ -464,7 +466,7 @@ function ListBox({ titre, couleur, items, puce }: { titre: string; couleur: stri
 
 function SourceBadge({ source }: { source: 'FEC' | 'saisie' | 'FEC+saisie' }) {
   const map = {
-    'FEC':        { bg:'rgba(59,130,246,0.15)',  color:'#60a5fa' },
+    'FEC':        { bg:'rgba(59,130,246,0.15)',  color:'#1e88c7' },
     'saisie':     { bg:'rgba(148,163,184,0.15)', color:'#94a3b8' },
     'FEC+saisie': { bg:'rgba(16,185,129,0.15)',  color:'#34d399' },
   }[source]

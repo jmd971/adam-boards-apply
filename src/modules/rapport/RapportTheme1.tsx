@@ -91,9 +91,9 @@ export function RapportTheme1() {
     <button onClick={() => { setScope(s); setTheme(null) }}
       style={{
         padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: 'pointer',
-        border: '1px solid ' + (scope === s ? 'rgba(139,92,246,0.5)' : 'rgba(255,255,255,0.12)'),
+        border: '1px solid ' + (scope === s ? 'rgba(139,92,246,0.5)' : '#dde1ea'),
         background: scope === s ? 'rgba(139,92,246,0.18)' : 'transparent',
-        color: scope === s ? '#c4b5fd' : 'var(--text-2)',
+        color: scope === s ? '#6b5fd0' : 'var(--text-2)',
       }}>{txt}</button>
   )
 
@@ -101,7 +101,7 @@ export function RapportTheme1() {
     <div style={{ background: 'rgba(139,92,246,0.05)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 14, padding: '20px 22px', marginBottom: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-0)' }}>🧭 Rapport par thèmes <span style={{ fontSize: 10.5, color: '#c4b5fd', background: 'rgba(139,92,246,0.15)', padding: '2px 7px', borderRadius: 6, marginLeft: 6 }}>β</span></div>
+          <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-0)' }}>🧭 Rapport par thèmes <span style={{ fontSize: 10.5, color: '#6b5fd0', background: 'rgba(139,92,246,0.15)', padding: '2px 7px', borderRadius: 6, marginLeft: 6 }}>β</span></div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
             Thème 1 — Le résultat, en clair · <strong style={{ color: 'var(--text-2)' }}>{label}</strong> · hors OD · {t.nbMois} mois{!t.periodeComplete ? ' (à même période)' : ''}
           </div>
@@ -117,7 +117,7 @@ export function RapportTheme1() {
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#fca5a5', fontSize: 13, marginBottom: 14 }}>⚠️ {error}</div>
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#b33b38', fontSize: 13, marginBottom: 14 }}>⚠️ {error}</div>
       )}
 
       {/* Chiffres clés (toujours visibles) */}
@@ -137,7 +137,7 @@ export function RapportTheme1() {
           <Bloc n="3" titre="Pourquoi" texte={theme.pourquoi} />
           {theme.ce_que_ca_veut_dire?.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#c4b5fd', marginBottom: 6 }}>👉 Ce que ça veut dire pour piloter</div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#6b5fd0', marginBottom: 6 }}>👉 Ce que ça veut dire pour piloter</div>
               <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--text-1)', fontSize: 13, lineHeight: 1.7 }}>
                 {theme.ce_que_ca_veut_dire.map((m, i) => <li key={i}>{m}</li>)}
               </ul>
@@ -145,7 +145,7 @@ export function RapportTheme1() {
           )}
           {theme.intra_groupe && (
             <div style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 10, padding: '12px 14px', marginBottom: 12 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#fcd34d', marginBottom: 5 }}>🔗 Flux intra-groupe (analysés à part)</div>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: '#b9721f', marginBottom: 5 }}>🔗 Flux intra-groupe (analysés à part)</div>
               <div style={{ fontSize: 13, color: 'var(--text-1)', lineHeight: 1.7 }}>{theme.intra_groupe}</div>
             </div>
           )}
@@ -158,7 +158,7 @@ export function RapportTheme1() {
           <div style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-2)', marginBottom: 6 }}>Flux intra-groupe détectés</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {t.intraGroup.map((f, i) => (
-              <span key={i} style={{ fontSize: 11, color: 'var(--text-1)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 9px' }}>
+              <span key={i} style={{ fontSize: 11, color: 'var(--text-1)', background: '#f2f5f9', border: '1px solid #e0e4ec', borderRadius: 8, padding: '4px 9px' }}>
                 {f.company} → {f.entity} · <span style={{ color: 'var(--text-3)' }}>{f.label}</span> · <strong>{eur(f.montantN)}</strong>
                 <span style={{ color: 'var(--text-3)' }}> (N-1 {eur(f.montantN1)})</span>
               </span>
@@ -176,13 +176,13 @@ export function RapportTheme1() {
               <tr style={{ color: 'var(--text-3)', textAlign: 'right' }}>
                 <th style={{ textAlign: 'left', padding: '4px 8px' }}>Mois</th>
                 {t.monthly.map(m => <th key={m.month} style={{ padding: '4px 8px' }}>{m.month}</th>)}
-                <th style={{ padding: '4px 8px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>Cumul</th>
+                <th style={{ padding: '4px 8px', borderLeft: '1px solid #e0e4ec' }}>Cumul</th>
               </tr>
             </thead>
             <tbody style={{ fontFamily: 'monospace' }}>
               <Row label={`Résultat ${t.exerciceN}`} vals={t.monthly.map(m => m.resultatN)} total={t.resultatN} color="#10b981" />
               <Row label={`Résultat ${t.exerciceN1}`} vals={t.monthly.map(m => m.resultatN1)} total={t.resultatN1} color="var(--text-2)" />
-              {t.hasBudget && <Row label="Budget" vals={t.monthly.map(m => m.budget ?? 0)} total={t.resultatBudget} color="#93c5fd" />}
+              {t.hasBudget && <Row label="Budget" vals={t.monthly.map(m => m.budget ?? 0)} total={t.resultatBudget} color="#1266a0" />}
             </tbody>
           </table>
         </div>
@@ -193,17 +193,17 @@ export function RapportTheme1() {
 
 function Row({ label, vals, total, color }: { label: string; vals: number[]; total: number; color: string }) {
   return (
-    <tr style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+    <tr style={{ borderTop: '1px solid #f2f5f9' }}>
       <td style={{ textAlign: 'left', padding: '4px 8px', fontFamily: 'inherit', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{label}</td>
       {vals.map((v, i) => <td key={i} style={{ padding: '4px 8px', textAlign: 'right', color }}>{Math.round(v).toLocaleString('fr-FR')}</td>)}
-      <td style={{ padding: '4px 8px', textAlign: 'right', color, fontWeight: 700, borderLeft: '1px solid rgba(255,255,255,0.1)' }}>{Math.round(total).toLocaleString('fr-FR')}</td>
+      <td style={{ padding: '4px 8px', textAlign: 'right', color, fontWeight: 700, borderLeft: '1px solid #e0e4ec' }}>{Math.round(total).toLocaleString('fr-FR')}</td>
     </tr>
   )
 }
 
 function MiniKpi({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
+    <div style={{ background: '#f7f9fc', border: '1px solid #e6e9f0', borderRadius: 10, padding: '10px 12px' }}>
       <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600 }}>{label}</div>
       <div style={{ fontSize: 17, fontWeight: 800, color: accent || 'var(--text-0)', marginTop: 3, fontFamily: 'monospace' }}>{value}</div>
       {sub && <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{sub}</div>}
@@ -215,7 +215,7 @@ function Bloc({ n, titre, texte }: { n: string; titre: string; texte: string }) 
   if (!texte) return null
   return (
     <div style={{ marginBottom: 12 }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}><span style={{ color: '#c4b5fd' }}>{n}.</span> {titre}</div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-1)', marginBottom: 4 }}><span style={{ color: '#6b5fd0' }}>{n}.</span> {titre}</div>
       <div style={{ fontSize: 13, color: 'var(--text-1)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{texte}</div>
     </div>
   )

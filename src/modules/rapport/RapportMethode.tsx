@@ -30,7 +30,7 @@ const pts = (n: number | null) => n == null ? '—' : `${n > 0 ? '+' : ''}${n.to
 type CatKey = 'manquant' | 'nouveau' | 'ecart' | 'autres'
 const CAT_DEFS: { key: CatKey; label: string; color: string }[] = [
   { key: 'manquant', label: 'Manquants',         color: '#f87171' },
-  { key: 'nouveau',  label: 'Nouveaux',          color: '#60a5fa' },
+  { key: 'nouveau',  label: 'Nouveaux',          color: '#1e88c7' },
   { key: 'ecart',    label: 'Écarts de montant', color: '#fbbf24' },
   { key: 'autres',   label: 'Autres variations', color: '#94a3b8' },
 ]
@@ -55,7 +55,7 @@ const VERDICT_UI: Record<Verdict, { label: string; color: string; bg: string }> 
   conforme:        { label: 'Conforme',        color: '#34d399', bg: 'rgba(16,185,129,0.12)' },
   manquant:        { label: 'Manquant',        color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
   montant_anormal: { label: 'Montant inhabituel', color: '#fbbf24', bg: 'rgba(245,158,11,0.12)' },
-  nouveau:         { label: 'Nouveau',         color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
+  nouveau:         { label: 'Nouveau',         color: '#1e88c7', bg: 'rgba(59,130,246,0.12)' },
 }
 
 export function RapportMethode({ period }: { period?: { startM: string; endM: string } | null }) {
@@ -108,7 +108,7 @@ export function RapportMethode({ period }: { period?: { startM: string; endM: st
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 14 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-0)' }}>
-            🧠 Méthode AdamBoards <span style={{ fontSize: 10.5, color: '#6ee7b7', background: 'rgba(16,185,129,0.15)', padding: '2px 7px', borderRadius: 6, marginLeft: 6 }}>β</span>
+            🧠 Méthode AdamBoards <span style={{ fontSize: 10.5, color: '#0f7a45', background: 'rgba(16,185,129,0.15)', padding: '2px 7px', borderRadius: 6, marginLeft: 6 }}>β</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-3)', marginTop: 3 }}>
             Analyse descendante du résultat vers les écritures · <strong style={{ color: 'var(--text-2)' }}>{d.companyLabel}</strong> · {d.nbMois} mois{!d.periodeComplete ? ' (à même période)' : ''}
@@ -121,11 +121,11 @@ export function RapportMethode({ period }: { period?: { startM: string; endM: st
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#fca5a5', fontSize: 13, marginBottom: 14 }}>⚠️ {error}</div>
+        <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 10, padding: '10px 14px', color: '#b33b38', fontSize: 13, marginBottom: 14 }}>⚠️ {error}</div>
       )}
 
       {d.histoLimite && (
-        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '10px 14px', color: '#fcd34d', fontSize: 12.5, marginBottom: 14 }}>
+        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: '10px 14px', color: '#b9721f', fontSize: 12.5, marginBottom: 14 }}>
           ⏳ Pas d'exercice précédent en base — l'analyse des écarts (attendus, manquants) sera enrichie dès l'import du FEC {d.exerciceN1}.
         </div>
       )}
@@ -150,19 +150,19 @@ export function RapportMethode({ period }: { period?: { startM: string; endM: st
             <button key={cat.key} onClick={() => toggleCat(cat.key)}
               style={{
                 fontSize: 11.5, fontWeight: 700, cursor: 'pointer', borderRadius: 8, padding: '4px 10px',
-                color: on ? '#0b1220' : cat.color,
-                background: on ? cat.color : 'rgba(255,255,255,0.04)',
-                border: `1px solid ${on ? cat.color : 'rgba(255,255,255,0.12)'}`,
+                color: on ? '#ffffff' : cat.color,
+                background: on ? cat.color : '#ffffff',
+                border: `1px solid ${on ? cat.color : '#dde1ea'}`,
                 display: 'inline-flex', alignItems: 'center', gap: 5,
               }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: on ? '#0b1220' : cat.color, display: 'inline-block' }} />
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: on ? '#ffffff' : cat.color, display: 'inline-block' }} />
               {cat.label}
             </button>
           )
         })}
         {filtering && (
           <button onClick={() => setActiveCats(new Set())}
-            style={{ fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 8, padding: '4px 10px', color: 'var(--text-2)', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)' }}>
+            style={{ fontSize: 11, fontWeight: 600, cursor: 'pointer', borderRadius: 8, padding: '4px 10px', color: 'var(--text-2)', background: 'transparent', border: '1px solid #dde1ea' }}>
             ✕ Tout afficher
           </button>
         )}
@@ -176,7 +176,7 @@ export function RapportMethode({ period }: { period?: { startM: string; endM: st
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
               {ia.messages_cles.map((m, i) => (
                 <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                  <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(16,185,129,0.2)', color: '#6ee7b7', fontSize: 10.5, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>{i + 1}</span>
+                  <span style={{ width: 18, height: 18, borderRadius: '50%', background: 'rgba(16,185,129,0.2)', color: '#0f7a45', fontSize: 10.5, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>{i + 1}</span>
                   <span style={{ fontSize: 13.5, color: 'var(--text-1)', lineHeight: 1.6 }}>{m}</span>
                 </div>
               ))}
@@ -207,7 +207,7 @@ export function RapportMethode({ period }: { period?: { startM: string; endM: st
               return (
                 <div key={i} style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '10px 14px' }}>
                   <div style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.55 }}>{q.constat}</div>
-                  <div style={{ fontSize: 12.5, color: '#fcd34d', fontWeight: 600, marginTop: 4 }}>→ {iaQ?.question || q.question}</div>
+                  <div style={{ fontSize: 12.5, color: '#b9721f', fontWeight: 600, marginTop: 4 }}>→ {iaQ?.question || q.question}</div>
                 </div>
               )
             })}
@@ -253,7 +253,7 @@ function FamillesBloc({ titre, familles, charge, exN, exN1, histoLimite, activeC
       <div style={{ fontSize: 11.5, fontWeight: 800, color: accent, textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: 8 }}>{titre}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {visible.map(({ f, comptes }) => (
-          <details key={f.key} open={filtering} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '8px 12px' }}>
+          <details key={f.key} open={filtering} style={{ background: '#f7f9fc', border: '1px solid #e6e9f0', borderRadius: 10, padding: '8px 12px' }}>
             <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', fontSize: 12.5, listStyle: 'none' }}>
               <span style={{ fontWeight: 700, color: 'var(--text-0)' }}>
                 <span style={{ color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 10.5, marginRight: 6 }}>{f.key}</span>{f.label}
@@ -279,7 +279,7 @@ function FamillesBloc({ titre, familles, charge, exN, exN1, histoLimite, activeC
 function CompteBloc({ c, charge, histoLimite, activeCats }: { c: CompteAnalyse; charge: boolean; exN: number; exN1: number; histoLimite: boolean; activeCats: Set<CatKey> }) {
   const chips: { label: string; val: number; color: string }[] = []
   if (Math.abs(c.manquants) >= 1)     chips.push({ label: 'manquants', val: c.manquants, color: '#f87171' })
-  if (Math.abs(c.nouveaux) >= 1)      chips.push({ label: 'nouveaux', val: c.nouveaux, color: '#60a5fa' })
+  if (Math.abs(c.nouveaux) >= 1)      chips.push({ label: 'nouveaux', val: c.nouveaux, color: '#1e88c7' })
   if (Math.abs(c.ecartsMontant) >= 1) chips.push({ label: 'écarts de montant', val: c.ecartsMontant, color: '#fbbf24' })
   if (Math.abs(c.residuel) >= 1)      chips.push({ label: c.isOD ? 'OD / clôture' : 'autres variations', val: c.residuel, color: 'var(--text-3)' })
 
@@ -288,11 +288,11 @@ function CompteBloc({ c, charge, histoLimite, activeCats }: { c: CompteAnalyse; 
   const groupes = filtering ? c.groupes.filter(g => activeCats.has(catOfGroupe(g))) : c.groupes
 
   return (
-    <details open={filtering} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '6px 10px', marginLeft: 8 }}>
+    <details open={filtering} style={{ background: '#fbfcfe', border: '1px solid #eceef4', borderRadius: 8, padding: '6px 10px', marginLeft: 8 }}>
       <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', fontSize: 12, listStyle: 'none', flexWrap: 'wrap' }}>
         <span style={{ color: 'var(--text-1)' }}>
           <span style={{ color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 10, marginRight: 6 }}>{c.account}</span>{c.label}
-          {c.isOD && <span style={{ marginLeft: 6, fontSize: 9.5, color: 'var(--text-3)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 5, padding: '1px 5px' }}>OD</span>}
+          {c.isOD && <span style={{ marginLeft: 6, fontSize: 9.5, color: 'var(--text-3)', border: '1px solid #d5dae4', borderRadius: 5, padding: '1px 5px' }}>OD</span>}
         </span>
         <span style={{ display: 'flex', gap: 12, alignItems: 'baseline', whiteSpace: 'nowrap' }}>
           <span style={{ color: 'var(--text-3)', fontSize: 10.5 }}>{eur(c.totalN1)}</span>
@@ -303,7 +303,7 @@ function CompteBloc({ c, charge, histoLimite, activeCats }: { c: CompteAnalyse; 
       {chips.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '7px 0 2px' }}>
           {chips.map((ch, i) => (
-            <span key={i} style={{ fontSize: 10.5, color: ch.color, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, padding: '2px 8px' }}>
+            <span key={i} style={{ fontSize: 10.5, color: ch.color, background: '#ffffff', border: '1px solid #e6e9f0', borderRadius: 6, padding: '2px 8px' }}>
               {ch.label} : <strong style={{ fontFamily: 'monospace' }}>{eurS(ch.val)}</strong>
             </span>
           ))}
@@ -327,7 +327,7 @@ function GroupeLigne({ g, histoLimite }: { g: GroupeAnalyse; exN1: number; histo
   const v = g.verdict ? VERDICT_UI[g.verdict] : null
   const confNote = g.conf === 1 ? 'tiers sûr (contrepartie)' : g.conf === 2 ? 'tiers déduit du libellé' : g.conf === 3 ? 'regroupement par libellé' : 'tiers non identifié'
   return (
-    <details style={{ marginLeft: 8, borderLeft: '2px solid rgba(255,255,255,0.07)', paddingLeft: 10 }}>
+    <details style={{ marginLeft: 8, borderLeft: '2px solid #ebeef4', paddingLeft: 10 }}>
       <summary style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 11.5, listStyle: 'none', flexWrap: 'wrap', padding: '2px 0' }}>
         <span style={{ color: 'var(--text-1)' }}>
           {g.tiers || <em style={{ color: 'var(--text-3)' }}>Sans tiers identifié</em>}
@@ -380,7 +380,7 @@ function VarBadge({ v, charge }: { v: number; charge: boolean }) {
 
 function MiniKpi({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
   return (
-    <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '10px 12px' }}>
+    <div style={{ background: '#f7f9fc', border: '1px solid #e6e9f0', borderRadius: 10, padding: '10px 12px' }}>
       <div style={{ fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600 }}>{label}</div>
       <div style={{ fontSize: 17, fontWeight: 800, color: accent || 'var(--text-0)', marginTop: 3, fontFamily: 'monospace' }}>{value}</div>
       {sub && <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{sub}</div>}
@@ -391,7 +391,7 @@ function MiniKpi({ label, value, sub, accent }: { label: string; value: string; 
 function Bloc({ titre, texte }: { titre: string; texte: string }) {
   return (
     <div style={{ marginBottom: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, color: '#6ee7b7', marginBottom: 3 }}>{titre}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: '#0f7a45', marginBottom: 3 }}>{titre}</div>
       <div style={{ fontSize: 13, color: 'var(--text-1)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{texte}</div>
     </div>
   )
