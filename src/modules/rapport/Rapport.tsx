@@ -4,6 +4,7 @@ import { useAppStore, useTenantId } from '@/store'
 import { Spinner } from '@/components/ui'
 import { useRapportData, type CompteLigne, type TiersDelai } from '@/hooks/useRapportData'
 import { currentFiscalYear, fiscalYearOf, monthLabel } from '@/lib/calc'
+import { AdamBoardsMark } from '@/components/Logo'
 import { RapportTheme1 } from './RapportTheme1'
 import { RapportMethode } from './RapportMethode'
 
@@ -95,6 +96,13 @@ export function Rapport() {
 
   const resVar = data.resultatN1 !== 0 ? ((data.resultatN - data.resultatN1) / Math.abs(data.resultatN1)) * 100 : null
 
+  // Métadonnées du document (en-tête + précautions d'usage)
+  const companyName = RAW?.companies?.[companyKey]?.name || companyKey
+  const genDate = new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  const rangeStart = period?.startM ?? availableMonths[0]
+  const rangeEnd   = period?.endM ?? availableMonths[availableMonths.length - 1]
+  const rangeLabel = (rangeStart && rangeEnd) ? `${monthLabel(rangeStart)} → ${monthLabel(rangeEnd)}` : ''
+
   return (
     <div style={{ padding:'24px 28px', maxWidth:1040, margin:'0 auto' }}>
       <div className="rapport-actions" style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:24, gap:16, flexWrap:'wrap' }}>
@@ -156,6 +164,21 @@ export function Rapport() {
       {/* Rapport IA */}
       {rapport && (
         <div className="rapport-print">
+          {/* En-tête de document — logo + méta */}
+          <div className="rp-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:16, paddingBottom:14, marginBottom:18, borderBottom:'2px solid #28A9E1' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+              <AdamBoardsMark size={42} />
+              <div>
+                <div className="rp-brand" style={{ fontSize:20, fontWeight:800, color:'#28A9E1', letterSpacing:'0.5px' }}>Rapport d'activité</div>
+                <div style={{ fontSize:12, color:'var(--text-3)', marginTop:2 }}>{companyName} · Exercice {data.exerciceN} vs {data.exerciceN1} vs Budget</div>
+              </div>
+            </div>
+            <div style={{ textAlign:'right', fontSize:11, color:'var(--text-3)', lineHeight:1.6, whiteSpace:'nowrap' }}>
+              {!data.periodeComplete && <div>À même période · {data.nbMois} mois</div>}
+              <div>Généré le {genDate}</div>
+            </div>
+          </div>
+
           {rapport.titre && (
             <div style={{ fontSize:18, fontWeight:800, color:'var(--text-0)', lineHeight:1.35, marginBottom:16 }}>{rapport.titre}</div>
           )}
@@ -183,8 +206,10 @@ export function Rapport() {
 
           <PlanActionTable rows={rapport.plan_action ?? []} />
 
-          <div style={{ marginTop:24, paddingTop:14, borderTop:'1px solid rgba(255,255,255,0.08)', fontSize:10, color:'var(--text-3)', textAlign:'center' }}>
-            Rapport généré automatiquement par AdamBoards — à valider avec votre expert-comptable.
+          <div className="rp-footer" style={{ marginTop:24, paddingTop:14, borderTop:'1px solid #28A9E1', fontSize:10, color:'var(--text-3)', textAlign:'center', lineHeight:1.6 }}>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:6, marginBottom:4 }}><AdamBoardsMark size={14} /> <strong style={{ color:'#28A9E1' }}>AdamBoards</strong></span><br/>
+            Rapport généré automatiquement à partir de vos écritures — à valider avec votre expert-comptable.<br/>
+            Période analysée : {data.nbMois} mois{rangeLabel ? ` (${rangeLabel})` : ''}{!data.periodeComplete ? ', comparaison N-1 et budget restreints à la même période' : ''}.
           </div>
         </div>
       )}
@@ -198,11 +223,20 @@ export function Rapport() {
 
       <style>{`
         @media print {
+          html, body { background: #fff !important; }
           body * { visibility: hidden; }
           .rapport-print, .rapport-print * { visibility: visible; }
-          .rapport-print { position: absolute; left: 0; top: 0; width: 100%; }
-          .rapport-print *, .rapport-print { color: #1a1a1a !important; }
+          .rapport-print { position: absolute; left: 0; top: 0; width: 100%;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .rapport-print *, .rapport-print { color: #1a1a1a !important;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          /* Garde le bleu de marque sur le titre et le nom AdamBoards */
+          .rapport-print .rp-brand, .rapport-print .rp-footer strong { color: #28A9E1 !important; }
+          /* Ne pas couper un encadré entre deux pages */
+          .rapport-print .rp-avoid, .rapport-print table, .rapport-print tr { break-inside: avoid; page-break-inside: avoid; }
+          .rapport-print .rp-header { break-after: avoid; page-break-after: avoid; }
           .rapport-actions, .sidebar-wrapper { display: none !important; }
+          @page { margin: 14mm; }
         }
       `}</style>
     </div>
@@ -278,7 +312,7 @@ function Kpi({ label, value, sub, accent }: { label: string; value: string; sub?
 function Essentiel({ items }: { items: string[] }) {
   if (!items?.length) return null
   return (
-    <div style={{ background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.3)', borderRadius:12, padding:'14px 16px', marginBottom:18 }}>
+    <div className="rp-avoid" style={{ background:'rgba(59,130,246,0.06)', border:'1px solid rgba(59,130,246,0.3)', borderRadius:12, padding:'14px 16px', marginBottom:18 }}>
       <div style={{ fontSize:11, fontWeight:800, color:'#60a5fa', textTransform:'uppercase', letterSpacing:'0.6px', marginBottom:10 }}>⚡ L'essentiel</div>
       <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
         {items.map((it, i) => (
@@ -295,7 +329,7 @@ function Essentiel({ items }: { items: string[] }) {
 function BulletCard({ titre, accent, items }: { titre: string; accent: string; items: string[] }) {
   if (!items?.length) return null
   return (
-    <div style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'14px 16px' }}>
+    <div className="rp-avoid" style={{ background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:12, padding:'14px 16px' }}>
       <div style={{ fontSize:11, fontWeight:800, color:accent, textTransform:'uppercase', letterSpacing:'0.7px', marginBottom:10 }}>{titre}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
         {items.map((it, i) => (
@@ -319,7 +353,7 @@ function PlanActionTable({ rows }: { rows: PlanAction[] }) {
     basse:   { label: 'Basse',   color: '#94a3b8', bg: 'rgba(148,163,184,0.15)' },
   }
   return (
-    <div style={{ marginTop:20 }}>
+    <div className="rp-avoid" style={{ marginTop:20 }}>
       <div style={{ fontSize:11, fontWeight:800, color:'#3b82f6', textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:10 }}>Plan d'action priorisé</div>
       <div style={{ border:'1px solid rgba(59,130,246,0.25)', borderRadius:10, overflow:'hidden', overflowX:'auto' }}>
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
@@ -413,7 +447,7 @@ function ComptesTable({ titre, lignes, inverse, noBudget }: { titre: string; lig
 
 function ListBox({ titre, couleur, items, puce }: { titre: string; couleur: string; items: string[]; puce: string }) {
   return (
-    <div style={{ background:`${couleur}11`, border:`1px solid ${couleur}33`, borderRadius:12, padding:'16px 18px' }}>
+    <div className="rp-avoid" style={{ background:`${couleur}11`, border:`1px solid ${couleur}33`, borderRadius:12, padding:'16px 18px' }}>
       <div style={{ fontSize:11, fontWeight:800, color:couleur, textTransform:'uppercase', letterSpacing:'0.8px', marginBottom:12 }}>{titre}</div>
       <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
         {(items ?? []).length === 0 && <span style={{ fontSize:12, color:'var(--text-3)' }}>—</span>}
